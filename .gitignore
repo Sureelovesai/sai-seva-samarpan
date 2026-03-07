@@ -1,0 +1,11 @@
+.vercel
+node_modules
+.env
+.env.local
+.env.*.local
+.vscode
+.cursor
+*.log
+.next
+dist
+build

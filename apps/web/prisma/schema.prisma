@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?  // null if OAuth-only later
+  firstName    String?
+  lastName     String?
+  name         String?  // legacy / display
+  location      String?
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  blogPosts    BlogPost[]
+
+  @@index([email])
+}
+
+model BlogPost {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  imageUrl  String?
+  section   String   // e.g. "Seva in Action", "SSSE & Sai Youth Corner"
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String? // display name for guest or fallback
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reactions BlogPostReaction[]
+  comments  BlogPostComment[]
+
+  @@index([section])
+  @@index([createdAt])
+}
+
+model BlogPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  content   String   @db.VarChar(500)
+  authorName String?
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+enum BlogReactionType {
+  LIKE
+  DISLIKE
+  EMOJI
+}
+
+model BlogPostReaction {
+  id             String           @id @default(cuid())
+  postId         String
+  post           BlogPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userIdentifier String           // userId (if logged in) or guest cookie id
+  type           BlogReactionType
+  emojiCode      String?           // for EMOJI type, e.g. "👍"
+  createdAt      DateTime         @default(now())
+
+  @@unique([postId, userIdentifier])
+  @@index([postId])
+}
+
+enum AppRole {
+  ADMIN
+  VOLUNTEER
+  SEVA_COORDINATOR
+}
+
+model RoleAssignment {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      AppRole
+  cities    String?  // Comma-separated cities for SEVA_COORDINATOR (e.g. "Charlotte, Raleigh")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model SevaActivity {
+  id               String             @id @default(cuid())
+  title            String
+  category         String
+  city             String
+  isActive         Boolean            @default(true)
+  isFeatured       Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  address          String?
+  capacity         Int?
+  coordinatorEmail String?
+  coordinatorName  String?
+  coordinatorPhone String?
+  description      String?
+  endDate          DateTime?
+  endTime          String?
+  imageUrl         String?
+  locationName     String?
+  startDate        DateTime?
+  startTime        String?
+  durationHours   Float?              // Duration in hours (e.g. 1.5 = 1hr 30min); used for Total Hours Served
+  reminderSentAt  DateTime?           // When the 24h-before reminder was sent (volunteers + coordinator)
+  status           SevaActivityStatus @default(DRAFT)
+  signups          SevaSignup[]
+}
+
+model SevaSignup {
+  id            String           @id @default(cuid())
+  activityId    String
+  activity      SevaActivity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  volunteerName String
+  email         String
+  phone         String?
+  status        SevaSignupStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+
+  @@index([activityId])
+}
+
+model LoggedHours {
+  id               String   @id @default(cuid())
+  volunteerName    String
+  email            String?  // optional: set when user is logged in, for My Seva Dashboard
+  location         String?
+  activityCategory String   // e.g. Food Service, Medical Service, Other
+  hours            Float
+  date             DateTime // date of service
+  comments         String?
+  createdAt        DateTime @default(now())
+
+  @@index([date])
+  @@index([email])
+}
+
+enum SevaSignupStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SevaActivityStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
