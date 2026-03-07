@@ -6,21 +6,15 @@ import { existsSync } from "node:fs";
 const appsWebPath = path.join(process.cwd(), "apps", "web");
 const appRoot = existsSync(appsWebPath) ? appsWebPath : process.cwd();
 const requireFromWeb = createRequire(path.join(appRoot, "package.json"));
-// Require that resolves from this file's package (apps/web) so Node finds apps/web/node_modules/.prisma/client
-function getRequireFromThisPackage() {
-  if (typeof __filename !== "undefined") return createRequire(__filename);
-  try {
-    return createRequire((import.meta as { url?: string }).url ?? path.join(appRoot, "lib", "prisma.ts"));
-  } catch {
-    return requireFromWeb;
-  }
-}
-const requireFromThisPackage = getRequireFromThisPackage();
 
-// Only use static ".prisma/client" so Next.js bundler can resolve it. No require(variable).
-function loadPrismaClient(): typeof import(".prisma/client").PrismaClient {
+// 1) Prefer generated client in app (apps/web/generated/prisma) – used on Vercel and after prisma generate
+const generatedPath = path.join(appRoot, "generated", "prisma");
+function loadPrismaClient() {
   try {
-    return requireFromThisPackage(".prisma/client").PrismaClient;
+    const entry = path.join(generatedPath, "index.js");
+    if (existsSync(entry)) {
+      return requireFromWeb(entry).PrismaClient;
+    }
   } catch {
     // no-op
   }
