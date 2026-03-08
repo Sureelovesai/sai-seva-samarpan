@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     });
 
     // Notify all admins for verification
-    const admins = await prisma.roleAssignment.findMany({
+    const admins: { email: string }[] = await prisma.roleAssignment.findMany({
       where: { role: "ADMIN" },
       select: { email: true },
     });
