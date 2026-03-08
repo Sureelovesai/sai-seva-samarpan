@@ -42,12 +42,24 @@ type FeaturedActivity = {
 
 const FEATURED_SLIDER_AUTOPLAY_MS = 2000;
 
+const MOBILE_BREAKPOINT = 640;
+
 function FeaturedSevaSection() {
   const [activities, setActivities] = useState<FeaturedActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [cardsPerView, setCardsPerView] = useState(2);
   const sectionRef = useRef<HTMLElement>(null);
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const updateCardsPerView = () => {
+      setCardsPerView(typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT ? 1 : 2);
+    };
+    updateCardsPerView();
+    window.addEventListener("resize", updateCardsPerView);
+    return () => window.removeEventListener("resize", updateCardsPerView);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,13 +79,13 @@ function FeaturedSevaSection() {
   useEffect(() => {
     const section = sectionRef.current;
     if (!section || activities.length <= 1) return;
+    const max = Math.max(0, activities.length - cardsPerView);
 
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
         if (!entry) return;
         if (entry.isIntersecting) {
-          const max = Math.max(0, activities.length - 2);
           autoplayRef.current = setInterval(() => {
             setSlideIndex((i) => (i >= max ? 0 : i + 1));
           }, FEATURED_SLIDER_AUTOPLAY_MS);
@@ -94,12 +106,13 @@ function FeaturedSevaSection() {
         autoplayRef.current = null;
       }
     };
-  }, [activities.length]);
+  }, [activities.length, cardsPerView]);
 
   const total = activities.length;
-  const maxIndex = Math.max(0, total - 2);
+  const maxIndex = Math.max(0, total - cardsPerView);
   const goPrev = () => setSlideIndex((i) => (i <= 0 ? maxIndex : i - 1));
   const goNext = () => setSlideIndex((i) => (i >= maxIndex ? 0 : i + 1));
+  const translatePercent = total > 0 ? (slideIndex * 100) / cardsPerView : 0;
 
   return (
     <section
@@ -131,33 +144,39 @@ function FeaturedSevaSection() {
           <div className="overflow-hidden">
             <div
               className="flex transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${slideIndex * 50}%)` }}
+              style={{ transform: `translateX(-${translatePercent}%)` }}
             >
               {activities.map((c) => (
                 <div
                   key={c.id}
-                  className="min-w-[50%] shrink-0 px-2 sm:px-3"
+                  className="min-w-full shrink-0 px-2 sm:min-w-[50%] sm:px-3"
                 >
-                  <div className="mx-auto grid h-[380px] max-w-xl grid-cols-1 overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] sm:h-[400px] sm:grid-cols-2">
-                    <div className={`flex min-h-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-8 text-white sm:p-10`}>
-                      <div className="text-2xl font-bold leading-tight">
+                  <div className="mx-auto grid h-[420px] max-w-2xl grid-cols-1 overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] sm:h-[460px] sm:grid-cols-[1fr_1.4fr]">
+                    <div className={`flex min-h-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-6 text-white sm:p-8`}>
+                      <div className="text-xl font-bold leading-tight sm:text-2xl">
                         {c.title}
                         <br />
                         {c.city}
                       </div>
-                      <div className="mt-8 max-w-[16rem] flex-1 overflow-hidden text-lg leading-7 line-clamp-4 sm:mt-10">
+                      <div className="mt-6 max-w-[14rem] flex-1 overflow-hidden text-base leading-7 line-clamp-4 sm:mt-8 sm:text-lg">
                         {c.description || "No description."}
                       </div>
                       <Link
                         href={`/seva-activities?id=${encodeURIComponent(c.id)}`}
-                        className="mt-10 inline-block shrink-0 bg-white px-8 py-3 text-lg font-semibold text-slate-700 hover:bg-slate-100 sm:mt-12"
+                        className="mt-8 inline-block shrink-0 bg-white px-6 py-2.5 text-base font-semibold text-slate-700 hover:bg-slate-100 sm:mt-10 sm:px-8 sm:py-3 sm:text-lg"
                       >
                         View More
                       </Link>
                     </div>
-                    <div className="relative h-full min-h-0 bg-black/10">
+                    <div className="relative h-full min-h-0 bg-slate-100">
                       {c.imageUrl ? (
-                        <Image src={c.imageUrl} alt={c.title} fill className="object-cover object-center" sizes="(max-width: 640px) 100vw, 50vw" />
+                        <Image
+                          src={c.imageUrl}
+                          alt={c.title}
+                          fill
+                          className="object-contain object-center"
+                          sizes="(max-width: 640px) 100vw, 50vw"
+                        />
                       ) : (
                         <div className="flex h-full items-center justify-center bg-zinc-200 text-zinc-500">
                           No image
@@ -192,8 +211,8 @@ function FeaturedSevaSection() {
             </>
           )}
 
-          {/* Dots — one per view (2 slides at a time) */}
-          {total > 2 && (
+          {/* Dots — one per view on mobile, two on desktop */}
+          {total > cardsPerView && (
             <div className="mt-6 flex justify-center gap-2">
               {Array.from({ length: maxIndex + 1 }, (_, i) => (
                 <button

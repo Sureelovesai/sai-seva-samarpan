@@ -55,6 +55,17 @@ type PendingBlogPost = {
   status: string;
 };
 
+type PendingPostFull = {
+  id: string;
+  title: string;
+  content: string;
+  imageUrl: string | null;
+  section: string;
+  authorName: string | null;
+  createdAt: string;
+  status: string;
+};
+
 export default function SevaAdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -80,6 +91,9 @@ export default function SevaAdminDashboardPage() {
   const [pendingBlogPosts, setPendingBlogPosts] = useState<PendingBlogPost[]>([]);
   const [pendingBlogLoading, setPendingBlogLoading] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [viewingPostFull, setViewingPostFull] = useState<PendingPostFull | null>(null);
+  const [viewingPostLoading, setViewingPostLoading] = useState(false);
+  const [viewingPostId, setViewingPostId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,11 +150,42 @@ export default function SevaAdminDashboardPage() {
         credentials: "include",
         body: JSON.stringify({ status: "APPROVED" }),
       });
-      if (res.ok) fetchPendingBlogPosts();
+      if (res.ok) {
+        setViewingPostFull(null);
+        fetchPendingBlogPosts();
+      }
     } finally {
       setApprovingId(null);
     }
   }
+
+  async function openViewPendingPost(postId: string) {
+    setViewingPostId(postId);
+    setViewingPostLoading(true);
+    setViewingPostFull(null);
+    try {
+      const res = await fetch(`/api/admin/blog-posts/${postId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load post");
+      const data = await res.json();
+      setViewingPostFull(data as PendingPostFull);
+    } catch {
+      setViewingPostFull(null);
+    } finally {
+      setViewingPostLoading(false);
+      setViewingPostId(null);
+    }
+  }
+
+  // Scroll to Pending Blog Posts when URL has #pending-blog-posts (e.g. from email link)
+  useEffect(() => {
+    if (role !== "ADMIN" || typeof window === "undefined") return;
+    if (window.location.hash !== "#pending-blog-posts") return;
+    const el = document.getElementById("pending-blog-posts");
+    if (el) {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+      return () => clearTimeout(t);
+    }
+  }, [role]);
 
   // Analytics: fetch with applied filters
   const fetchAnalytics = useCallback(() => {
@@ -319,7 +364,7 @@ export default function SevaAdminDashboardPage() {
 
         {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
         {role === "ADMIN" && (
-          <section className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-6 py-6 shadow-md">
+          <section id="pending-blog-posts" className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-6 py-6 shadow-md">
             <div className="flex items-center justify-center gap-4 border-b border-amber-200 pb-4">
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-amber-700" aria-hidden />
               <h2 className="text-xl font-extrabold tracking-wide text-amber-800 sm:text-2xl">Pending Blog Posts</h2>
@@ -346,19 +391,39 @@ export default function SevaAdminDashboardPage() {
                         <span className="ml-2 text-sm text-slate-500">by {post.authorName}</span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => approveBlogPost(post.id)}
-                      disabled={approvingId === post.id}
-                      className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-800 disabled:opacity-60"
-                    >
-                      {approvingId === post.id ? "Approving…" : "Approve"}
-                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openViewPendingPost(post.id)}
+                        disabled={viewingPostLoading}
+                        className="rounded-lg border border-amber-600 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:opacity-60"
+                      >
+                        {viewingPostLoading && viewingPostId === post.id ? "Loading…" : "View"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => approveBlogPost(post.id)}
+                        disabled={approvingId === post.id}
+                        className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-800 disabled:opacity-60"
+                      >
+                        {approvingId === post.id ? "Approving…" : "Approve"}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
           </section>
+        )}
+
+        {/* Modal: View full pending post (image, content, then Approve) */}
+        {role === "ADMIN" && viewingPostFull && (
+          <PendingPostViewModal
+            post={viewingPostFull}
+            onClose={() => setViewingPostFull(null)}
+            onApprove={() => approveBlogPost(viewingPostFull.id)}
+            approving={approvingId === viewingPostFull.id}
+          />
         )}
 
         {/* ================= OUR IMPACT ================= */}
@@ -889,6 +954,100 @@ function EngagementBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?
           </svg>
         </div>
         <span className={`text-xs ${donutLabel}`}>By category</span>
+      </div>
+    </div>
+  );
+}
+
+function sanitizeHtml(html: string): string {
+  if (!html || typeof html !== "string") return "";
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .trim();
+}
+
+function PendingPostViewModal({
+  post,
+  onClose,
+  onApprove,
+  approving,
+}: {
+  post: PendingPostFull;
+  onClose: () => void;
+  onApprove: () => void;
+  approving: boolean;
+}) {
+  const imageUrl = post.imageUrl || null;
+  const safeContent = sanitizeHtml(post.content);
+  const createdAtStr = post.createdAt
+    ? new Date(post.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    : "";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-amber-200 bg-white shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-amber-200 bg-amber-50/95 px-4 py-3">
+          <h3 className="font-semibold text-amber-900">Preview: Pending Post</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-2 text-amber-800 hover:bg-amber-200"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-4">
+          {imageUrl && (
+            <div className="mb-4 flex justify-center rounded-lg border border-amber-200 bg-amber-50/50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl.startsWith("http") ? imageUrl : imageUrl}
+                alt={post.title}
+                className="max-h-64 w-full object-contain"
+              />
+            </div>
+          )}
+          <p className="text-sm text-slate-500">{post.section}</p>
+          <h2 className="mt-1 text-xl font-bold text-slate-800">{post.title}</h2>
+          {(post.authorName || createdAtStr) && (
+            <p className="mt-1 text-sm text-slate-600">
+              {post.authorName && <span>{post.authorName}</span>}
+              {post.authorName && createdAtStr && " · "}
+              {createdAtStr && <span>{createdAtStr}</span>}
+            </p>
+          )}
+          <div className="mt-4 border-t border-amber-100 pt-4">
+            <p className="mb-2 text-sm font-semibold text-slate-700">Content / Description</p>
+            {safeContent.trimStart().startsWith("<") ? (
+              <div
+                className="prose prose-sm max-w-none text-slate-700 [&_img]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: safeContent }}
+              />
+            ) : (
+              <div className="whitespace-pre-wrap text-slate-700">{safeContent || "(No content)"}</div>
+            )}
+          </div>
+        </div>
+        <div className="sticky bottom-0 flex justify-end gap-3 border-t border-amber-200 bg-white px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-amber-600 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={approving}
+            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-60"
+          >
+            {approving ? "Approving…" : "Approve post"}
+          </button>
+        </div>
       </div>
     </div>
   );

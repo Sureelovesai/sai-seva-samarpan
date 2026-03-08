@@ -57,9 +57,17 @@ export async function POST(req: Request) {
     const url = `/uploads/blog/${filename}`;
     return NextResponse.json({ url });
   } catch (e: unknown) {
+    const message = (e as Error)?.message ?? String(e);
     console.error("Blog upload error:", e);
+    const isReadOnly =
+      /EACCES|EPERM|read-only|readonly/i.test(message) || process.env.VERCEL === "1";
     return NextResponse.json(
-      { error: "Upload failed", detail: (e as Error)?.message },
+      {
+        error: "Upload failed",
+        detail: isReadOnly
+          ? "Image storage is not available in this environment. You can submit your post without an image."
+          : message,
+      },
       { status: 500 }
     );
   }

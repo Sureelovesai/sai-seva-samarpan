@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { RichTextEditor } from "./RichTextEditor";
 
 const SECTIONS = [
@@ -52,6 +53,9 @@ type CommunityPost = {
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop";
 
+const POST_SUBMIT_SUCCESS_MESSAGE =
+  "Sairam. Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!";
+
 function formatStat(n: number) {
   return n >= 1000 ? n.toLocaleString() : String(n);
 }
@@ -73,6 +77,7 @@ export default function SevaBlogPage() {
     open: false,
     section: SECTIONS[0].id,
   });
+  const [postSubmitSuccessMessage, setPostSubmitSuccessMessage] = useState<string | null>(null);
 
   const fetchCommunityPosts = useCallback(() => {
     return fetch("/api/blog-posts", { credentials: "include" })
@@ -114,6 +119,13 @@ export default function SevaBlogPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Auto-hide success banner after 12 seconds (must be before any early return to keep hook order consistent)
+  useEffect(() => {
+    if (!postSubmitSuccessMessage) return;
+    const t = setTimeout(() => setPostSubmitSuccessMessage(null), 12000);
+    return () => clearTimeout(t);
+  }, [postSubmitSuccessMessage]);
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#fdf2f0]">
@@ -139,8 +151,34 @@ export default function SevaBlogPage() {
   const featured = data?.featured ?? null;
   const activities = data?.activities ?? [];
 
+  const successBanner =
+    typeof document !== "undefined" &&
+    postSubmitSuccessMessage &&
+    createPortal(
+      <div
+        className="fixed left-0 right-0 top-0 z-[99999] flex items-center gap-4 border-b-4 border-green-500 bg-green-300 px-4 py-4 shadow-xl sm:px-6"
+        role="alert"
+        data-success-banner="post-submitted"
+      >
+        <p className="flex-1 text-base font-bold text-green-900 sm:text-lg">
+          {postSubmitSuccessMessage}
+        </p>
+        <button
+          type="button"
+          onClick={() => setPostSubmitSuccessMessage(null)}
+          className="shrink-0 rounded-lg bg-green-500 px-4 py-2 text-sm font-bold text-white hover:bg-green-600"
+          aria-label="Dismiss"
+        >
+          Dismiss
+        </button>
+      </div>,
+      document.body
+    );
+
   return (
-    <div className="min-h-screen bg-[#fefaf8]">
+    <div className={`min-h-screen bg-[#fefaf8] ${postSubmitSuccessMessage ? "pt-[80px]" : ""}`}>
+      {successBanner}
+
       {/* Hero: title, tagline, heart-framed image + taglines (reference: Sai Heart Beats style) */}
       <section
         className="relative overflow-hidden px-4 py-4 sm:py-5 md:py-6"
@@ -458,8 +496,15 @@ export default function SevaBlogPage() {
         <CreatePostModal
           section={createModal.section}
           onClose={() => setCreateModal((m) => ({ ...m, open: false }))}
-          onSuccess={(newPostId, pendingVerification) => {
+          onSuccess={(newPostId, pendingVerification, message) => {
             setCreateModal((m) => ({ ...m, open: false }));
+            const textToShow = message || (pendingVerification ? POST_SUBMIT_SUCCESS_MESSAGE : null);
+            if (textToShow) {
+              setTimeout(() => {
+                setPostSubmitSuccessMessage(textToShow);
+                setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 100);
+              }, 150);
+            }
             fetchCommunityPosts();
             if (newPostId && !pendingVerification) {
               router.push(`/seva-blog/post/${newPostId}`);
@@ -561,16 +606,15 @@ function CreatePostModal({
 }: {
   section: string;
   onClose: () => void;
-  onSuccess: (newPostId?: string, pendingVerification?: boolean) => void;
+  onSuccess: (newPostId?: string, pendingVerification?: boolean, message?: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("/blog-right-swami.jpg");
   const [authorName, setAuthorName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -595,10 +639,18 @@ function CreatePostModal({
         body: formData,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (!res.ok) {
+        const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Image upload failed.");
+        throw new Error(msg);
+      }
       setImageUrl(data.url);
     } catch (err) {
-      setError((err as Error).message);
+      const errMsg = (err as Error).message;
+      setError(
+        errMsg.includes("image") || errMsg.includes("Image")
+          ? errMsg + " You can still submit your post without an image."
+          : errMsg + " You can still submit your post without an image, or try a different image."
+      );
     } finally {
       setUploading(false);
     }
@@ -619,7 +671,6 @@ function CreatePostModal({
       return;
     }
     setError(null);
-    setSuccessMessage(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/blog-posts", {
@@ -635,18 +686,12 @@ function CreatePostModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Failed to publish");
+        const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Failed to create post.");
         throw new Error(msg);
       }
       const pending = data.status === "PENDING_APPROVAL" || !!data.message?.toLowerCase().includes("verification");
-      if (pending) {
-        setSuccessMessage(data.message || "Your post has been sent for verification. It will be visible after an admin approves it.");
-        setTimeout(() => {
-          onSuccess(data.id, true);
-        }, 2500);
-      } else {
-        onSuccess(data.id, false);
-      }
+      const message = data.message || POST_SUBMIT_SUCCESS_MESSAGE;
+      onSuccess(data.id, pending, message);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -676,11 +721,6 @@ function CreatePostModal({
               {error}
             </p>
           )}
-          {successMessage && (
-            <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-              Sai Ram! {successMessage}
-            </p>
-          )}
           <div>
             <label className="block text-sm font-medium text-[#6b5344]">Title *</label>
             <input
@@ -691,7 +731,7 @@ function CreatePostModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#6b5344]">Image</label>
+            <label className="block text-sm font-medium text-[#6b5344]">Image (optional)</label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"

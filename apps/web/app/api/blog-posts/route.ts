@@ -10,6 +10,17 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Sanitize HTML for safe inclusion in email (strip script, iframe, event handlers). */
+function sanitizeHtmlForEmail(html: string): string {
+  if (!html || typeof html !== "string") return "";
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+on\w+\s*=\s*[^\s>]*/gi, "")
+    .trim();
+}
+
 /**
  * GET /api/blog-posts?section=...
  * List blog posts, optionally by section. Returns reaction counts and no per-user reaction (use GET /api/blog-posts/[id] for current user's reaction).
@@ -145,7 +156,20 @@ export async function POST(req: Request) {
       rawOrigin && (rawOrigin.startsWith("http://") || rawOrigin.startsWith("https://"))
         ? rawOrigin.replace(/\/+$/, "")
         : "http://localhost:3000";
-    const loginThenDashboard = `${appOrigin}/login?next=${encodeURIComponent("/admin/seva-dashboard")}`;
+    const loginThenDashboard = `${appOrigin}/login?next=${encodeURIComponent("/admin/seva-dashboard#pending-blog-posts")}`;
+    const safeContent = sanitizeHtmlForEmail(post.content);
+    // Use absolute image URL in email (relative paths like /blog-right-swami.jpg don't work in email)
+    const imageSrc =
+      post.imageUrl && post.imageUrl.trim()
+        ? post.imageUrl.startsWith("http")
+          ? post.imageUrl.trim()
+          : `${appOrigin}${post.imageUrl.startsWith("/") ? "" : "/"}${post.imageUrl.trim()}`
+        : "";
+    const imageBlock =
+      imageSrc
+        ? `<p><strong>Image:</strong></p><p><img src="${escapeHtml(imageSrc)}" alt="Post image" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:8px;" /></p>`
+        : "";
+
     for (const to of adminEmails) {
       const result = await sendEmail({
         to,
@@ -155,8 +179,11 @@ export async function POST(req: Request) {
           <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
           <p><strong>Section:</strong> ${escapeHtml(post.section)}</p>
           ${post.authorName ? `<p><strong>Author:</strong> ${escapeHtml(post.authorName)}</p>` : ""}
-          <p>Please review and approve the post so it becomes visible on the blog.</p>
-          <p><a href="${loginThenDashboard}">Open Admin Dashboard</a></p>
+          ${imageBlock}
+          <p><strong>Description / Content:</strong></p>
+          <div style="margin:12px 0; padding:12px; background:#f5f5f5; border-radius:8px; border:1px solid #e0e0e0; max-height:400px; overflow-y:auto;">${safeContent || escapeHtml("(No content)")}</div>
+          <p>Please review above and approve the post in the dashboard so it becomes visible on the blog.</p>
+          <p><a href="${loginThenDashboard}" style="display:inline-block; padding:10px 20px; background:#b45309; color:#fff; text-decoration:none; border-radius:6px; font-weight:600;">Open Admin Dashboard to Approve</a></p>
           <p>Jai Sai Ram.</p>
         `,
       });
@@ -174,7 +201,7 @@ export async function POST(req: Request) {
       authorName: post.authorName,
       createdAt: post.createdAt,
       status: post.status,
-      message: "Your post has been sent for verification. It will be visible after an admin approves it.",
+      message: "Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!",
     });
   } catch (e: unknown) {
     const message = (e as Error)?.message ?? String(e);

@@ -118,6 +118,7 @@ function SevaActivitiesContent() {
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signUpInfo, setSignUpInfo] = useState<string | null>(null);
   const [signUpSubmitting, setSignUpSubmitting] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [tabsPage, setTabsPage] = useState(0);
   const [tabsPerPage, setTabsPerPage] = useState(5);
   const [user, setUser] = useState<{
@@ -525,10 +526,31 @@ function SevaActivitiesContent() {
                   className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+              <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
+                <input
+                  id="agree-terms"
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-1 h-5 w-5 shrink-0 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                  aria-describedby="agree-terms-desc"
+                />
+                <label id="agree-terms-desc" htmlFor="agree-terms" className="text-sm font-medium text-zinc-800">
+                  By selecting this option, I confirm that I have read, understood, and agree to the{" "}
+                  <a
+                    href="/Service_Activities_Waiver_of_Liability.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-indigo-600 underline hover:text-indigo-700"
+                  >
+                    Terms and Policy
+                  </a>.
+                </label>
+              </div>
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={signUpSubmitting || !canJoinSeva}
+                  disabled={signUpSubmitting || !canJoinSeva || !agreedToTerms}
                   className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
                 >
                   {signUpSubmitting ? "Submitting…" : "Join Seva"}
