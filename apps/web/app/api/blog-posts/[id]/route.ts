@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionWithRole } from "@/lib/getRole";
 
 /**
  * GET /api/blog-posts/[id]
@@ -20,6 +21,10 @@ export async function GET(
     });
 
     if (!post) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+    // Only approved posts are visible publicly
+    if (post.status !== "APPROVED") {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
@@ -65,6 +70,54 @@ export async function GET(
     console.error("Blog post GET error:", e);
     return NextResponse.json(
       { error: "Failed to load post", detail: (e as Error)?.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/blog-posts/[id]
+ * Update post (e.g. approve). Only ADMIN can set status to APPROVED.
+ */
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session || session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const status = body?.status;
+
+    if (status !== "APPROVED") {
+      return NextResponse.json(
+        { error: "Only status APPROVED is allowed for approval." },
+        { status: 400 }
+      );
+    }
+
+    const post = await prisma.blogPost.findUnique({ where: { id } });
+    if (!post) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+    if (post.status === "APPROVED") {
+      return NextResponse.json({ message: "Already approved", id: post.id });
+    }
+
+    await prisma.blogPost.update({
+      where: { id },
+      data: { status: "APPROVED" },
+    });
+
+    return NextResponse.json({ id, status: "APPROVED", message: "Post approved." });
+  } catch (e: unknown) {
+    console.error("Blog post PATCH error:", e);
+    return NextResponse.json(
+      { error: "Failed to update post", detail: (e as Error)?.message },
       { status: 500 }
     );
   }

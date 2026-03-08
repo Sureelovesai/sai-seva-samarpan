@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 /**
  * GET /api/blog-posts?section=...
@@ -11,7 +20,10 @@ export async function GET(req: Request) {
     const section = searchParams.get("section") || undefined;
 
     const posts = await prisma.blogPost.findMany({
-      where: section ? { section } : undefined,
+      where: {
+        status: "APPROVED",
+        ...(section ? { section } : {}),
+      },
       orderBy: { createdAt: "desc" },
       include: {
         reactions: true,
@@ -115,8 +127,43 @@ export async function POST(req: Request) {
         section: section.trim(),
         authorName:
           authorName && typeof authorName === "string" ? authorName.trim() : null,
+        status: "PENDING_APPROVAL",
       },
     });
+
+    // Notify all admins for verification
+    const admins = await prisma.roleAssignment.findMany({
+      where: { role: "ADMIN" },
+      select: { email: true },
+    });
+    const adminEmails = admins.map((a) => a.email.trim()).filter(Boolean);
+    // Build absolute app URL so the email link works from any device. Prefer NEXT_PUBLIC_APP_URL (e.g. https://your-app.vercel.app).
+    const rawOrigin =
+      (process.env.NEXT_PUBLIC_APP_URL ?? "").trim() ||
+      (process.env.VERCEL_URL ? `https://${String(process.env.VERCEL_URL).trim()}` : "");
+    const appOrigin =
+      rawOrigin && (rawOrigin.startsWith("http://") || rawOrigin.startsWith("https://"))
+        ? rawOrigin.replace(/\/+$/, "")
+        : "http://localhost:3000";
+    const loginThenDashboard = `${appOrigin}/login?next=${encodeURIComponent("/admin/seva-dashboard")}`;
+    for (const to of adminEmails) {
+      const result = await sendEmail({
+        to,
+        subject: `[Seva Blog] New post pending verification: ${post.title}`,
+        html: `
+          <p>A new blog post has been submitted and is waiting for verification.</p>
+          <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
+          <p><strong>Section:</strong> ${escapeHtml(post.section)}</p>
+          ${post.authorName ? `<p><strong>Author:</strong> ${escapeHtml(post.authorName)}</p>` : ""}
+          <p>Please review and approve the post so it becomes visible on the blog.</p>
+          <p><a href="${loginThenDashboard}">Open Admin Dashboard</a></p>
+          <p>Jai Sai Ram.</p>
+        `,
+      });
+      if (!result.ok) {
+        console.error("Blog post: admin notification email failed for", to, result.error ?? result.skipped);
+      }
+    }
 
     return NextResponse.json({
       id: post.id,
@@ -126,11 +173,18 @@ export async function POST(req: Request) {
       section: post.section,
       authorName: post.authorName,
       createdAt: post.createdAt,
+      status: post.status,
+      message: "Your post has been sent for verification. It will be visible after an admin approves it.",
     });
   } catch (e: unknown) {
+    const message = (e as Error)?.message ?? String(e);
     console.error("Blog post create error:", e);
+    const hint =
+      /status|column|unknown field|does not exist/i.test(message)
+        ? " The database may be missing the blog post status column. Run from apps/web: npx prisma migrate deploy (or npx prisma db push)."
+        : "";
     return NextResponse.json(
-      { error: "Failed to create post", detail: (e as Error)?.message },
+      { error: "Failed to create post", detail: message + hint },
       { status: 500 }
     );
   }

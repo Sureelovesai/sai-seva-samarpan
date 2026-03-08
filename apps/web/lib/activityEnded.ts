@@ -13,35 +13,46 @@ export type ActivityDateFields = {
 
 /**
  * Returns the end moment of the activity (for comparison with now), or null if not determinable.
+ * Uses the calendar date from the stored value (UTC date parts) and builds the moment in local
+ * time so "tomorrow" is not treated as "already ended" in timezones behind UTC.
  */
 export function getActivityEndMoment(activity: ActivityDateFields): Date | null {
   if (activity.endDate) {
     const d = new Date(activity.endDate);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const day = d.getUTCDate();
     if (activity.endTime && typeof activity.endTime === "string") {
       const parts = activity.endTime.trim().split(":");
       const h = parseInt(parts[0], 10) || 0;
-      const m = parseInt(parts[1], 10) || 0;
-      d.setHours(h, m, 0, 0);
-    } else {
-      d.setHours(23, 59, 59, 999);
+      const min = parseInt(parts[1], 10) || 0;
+      return new Date(y, m, day, h, min, 0, 0);
     }
-    return d;
+    return new Date(y, m, day, 23, 59, 59, 999);
   }
   if (activity.startDate != null && typeof activity.durationHours === "number" && activity.durationHours >= 0) {
     const d = new Date(activity.startDate);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const day = d.getUTCDate();
+    let startMs = new Date(y, m, day, 0, 0, 0, 0).getTime();
     if (activity.startTime && typeof activity.startTime === "string") {
       const parts = activity.startTime.trim().split(":");
       const h = parseInt(parts[0], 10) || 0;
-      const m = parseInt(parts[1], 10) || 0;
-      d.setHours(h, m, 0, 0);
+      const min = parseInt(parts[1], 10) || 0;
+      startMs = new Date(y, m, day, h, min, 0, 0).getTime();
     }
-    d.setTime(d.getTime() + activity.durationHours * 60 * 60 * 1000);
-    return d;
+    return new Date(startMs + activity.durationHours * 60 * 60 * 1000);
   }
   if (activity.startDate) {
     const d = new Date(activity.startDate);
-    d.setHours(23, 59, 59, 999);
-    return d;
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const day = d.getUTCDate();
+    return new Date(y, m, day, 23, 59, 59, 999);
   }
   return null;
 }

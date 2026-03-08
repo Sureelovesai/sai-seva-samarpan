@@ -24,22 +24,29 @@ model User {
   @@index([email])
 }
 
+enum BlogPostStatus {
+  PENDING_APPROVAL
+  APPROVED
+}
+
 model BlogPost {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   title     String
-  content   String   @db.Text
+  content   String         @db.Text
   imageUrl  String?
-  section   String   // e.g. "Seva in Action", "SSSE & Sai Youth Corner"
+  section   String         // e.g. "Seva in Action", "SSSE & Sai Youth Corner"
   authorId  String?
-  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  authorName String? // display name for guest or fallback
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  author    User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String?       // display name for guest or fallback
+  status    BlogPostStatus @default(APPROVED) // APPROVED = visible; new posts created as PENDING_APPROVAL
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   reactions BlogPostReaction[]
   comments  BlogPostComment[]
 
   @@index([section])
   @@index([createdAt])
+  @@index([status])
 }
 
 model BlogPostComment {

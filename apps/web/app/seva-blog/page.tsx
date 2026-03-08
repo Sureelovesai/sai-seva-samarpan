@@ -67,6 +67,8 @@ export default function SevaBlogPage() {
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   const [createModal, setCreateModal] = useState<{ open: boolean; section: string }>({
     open: false,
     section: SECTIONS[0].id,
@@ -83,6 +85,13 @@ export default function SevaBlogPage() {
         setCommunityPosts([]);
         return [];
       });
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setIsLoggedIn(!!data?.user))
+      .catch(() => setIsLoggedIn(false));
   }, []);
 
   useEffect(() => {
@@ -327,7 +336,13 @@ export default function SevaBlogPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => setCreateModal({ open: true, section: card.section })}
+                onClick={() => {
+                  if (isLoggedIn) {
+                    setCreateModal({ open: true, section: card.section });
+                  } else {
+                    setShowLoginRequiredModal(true);
+                  }
+                }}
                 className="mt-2 flex-shrink-0 rounded-lg border-2 border-dashed border-[#8b6b5c] bg-white/80 py-2.5 text-sm font-semibold text-[#8b6b5c] transition hover:bg-[#fdf2f0]"
               >
                 Create A Post
@@ -414,17 +429,41 @@ export default function SevaBlogPage() {
       {/* Footer strip */}
       <footer className="border-t border-[#e8b4a0]/30 bg-white/80 py-6" />
 
+      {showLoginRequiredModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#e8b4a0] bg-[#fdf2f0] px-6 py-6 shadow-xl">
+            <p className="text-center text-[#6b5344]">
+              Please log in to create a post.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/login?next=/seva-blog"
+                className="rounded-lg bg-[#8b6b5c] px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-[#6b5344]"
+              >
+                Log in
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowLoginRequiredModal(false)}
+                className="rounded-lg border border-[#8b6b5c] bg-white px-5 py-2.5 text-sm font-semibold text-[#8b6b5c] hover:bg-[#fdf2f0]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {createModal.open && (
         <CreatePostModal
           section={createModal.section}
           onClose={() => setCreateModal((m) => ({ ...m, open: false }))}
-          onSuccess={(newPostId) => {
+          onSuccess={(newPostId, pendingVerification) => {
             setCreateModal((m) => ({ ...m, open: false }));
-            fetchCommunityPosts().then(() => {
-              if (newPostId) {
-                router.push(`/seva-blog/post/${newPostId}`);
-              }
-            });
+            fetchCommunityPosts();
+            if (newPostId && !pendingVerification) {
+              router.push(`/seva-blog/post/${newPostId}`);
+            }
           }}
         />
       )}
@@ -522,7 +561,7 @@ function CreatePostModal({
 }: {
   section: string;
   onClose: () => void;
-  onSuccess: (newPostId?: string) => void;
+  onSuccess: (newPostId?: string, pendingVerification?: boolean) => void;
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -531,6 +570,7 @@ function CreatePostModal({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -579,6 +619,7 @@ function CreatePostModal({
       return;
     }
     setError(null);
+    setSuccessMessage(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/blog-posts", {
@@ -593,8 +634,19 @@ function CreatePostModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to publish");
-      onSuccess(data.id);
+      if (!res.ok) {
+        const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error || "Failed to publish");
+        throw new Error(msg);
+      }
+      const pending = data.status === "PENDING_APPROVAL" || !!data.message?.toLowerCase().includes("verification");
+      if (pending) {
+        setSuccessMessage(data.message || "Your post has been sent for verification. It will be visible after an admin approves it.");
+        setTimeout(() => {
+          onSuccess(data.id, true);
+        }, 2500);
+      } else {
+        onSuccess(data.id, false);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -622,6 +674,11 @@ function CreatePostModal({
           {error && (
             <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
               {error}
+            </p>
+          )}
+          {successMessage && (
+            <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+              Sai Ram! {successMessage}
             </p>
           )}
           <div>
@@ -687,7 +744,7 @@ function CreatePostModal({
             disabled={submitting || isContentEmpty(content)}
             className="rounded-lg bg-[#8b6b5c] px-5 py-2 text-sm font-semibold text-white shadow hover:opacity-90 disabled:opacity-60"
           >
-            {submitting ? "Publishing…" : "Publish"}
+            {submitting ? "Submitting…" : "Submit"}
           </button>
         </div>
       </div>

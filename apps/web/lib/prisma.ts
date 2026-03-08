@@ -1,34 +1,17 @@
 import path from "node:path";
-import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 
-// Resolve app root: on Vercel/deploy the root is process.cwd(); in monorepo it's process.cwd()/apps/web.
+// Static import so the bundler (Turbopack/Webpack) uses the correct generated client with all schema fields (e.g. BlogPost.status).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PrismaClient: GeneratedClient } = require("../generated/prisma");
+
+// Resolve app root for adapter and requireFromWeb (Neon adapter, etc.).
 const appsWebPath = path.join(process.cwd(), "apps", "web");
 const appRoot = existsSync(appsWebPath) ? appsWebPath : process.cwd();
 const requireFromWeb = createRequire(path.join(appRoot, "package.json"));
 
-// 1) Prefer generated client in app (apps/web/generated/prisma) – used on Vercel and after prisma generate
-const generatedPath = path.join(appRoot, "generated", "prisma");
-function loadPrismaClient() {
-  try {
-    const entry = path.join(generatedPath, "index.js");
-    if (existsSync(entry)) {
-      return requireFromWeb(entry).PrismaClient;
-    }
-  } catch {
-    // no-op
-  }
-  try {
-    return requireFromWeb(".prisma/client").PrismaClient;
-  } catch {
-    // no-op
-  }
-  throw new Error(
-    "Prisma client not found. Run: npx prisma generate --schema=./prisma/schema.prisma (from apps/web), then try again."
-  );
-}
-
-const PrismaClient = loadPrismaClient();
+const PrismaClient = GeneratedClient;
 
 // Use Neon serverless adapter when DATABASE_URL points to Neon (recommended for Vercel/serverless).
 const databaseUrl = process.env.DATABASE_URL;

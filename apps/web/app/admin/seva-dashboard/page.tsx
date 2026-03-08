@@ -46,6 +46,15 @@ type AnalyticsData = {
   }>;
 };
 
+type PendingBlogPost = {
+  id: string;
+  title: string;
+  section: string;
+  authorName: string | null;
+  createdAt: string;
+  status: string;
+};
+
 export default function SevaAdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -67,6 +76,10 @@ export default function SevaAdminDashboardPage() {
     to: string;
     search: string;
   }>({ center: "All", category: "All", from: "", to: "", search: "" });
+
+  const [pendingBlogPosts, setPendingBlogPosts] = useState<PendingBlogPost[]>([]);
+  const [pendingBlogLoading, setPendingBlogLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +110,37 @@ export default function SevaAdminDashboardPage() {
     load();
     return () => { cancelled = true; };
   }, [role]);
+
+  const fetchPendingBlogPosts = useCallback(() => {
+    if (role !== "ADMIN") return;
+    setPendingBlogLoading(true);
+    fetch("/api/admin/blog-posts/pending", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: PendingBlogPost[]) => setPendingBlogPosts(Array.isArray(list) ? list : []))
+      .catch(() => setPendingBlogPosts([]))
+      .finally(() => setPendingBlogLoading(false));
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "ADMIN") return;
+    fetchPendingBlogPosts();
+  }, [role, fetchPendingBlogPosts]);
+
+  async function approveBlogPost(postId: string) {
+    if (approvingId) return;
+    setApprovingId(postId);
+    try {
+      const res = await fetch(`/api/blog-posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "APPROVED" }),
+      });
+      if (res.ok) fetchPendingBlogPosts();
+    } finally {
+      setApprovingId(null);
+    }
+  }
 
   // Analytics: fetch with applied filters
   const fetchAnalytics = useCallback(() => {
@@ -272,6 +316,50 @@ export default function SevaAdminDashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
+        {role === "ADMIN" && (
+          <section className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-6 py-6 shadow-md">
+            <div className="flex items-center justify-center gap-4 border-b border-amber-200 pb-4">
+              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-amber-700" aria-hidden />
+              <h2 className="text-xl font-extrabold tracking-wide text-amber-800 sm:text-2xl">Pending Blog Posts</h2>
+              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-amber-700" aria-hidden />
+            </div>
+            <p className="mt-2 text-center text-sm text-amber-800/90">
+              New posts are sent for verification. Approve a post to make it visible on the Seva Blog.
+            </p>
+            {pendingBlogLoading ? (
+              <p className="mt-4 text-center text-amber-800">Loading…</p>
+            ) : pendingBlogPosts.length === 0 ? (
+              <p className="mt-4 text-center text-amber-800/80">No posts pending verification.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {pendingBlogPosts.map((post) => (
+                  <li
+                    key={post.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-slate-800">{post.title}</span>
+                      <span className="ml-2 text-sm text-slate-500">{post.section}</span>
+                      {post.authorName && (
+                        <span className="ml-2 text-sm text-slate-500">by {post.authorName}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => approveBlogPost(post.id)}
+                      disabled={approvingId === post.id}
+                      className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-800 disabled:opacity-60"
+                    >
+                      {approvingId === post.id ? "Approving…" : "Approve"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         {/* ================= OUR IMPACT ================= */}
         <section className="mt-10 overflow-hidden rounded-xl border border-slate-200 bg-green-50/90 px-6 py-6 shadow-md">

@@ -47,7 +47,8 @@ function LoginContent() {
         return;
       }
       setSuccess("Welcome back!");
-      router.push("/");
+      const nextUrl = searchParams.get("next")?.trim();
+      router.push(nextUrl && nextUrl.startsWith("/") ? nextUrl : "/");
       router.refresh();
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Something went wrong.");

@@ -13,7 +13,10 @@ function escapeHtml(s: string): string {
 /**
  * POST /api/seva-signups
  * Create a volunteer sign-up from the Seva Activities "Join Seva" form.
- * Sends confirmation email to the volunteer only. Coordinator gets one email per activity 24h before start (see /api/cron/seva-reminders).
+ * Sends:
+ * 1. Confirmation email to the volunteer.
+ * 2. Notification email to the seva coordinator (if coordinatorEmail is set).
+ * 24h before activity start, volunteers and coordinator get reminders via /api/cron/seva-reminders.
  * Body: { activityId: string, name: string, email: string, phone?: string }
  */
 export async function POST(req: Request) {
@@ -39,6 +42,8 @@ export async function POST(req: Request) {
         coordinatorName: true,
         coordinatorEmail: true,
         capacity: true,
+        startDate: true,
+        locationName: true,
       },
     });
     if (!activity) {
@@ -72,7 +77,7 @@ export async function POST(req: Request) {
     const activityTitle = activity.title ?? "Seva Activity";
     const coordinatorName = activity.coordinatorName ?? "the coordinator";
 
-    await sendEmail({
+    const volunteerEmailResult = await sendEmail({
       to: email,
       subject: `You've joined: ${activityTitle}`,
       html: `
@@ -82,6 +87,32 @@ export async function POST(req: Request) {
         <p>Jai Sai Ram.</p>
       `,
     });
+    if (!volunteerEmailResult.ok) {
+      console.error("Seva signup: volunteer email failed", volunteerEmailResult.error ?? volunteerEmailResult.skipped);
+    }
+
+    if (activity.coordinatorEmail?.trim()) {
+      const startStr = activity.startDate
+        ? activity.startDate.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" })
+        : "TBD";
+      const coordinatorEmailResult = await sendEmail({
+        to: activity.coordinatorEmail.trim(),
+        subject: `New volunteer joined: ${activityTitle}`,
+        html: `
+          <p>A new volunteer has signed up for your seva activity.</p>
+          <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
+          <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
+          ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
+          <p><strong>Volunteer:</strong> ${escapeHtml(name)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+          ${phone ? `<p><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}
+          <p>Jai Sai Ram.</p>
+        `,
+      });
+      if (!coordinatorEmailResult.ok) {
+        console.error("Seva signup: coordinator email failed", coordinatorEmailResult.error ?? coordinatorEmailResult.skipped);
+      }
+    }
 
     return NextResponse.json(signup, { status: 201 });
   } catch (e: any) {
