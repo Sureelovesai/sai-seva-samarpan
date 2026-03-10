@@ -538,7 +538,7 @@ function SevaActivitiesContent() {
                 <label id="agree-terms-desc" htmlFor="agree-terms" className="text-sm font-medium text-zinc-800">
                   By selecting this option, I confirm that I have read, understood, and agree to the{" "}
                   <a
-                    href="/Service_Activities_Waiver_of_Liability.pdf"
+                    href="/terms-and-policy"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-semibold text-indigo-600 underline hover:text-indigo-700"

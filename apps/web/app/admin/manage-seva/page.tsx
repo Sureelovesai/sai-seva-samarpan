@@ -14,6 +14,15 @@ type Activity = {
   status: string;
 };
 
+function uniqById<T extends { id: string }>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  return arr.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 export default function ManageSevaPage() {
   const [status, setStatus] = useState<"All" | "Active" | "Inactive">("All");
   const [q, setQ] = useState("");
@@ -28,7 +37,7 @@ export default function ManageSevaPage() {
       const res = await fetch("/api/admin/seva-activities", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load activities");
       const data = await res.json();
-      setActivities(Array.isArray(data) ? data : []);
+      setActivities(uniqById(Array.isArray(data) ? data : []));
     } catch (e: any) {
       setError(e?.message || "Could not load activities.");
     } finally {
@@ -62,9 +71,9 @@ export default function ManageSevaPage() {
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(95,90,170,0.9),rgba(120,120,140,0.75),rgba(190,180,90,0.75))]" />
 
           <div className="relative mx-auto max-w-6xl px-4 py-10">
-            <div className="grid gap-8 md:grid-cols-2 md:items-center">
-              {/* Left */}
-              <div className="text-center md:text-left">
+            <div className="grid min-w-0 grid-cols-1 gap-8 md:grid-cols-2 md:items-center">
+              {/* Left — left-aligned on mobile and desktop so no right-align or extra left space */}
+              <div className="min-w-0 text-left">
                 <div className="text-5xl font-extrabold italic tracking-tight text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.35)] md:text-6xl">
                   Manage SEVA -
                 </div>
@@ -72,8 +81,8 @@ export default function ManageSevaPage() {
                   View and Edit Seva Activities
                 </div>
 
-                <div className="mt-6 flex justify-center md:justify-start">
-                  <div className="relative h-[170px] w-[360px] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
+                <div className="mt-6 flex w-full max-w-[360px] justify-start">
+                  <div className="relative h-[170px] w-full min-w-0 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
                     <Image
                       src="/manage-card.jpg"
                       alt="Manage card"
@@ -85,9 +94,9 @@ export default function ManageSevaPage() {
                 </div>
               </div>
 
-              {/* Right */}
-              <div className="flex justify-center md:justify-end">
-                <div className="relative h-[260px] w-[460px] bg-white/40 shadow-[0_10px_25px_rgba(0,0,0,0.25)] md:h-[320px]">
+              {/* Right — responsive so image never cuts on small screens */}
+              <div className="flex min-w-0 justify-center md:justify-end">
+                <div className="relative h-[260px] w-full max-w-[460px] min-w-0 bg-white/40 shadow-[0_10px_25px_rgba(0,0,0,0.25)] md:h-[320px]">
                   <Image
                     src="/swami-manage.jpg"
                     alt="Swami"

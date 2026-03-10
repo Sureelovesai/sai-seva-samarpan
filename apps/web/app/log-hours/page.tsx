@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CITIES } from "@/lib/cities";
 
@@ -56,6 +56,7 @@ export default function LogHoursPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const submitSuccess = submitMsg?.kind === "ok";
 
@@ -243,16 +244,43 @@ export default function LogHoursPage() {
                 </div>
               </div>
 
-              {/* Date */}
+              {/* Date — label + visible "Select date" so picker is obvious on mobile; scroll into view when opening */}
               <div>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  placeholder="Select Date"
-                  disabled={submitSuccess}
-                  className="w-full rounded-none border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed"
-                />
+                <div className="text-lg font-semibold text-zinc-900">
+                  Date of Service
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    onFocus={(e) => {
+                      e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                    disabled={submitSuccess}
+                    className="w-full min-w-0 flex-1 rounded-none border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed [color-scheme:light]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dateInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      dateInputRef.current?.focus();
+                      try {
+                        dateInputRef.current?.showPicker?.();
+                      } catch {
+                        // showPicker not supported (older browsers)
+                      }
+                    }}
+                    disabled={submitSuccess}
+                    className="shrink-0 rounded-none border border-zinc-500 bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                  >
+                    Select date
+                  </button>
+                </div>
+                <p className="mt-1.5 text-sm text-zinc-600">
+                  Tap the field or &quot;Select date&quot; to open the calendar.
+                </p>
               </div>
 
               {/* Comments */}

@@ -6,6 +6,16 @@ import { useCallback, useEffect, useState } from "react";
 import { SEVA_CATEGORIES, SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 
+/** Dedupe by id so React never sees duplicate keys (first occurrence wins). */
+function uniqById<T extends { id: string }>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  return arr.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 type RecentSignup = {
   id: string;
   volunteerName: string;
@@ -379,7 +389,7 @@ export default function SevaAdminDashboardPage() {
               <p className="mt-4 text-center text-amber-800/80">No posts pending verification.</p>
             ) : (
               <ul className="mt-4 space-y-3">
-                {pendingBlogPosts.map((post) => (
+                {uniqById(pendingBlogPosts).map((post) => (
                   <li
                     key={post.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 shadow-sm"
@@ -573,7 +583,7 @@ export default function SevaAdminDashboardPage() {
             </h2>
             <span className="h-px flex-1 max-w-[80px] bg-gradient-to-l from-transparent to-white/50" aria-hidden />
           </div>
-          <div className="grid gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5">
             {SEVA_CATEGORIES.map((category) => (
               <CategoryCard
                 key={category}
@@ -592,11 +602,11 @@ export default function SevaAdminDashboardPage() {
             </div>
 
             <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {(stats?.recentSignups?.length ? stats.recentSignups : []).map((s) => (
+              {uniqById(stats?.recentSignups ?? []).map((s) => (
                 <SignupCard key={s.id} signup={s} />
               ))}
-              {(!stats?.recentSignups?.length || stats.recentSignups.length < 3) &&
-                Array.from({ length: 3 - (stats?.recentSignups?.length ?? 0) }, (_, i) => (
+              {uniqById(stats?.recentSignups ?? []).length < 3 &&
+                Array.from({ length: 3 - uniqById(stats?.recentSignups ?? []).length }, (_, i) => (
                   <SignupCard key={`empty-${i}`} signup={null} />
                 ))}
             </div>
@@ -809,7 +819,7 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
                 </tr>
               </thead>
               <tbody>
-                {(data.recentActivities ?? []).map((a) => (
+                {uniqById(data.recentActivities ?? []).map((a) => (
                   <tr key={a.id} className={`border-b ${tableRow}`}>
                     <td className="px-3 py-2">
                       <Link
@@ -1138,8 +1148,8 @@ function ImpactCard(props: { value: string; label: string }) {
 
 function CategoryCard(props: { category: string; count: number }) {
   return (
-    <div className="flex h-full min-h-[120px] flex-col bg-green-200 px-6 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
-      <div className="min-h-[3.5rem] flex-1 text-lg font-extrabold text-amber-800">{props.category}</div>
+    <div className="flex min-w-0 h-full min-h-[120px] flex-col bg-green-200 px-6 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
+      <div className="min-h-[3.5rem] min-w-0 flex-1 break-words text-lg font-extrabold text-amber-800">{props.category}</div>
       <div className="mt-auto border-t border-amber-800/30 pt-3 text-2xl font-bold text-indigo-950">{props.count}</div>
     </div>
   );

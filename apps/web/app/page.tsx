@@ -40,6 +40,16 @@ type FeaturedActivity = {
   imageUrl: string | null;
 };
 
+/** Dedupe by id so React never sees duplicate keys. */
+function uniqById<T extends { id: string }>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  return arr.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 const FEATURED_SLIDER_AUTOPLAY_MS = 2000;
 
 const MOBILE_BREAKPOINT = 640;
@@ -66,7 +76,7 @@ function FeaturedSevaSection() {
     fetch("/api/seva-activities?featured=true", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        if (!cancelled && Array.isArray(data)) setActivities(data);
+        if (!cancelled && Array.isArray(data)) setActivities(uniqById(data));
       })
       .catch(() => {})
       .finally(() => {
@@ -324,7 +334,7 @@ function OurImpactSection() {
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      {/* HERO WHEEL — single image, no overlays */}
+      {/* HERO WHEEL — 1600×900 (16:9). Portrait: size by height (75vh) so image is big, 16:9, no top/bottom space; center and clip sides. Desktop: width-based aspect-video. */}
       <section
         className="w-full overflow-hidden py-0"
         style={{
@@ -332,9 +342,9 @@ export default function HomePage() {
         }}
       >
         <div className="mx-auto max-w-6xl px-0 py-0">
-          <div className="relative mx-auto w-full max-w-5xl">
-            {/* Aspect-ratio container (16:9) — no fixed height, so no top/bottom letterboxing on any screen */}
-            <div className="relative w-full aspect-video">
+          <div className="relative mx-auto flex w-full max-w-5xl justify-center overflow-x-hidden">
+            {/* Portrait: h 75vh → width 75vh*16/9 (often &gt; 100vw), centered and clipped. Desktop: full width, aspect-video. */}
+            <div className="relative aspect-video h-[75vh] w-[calc(75vh*16/9)] md:h-auto md:w-full">
               <Image
                 src="/hero_wheel_new.jpeg"
                 alt="Seva Wheel"
