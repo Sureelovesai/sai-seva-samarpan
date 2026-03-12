@@ -70,11 +70,11 @@ export async function POST(req: Request) {
       },
       select: { adultsCount: true, kidsCount: true },
     });
-    type SignupCounts = { adultsCount?: number; kidsCount?: number };
-    const currentParticipants = existingSignups.reduce(
-      (sum, s: SignupCounts) => sum + (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
-      0
-    );
+    const rows = existingSignups as Array<{ adultsCount?: number; kidsCount?: number }>;
+    let currentParticipants = 0;
+    for (const s of rows) {
+      currentParticipants += (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
+    }
     const newParticipants = adultsCount + kidsCount;
     const capacity = activity.capacity != null && activity.capacity > 0 ? activity.capacity : null;
     const overCapacity = capacity != null && currentParticipants + newParticipants > capacity;
