@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -99,13 +98,8 @@ function LoginContent() {
   return (
     <div className="min-h-[calc(100vh-1px)] flex flex-col items-center justify-center px-4 py-12 bg-slate-200">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <div className="relative h-14 w-48 mx-auto">
-              <Image src="/sssgc-logo.png" alt="SSSGC" fill className="object-contain" priority />
-            </div>
-          </Link>
-          <h1 className="mt-6 text-2xl font-bold text-slate-900 tracking-tight">Welcome</h1>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome</h1>
           <p className="mt-1 text-slate-700 text-sm">Sign in or create an account to continue</p>
         </div>
 
@@ -155,7 +149,15 @@ function LoginContent() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="login-password" className="block text-sm font-medium text-slate-700">Password</label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <input
                     id="login-password"
                     type="password"

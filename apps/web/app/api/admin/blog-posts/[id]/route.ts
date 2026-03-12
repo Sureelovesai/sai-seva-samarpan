@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole } from "@/lib/getRole";
+import { getSessionWithRole, hasRole } from "@/lib/getRole";
 
 /**
  * GET /api/admin/blog-posts/[id]
- * Get a single blog post by id (including PENDING_APPROVAL). Admin only.
- * Used so admins can view full content, image, and description before approving.
+ * Get a single blog post by id (including PENDING_APPROVAL). Admin or Blog Admin.
  */
 export async function GET(
   req: Request,
@@ -13,7 +12,7 @@ export async function GET(
 ) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || session.role !== "ADMIN") {
+    if (!session || !hasRole(session, "ADMIN", "BLOG_ADMIN")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

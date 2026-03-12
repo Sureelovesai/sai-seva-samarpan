@@ -23,6 +23,7 @@ export async function GET(req: Request) {
         name: user.name,
         location: user.location,
         role: sessionWithRole.role,
+        roles: sessionWithRole.roles,
         coordinatorCities: sessionWithRole.coordinatorCities,
       },
     });

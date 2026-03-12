@@ -17,6 +17,8 @@ export async function GET() {
       prisma.sevaSignup.findMany({
         select: {
           status: true,
+          adultsCount: true,
+          kidsCount: true,
           activity: {
             select: {
               durationHours: true,
@@ -36,9 +38,10 @@ export async function GET() {
     for (const s of signupsWithActivity) {
       if (!s.activity || !isActivityEnded(s.activity)) continue;
       if (!isSignupCounted(s.status, true)) continue; // true = activity ended, only exclude REJECTED
-      volunteerCount += 1;
+      const participants = (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
+      volunteerCount += participants;
       const h = s.activity.durationHours;
-      if (typeof h === "number" && h > 0) totalHours += h;
+      if (typeof h === "number" && h > 0) totalHours += participants * h;
     }
     totalHours = Math.round(totalHours * 10) / 10;
 

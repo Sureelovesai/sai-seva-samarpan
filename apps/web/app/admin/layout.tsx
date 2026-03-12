@@ -28,7 +28,7 @@ export default function AdminLayout({
           router.replace("/");
           return;
         }
-        if (role === "SEVA_COORDINATOR" && pathname === "/admin/roles") {
+        if ((role === "SEVA_COORDINATOR" || role === "BLOG_ADMIN") && pathname === "/admin/roles") {
           router.replace("/admin/seva-dashboard");
           return;
         }

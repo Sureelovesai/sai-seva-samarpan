@@ -24,6 +24,18 @@ model User {
   @@index([email])
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+}
+
 enum BlogPostStatus {
   PENDING_APPROVAL
   APPROVED
@@ -81,18 +93,20 @@ model BlogPostReaction {
 
 enum AppRole {
   ADMIN
+  BLOG_ADMIN
   VOLUNTEER
   SEVA_COORDINATOR
 }
 
 model RoleAssignment {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String
   role      AppRole
   cities    String?  // Comma-separated cities for SEVA_COORDINATOR (e.g. "Charlotte, Raleigh")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([email, role])
   @@index([email])
   @@index([role])
 }
@@ -131,6 +145,8 @@ model SevaSignup {
   volunteerName String
   email         String
   phone         String?
+  adultsCount   Int              @default(1) // adults including the primary volunteer
+  kidsCount     Int              @default(0) // number of children
   status        SevaSignupStatus @default(PENDING)
   createdAt     DateTime        @default(now())
 

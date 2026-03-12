@@ -59,7 +59,7 @@ export async function GET(request: Request) {
       prisma.sevaActivity.count({ where: { ...baseWhere, isActive: true } }),
       prisma.sevaSignup.findMany({
         where: baseWhere && Object.keys(baseWhere).length > 0 ? { activity: baseWhere } : undefined,
-        select: { status: true, activity: { select: activityDateSelect } },
+        select: { status: true, adultsCount: true, kidsCount: true, activity: { select: activityDateSelect } },
       }),
       prisma.sevaActivity.groupBy({
         by: ["category"],
@@ -98,9 +98,10 @@ export async function GET(request: Request) {
     for (const s of signupsWithActivity) {
       if (!s.activity || !isActivityEnded(s.activity)) continue;
       if (!isSignupCounted(s.status, true)) continue; // activity ended: only exclude REJECTED
-      totalVolunteers += 1;
+      const participants = (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
+      totalVolunteers += participants;
       const h = s.activity.durationHours;
-      if (typeof h === "number" && h > 0) totalHours += h;
+      if (typeof h === "number" && h > 0) totalHours += participants * h;
     }
     totalHours = Math.round((totalHours + (loggedHoursSum._sum?.hours ?? 0)) * 10) / 10;
 

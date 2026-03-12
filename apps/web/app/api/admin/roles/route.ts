@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 
-const VALID_ROLES = ["ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
+const VALID_ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
 
 export async function GET(req: Request) {
   try {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
     if (!role || !VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
       return NextResponse.json(
-        { error: "Role must be one of: ADMIN, VOLUNTEER, SEVA_COORDINATOR" },
+        { error: "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR" },
         { status: 400 }
       );
     }
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === "P2002") {
-      return NextResponse.json({ error: "A role assignment for this email already exists" }, { status: 409 });
+      return NextResponse.json({ error: "This email already has this role assigned" }, { status: 409 });
     }
     console.error("Roles POST error:", e);
     return NextResponse.json(

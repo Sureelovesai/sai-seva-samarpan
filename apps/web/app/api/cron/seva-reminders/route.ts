@@ -86,19 +86,28 @@ async function runReminders(req: Request) {
       }
 
       if (activity.coordinatorEmail?.trim() && activity.signups.length > 0) {
+        const totalParticipants = activity.signups.reduce(
+          (sum: number, s: (typeof activity.signups)[number]) =>
+            sum + ((s as { adultsCount?: number; kidsCount?: number }).adultsCount ?? 1) + ((s as { adultsCount?: number; kidsCount?: number }).kidsCount ?? 0),
+          0
+        );
         const list = activity.signups
           .map(
-            (s: (typeof activity.signups)[number]) =>
-              `<li>${escapeHtml(s.volunteerName)} — ${escapeHtml(s.email)}${s.phone ? ` — ${escapeHtml(s.phone)}` : ""}</li>`
+            (s: (typeof activity.signups)[number]) => {
+              const a = (s as { adultsCount?: number; kidsCount?: number }).adultsCount ?? 1;
+              const k = (s as { adultsCount?: number; kidsCount?: number }).kidsCount ?? 0;
+              const part = a + k > 1 ? ` — ${a} adult(s), ${k} child(ren)` : "";
+              return `<li>${escapeHtml(s.volunteerName)} — ${escapeHtml(s.email)}${s.phone ? ` — ${escapeHtml(s.phone)}` : ""}${part}</li>`;
+            }
           )
           .join("");
         const coordOk = await sendEmail({
           to: activity.coordinatorEmail.trim(),
-          subject: `Reminder: ${title} starts in 24 hours – ${activity.signups.length} volunteer(s)`,
+          subject: `Reminder: ${title} starts in 24 hours – ${totalParticipants} participant(s)`,
           html: `
             <p>Your seva activity <strong>${escapeHtml(title)}</strong> is scheduled to start in about 24 hours.</p>
             <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
-            <p><strong>Volunteers signed up (${activity.signups.length}):</strong></p>
+            <p><strong>Participants signed up (${totalParticipants}):</strong></p>
             <ul>${list}</ul>
             <p>Jai Sai Ram.</p>
           `,

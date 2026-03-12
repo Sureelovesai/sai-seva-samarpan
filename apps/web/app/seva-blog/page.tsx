@@ -105,7 +105,14 @@ export default function SevaBlogPage() {
       fetch("/api/blog-posts", { credentials: "include" }),
     ])
       .then(([blogRes, postsRes]) => {
-        if (!blogRes.ok) throw new Error("Failed to load blog data");
+        if (!blogRes.ok) {
+          return blogRes.json().then((body: { detail?: string }) => {
+            const msg = body?.detail && typeof body.detail === "string"
+              ? `Failed to load blog data: ${body.detail}`
+              : "Failed to load blog data";
+            throw new Error(msg);
+          });
+        }
         return Promise.all([
           blogRes.json(),
           postsRes.ok ? postsRes.json() : Promise.resolve([]),
@@ -115,7 +122,7 @@ export default function SevaBlogPage() {
         setData(blogData);
         setCommunityPosts(posts);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e?.message ?? "Failed to load blog data"))
       .finally(() => setLoading(false));
   }, []);
 

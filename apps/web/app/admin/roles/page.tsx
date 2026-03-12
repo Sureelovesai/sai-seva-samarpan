@@ -5,8 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 
 type RoleAssignment = { id: string; email: string; role: string; cities: string | null };
 
-const ROLES = ["ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
-const ROLE_LABELS: Record<string, string> = { ADMIN: "Admin", VOLUNTEER: "Volunteer", SEVA_COORDINATOR: "Seva Coordinator" };
+const ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admin",
+  BLOG_ADMIN: "Blog Admin",
+  VOLUNTEER: "Volunteer",
+  SEVA_COORDINATOR: "Seva Coordinator",
+};
 
 export default function RolesPage() {
   const [list, setList] = useState<RoleAssignment[]>([]);
@@ -53,8 +58,7 @@ export default function RolesPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to add");
-      setMsg({ kind: "ok", text: "Role added." });
-      setAddEmail("");
+      setMsg({ kind: "ok", text: "Role added. Add another role for the same person by selecting a different role and clicking Add again." });
       setAddCities("");
       loadRoles();
     } catch (e: unknown) {
@@ -114,7 +118,7 @@ export default function RolesPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-4xl font-extrabold italic tracking-tight text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.35)] md:text-5xl">Roles</div>
-              <div className="mt-2 text-xl font-semibold text-white/95">Who is playing what role — Admin, Volunteer, Seva Coordinator</div>
+              <div className="mt-2 text-xl font-semibold text-white/95">Assign one or more roles per person — Admin, Blog Admin, Volunteer, Seva Coordinator</div>
             </div>
             <Link href="/admin/seva-dashboard" className="rounded border border-white/80 bg-white/20 px-6 py-3 text-sm font-semibold text-white hover:bg-white/30">← Back to Dashboard</Link>
           </div>
@@ -129,6 +133,7 @@ export default function RolesPage() {
 
         <div className="rounded-xl border border-slate-200/90 bg-white px-8 py-8 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
           <div className="text-2xl font-bold text-zinc-800">Add role assignment</div>
+          <p className="mt-1 text-sm text-zinc-600">Same email can have multiple roles — add one row per role.</p>
           <form onSubmit={handleAdd} className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
             <div>
               <label className="block text-sm font-semibold text-zinc-700">Email</label>
@@ -203,7 +208,7 @@ export default function RolesPage() {
             </div>
           )}
         </div>
-        <p className="mt-8 text-center text-sm text-zinc-600">Admin sees everything. Volunteer and Seva Coordinator have restricted access. At login, role is determined by email.</p>
+        <p className="mt-8 text-center text-sm text-zinc-600">A person can have multiple roles. Admin sees everything; Blog Admin can approve blog posts; Seva Coordinator has city-scoped access. At login, roles are determined by email.</p>
       </div>
     </div>
   );

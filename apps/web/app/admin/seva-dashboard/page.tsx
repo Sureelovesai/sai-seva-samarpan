@@ -24,6 +24,8 @@ type RecentSignup = {
   status: string;
   createdAt: string;
   activityTitle: string;
+  adultsCount?: number;
+  kidsCount?: number;
 };
 
 type DashboardStats = {
@@ -81,7 +83,7 @@ export default function SevaAdminDashboardPage() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [role, setRole] = useState<"ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | null>(null);
+  const [role, setRole] = useState<"ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | null>(null);
 
   // Analytics filters (form state)
   const [filterCenter, setFilterCenter] = useState("All");
@@ -136,7 +138,7 @@ export default function SevaAdminDashboardPage() {
   }, [role]);
 
   const fetchPendingBlogPosts = useCallback(() => {
-    if (role !== "ADMIN") return;
+    if (role !== "ADMIN" && role !== "BLOG_ADMIN") return;
     setPendingBlogLoading(true);
     fetch("/api/admin/blog-posts/pending", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
@@ -146,7 +148,7 @@ export default function SevaAdminDashboardPage() {
   }, [role]);
 
   useEffect(() => {
-    if (role !== "ADMIN") return;
+    if (role !== "ADMIN" && role !== "BLOG_ADMIN") return;
     fetchPendingBlogPosts();
   }, [role, fetchPendingBlogPosts]);
 
@@ -188,7 +190,7 @@ export default function SevaAdminDashboardPage() {
 
   // Scroll to Pending Blog Posts when URL has #pending-blog-posts (e.g. from email link)
   useEffect(() => {
-    if (role !== "ADMIN" || typeof window === "undefined") return;
+    if ((role !== "ADMIN" && role !== "BLOG_ADMIN") || typeof window === "undefined") return;
     if (window.location.hash !== "#pending-blog-posts") return;
     const el = document.getElementById("pending-blog-posts");
     if (el) {
@@ -337,7 +339,7 @@ export default function SevaAdminDashboardPage() {
           <div className="bg-yellow-200/85 px-4 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.16)]">
             <div
               className={
-                role === "ADMIN"
+                (role === "ADMIN" || role === "BLOG_ADMIN")
                   ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
                   : "grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
               }
@@ -373,7 +375,7 @@ export default function SevaAdminDashboardPage() {
         </section>
 
         {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
-        {role === "ADMIN" && (
+        {(role === "ADMIN" || role === "BLOG_ADMIN") && (
           <section id="pending-blog-posts" className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-6 py-6 shadow-md">
             <div className="flex items-center justify-center gap-4 border-b border-amber-200 pb-4">
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-amber-700" aria-hidden />
@@ -427,7 +429,7 @@ export default function SevaAdminDashboardPage() {
         )}
 
         {/* Modal: View full pending post (image, content, then Approve) */}
-        {role === "ADMIN" && viewingPostFull && (
+        {(role === "ADMIN" || role === "BLOG_ADMIN") && viewingPostFull && (
           <PendingPostViewModal
             post={viewingPostFull}
             onClose={() => setViewingPostFull(null)}
@@ -1178,6 +1180,14 @@ function SignupCard(props: { signup: RecentSignup | null }) {
           <div className="text-sm font-semibold text-amber-800">Activity</div>
           <div className="text-lg font-bold text-indigo-950">{s.activityTitle}</div>
         </div>
+        {((s.adultsCount ?? 1) + (s.kidsCount ?? 0)) > 1 && (
+          <div>
+            <div className="text-sm font-semibold text-amber-800">Participants</div>
+            <div className="text-lg font-bold text-indigo-950">
+              {(s.adultsCount ?? 1)} adult(s), {s.kidsCount ?? 0} child(ren)
+            </div>
+          </div>
+        )}
         <div>
           <div className="text-sm font-semibold text-amber-800">Email</div>
           <div className="text-lg font-bold text-indigo-950">{s.email}</div>

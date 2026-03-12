@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole } from "@/lib/getRole";
+import { getSessionWithRole, hasRole } from "@/lib/getRole";
 
 /**
  * GET /api/blog-posts/[id]
@@ -85,7 +85,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || session.role !== "ADMIN") {
+    if (!session || !hasRole(session, "ADMIN", "BLOG_ADMIN")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

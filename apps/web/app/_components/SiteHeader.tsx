@@ -11,7 +11,8 @@ type AuthUser = {
   lastName: string | null;
   name: string | null;
   location: string | null;
-  role?: "ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR";
+  role?: "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR";
+  roles?: string[];
   coordinatorCities?: string[] | null;
 } | null;
 
@@ -89,13 +90,12 @@ export function SiteHeader() {
   // Top row: same for everyone (non-logged-in users see "To view this you should login" on dashboard)
   const topLinks = topLinksAll;
 
-  // Volunteer: no admin links. Seva Coordinator: admin links except Roles. Admin: all.
+  // Volunteer: no admin links. Seva Coordinator / Blog Admin: admin links except Roles. Admin: all.
+  const canSeeRoles = user?.roles?.includes("ADMIN") ?? user?.role === "ADMIN";
   const secondRow =
-    user?.role === "ADMIN"
-      ? adminLinks
-      : user?.role === "SEVA_COORDINATOR"
-        ? adminLinks.filter((l) => l.href !== "/admin/roles")
-        : [];
+    user?.role === "ADMIN" || user?.role === "SEVA_COORDINATOR" || user?.role === "BLOG_ADMIN"
+      ? canSeeRoles ? adminLinks : adminLinks.filter((l) => l.href !== "/admin/roles")
+      : [];
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
@@ -117,9 +117,9 @@ export function SiteHeader() {
                 }}
               />
             </div>
-            <span className="-ml-14 block text-left font-serif text-xs font-extrabold uppercase leading-snug tracking-wide sm:-ml-16 sm:text-sm md:-ml-20 md:text-base" style={{ color: "#1e3a8a", WebkitFontSmoothing: "antialiased", letterSpacing: "0.05em" }}>
-              <span className="block">Sri Sathya Sai</span>
-              <span className="block">Seva Samarpan</span>
+            <span className="-ml-14 block text-left font-serif font-extrabold uppercase leading-tight tracking-wide sm:-ml-16 md:-ml-20" style={{ color: "#1e3a8a", WebkitFontSmoothing: "antialiased", letterSpacing: "0.04em" }}>
+              <span className="block text-sm sm:text-base md:text-lg">Sri Sathya Sai</span>
+              <span className="block text-[10px] sm:text-xs md:text-sm mt-0.5">Seva Samarpan</span>
             </span>
           </Link>
 

@@ -17,7 +17,8 @@ function escapeHtml(s: string): string {
  * 1. Confirmation email to the volunteer.
  * 2. Notification email to the seva coordinator (if coordinatorEmail is set).
  * 24h before activity start, volunteers and coordinator get reminders via /api/cron/seva-reminders.
- * Body: { activityId: string, name: string, email: string, phone?: string }
+ * Body: { activityId: string, name: string, email: string, phone?: string, adultsCount?: number, kidsCount?: number }
+ * adultsCount = adults including the primary volunteer (default 1). Can be 0 when only kids participate. kidsCount = number of children (default 0).
  */
 export async function POST(req: Request) {
   try {
@@ -26,10 +27,18 @@ export async function POST(req: Request) {
     const name = body?.name?.trim();
     const email = body?.email?.trim();
     const phone = body?.phone?.trim() || null;
+    const adultsCount = Math.max(0, Math.floor(Number(body?.adultsCount) ?? 1));
+    const kidsCount = Math.max(0, Math.floor(Number(body?.kidsCount) || 0));
 
     if (!activityId || !name || !email) {
       return NextResponse.json(
         { error: "Activity, name, and email are required" },
+        { status: 400 }
+      );
+    }
+    if (adultsCount + kidsCount < 1) {
+      return NextResponse.json(
+        { error: "At least one participant (adults or kids) is required" },
         { status: 400 }
       );
     }
@@ -53,15 +62,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // Count current volunteers (PENDING + APPROVED) to compare with capacity
-    const volunteerCount = await prisma.sevaSignup.count({
+    // Count current participants (sum of adults + kids) for PENDING + APPROVED signups
+    const existingSignups = await prisma.sevaSignup.findMany({
       where: {
         activityId,
         status: { in: ["PENDING", "APPROVED"] },
       },
+      select: { adultsCount: true, kidsCount: true },
     });
+    const currentParticipants = existingSignups.reduce(
+      (sum, s) => sum + (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
+      0
+    );
+    const newParticipants = adultsCount + kidsCount;
     const capacity = activity.capacity != null && activity.capacity > 0 ? activity.capacity : null;
-    const overCapacity = capacity != null && volunteerCount >= capacity;
+    const overCapacity = capacity != null && currentParticipants + newParticipants > capacity;
     const status = overCapacity ? "PENDING" : "APPROVED";
 
     const signup = await prisma.sevaSignup.create({
@@ -70,6 +85,8 @@ export async function POST(req: Request) {
         volunteerName: name,
         email,
         phone,
+        adultsCount,
+        kidsCount,
         status,
       },
     });
@@ -106,6 +123,7 @@ export async function POST(req: Request) {
           <p><strong>Volunteer:</strong> ${escapeHtml(name)}</p>
           <p><strong>Email:</strong> ${escapeHtml(email)}</p>
           ${phone ? `<p><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}
+          <p><strong>Participants:</strong> ${adultsCount} adult(s), ${kidsCount} child(ren) — ${adultsCount + kidsCount} total</p>
           <p>Jai Sai Ram.</p>
         `,
       });

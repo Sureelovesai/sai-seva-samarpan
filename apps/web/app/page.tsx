@@ -343,15 +343,23 @@ export default function HomePage() {
       >
         <div className="mx-auto max-w-6xl px-0 py-0">
           <div className="relative mx-auto flex w-full max-w-5xl justify-center overflow-x-hidden">
-            {/* Portrait: h 75vh → width 75vh*16/9 (often &gt; 100vw), centered and clipped. Desktop: full width, aspect-video. */}
+            {/* Portrait: h 75vh → width 75vh*16/9 (often &gt; 100vw), centered and clipped. Desktop: full width, aspect-video. Banner: desktop + mobile landscape; mobile portrait only: mobile_banner. */}
             <div className="relative aspect-video h-[75vh] w-[calc(75vh*16/9)] md:h-auto md:w-full">
               <Image
-                src="/hero_wheel_new.jpeg"
+                src="/banner.png"
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-center"
+                className="object-contain object-center portrait:max-md:hidden"
                 sizes="(max-width: 768px) 100vw, 1024px"
+              />
+              <Image
+                src="/mobile_banner.png"
+                alt="Seva Wheel"
+                fill
+                priority
+                className="object-contain object-center hidden portrait:max-md:block"
+                sizes="100vw"
               />
             </div>
           </div>

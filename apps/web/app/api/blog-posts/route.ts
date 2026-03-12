@@ -142,9 +142,9 @@ export async function POST(req: Request) {
       },
     });
 
-    // Notify all admins for verification
+    // Notify admins and blog admins for verification
     const admins: { email: string }[] = await prisma.roleAssignment.findMany({
-      where: { role: "ADMIN" },
+      where: { role: { in: ["ADMIN", "BLOG_ADMIN"] } },
       select: { email: true },
     });
     const adminEmails = admins.map((a) => a.email.trim()).filter(Boolean);

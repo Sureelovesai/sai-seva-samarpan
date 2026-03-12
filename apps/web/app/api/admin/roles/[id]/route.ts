@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 
-const VALID_ROLES = ["ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
+const VALID_ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
 
 /**
  * PATCH /api/admin/roles/[id]
@@ -26,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (role !== undefined) {
       if (!VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
         return NextResponse.json(
-          { error: "Role must be one of: ADMIN, VOLUNTEER, SEVA_COORDINATOR" },
+          { error: "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR" },
           { status: 400 }
         );
       }
@@ -46,7 +46,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Role assignment not found" }, { status: 404 });
     }
     if (err?.code === "P2002") {
-      return NextResponse.json({ error: "A role assignment for this email already exists" }, { status: 409 });
+      return NextResponse.json({ error: "This email already has this role assigned" }, { status: 409 });
     }
     console.error("Roles PATCH error:", e);
     return NextResponse.json(

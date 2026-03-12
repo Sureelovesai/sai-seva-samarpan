@@ -73,44 +73,6 @@ export default function TermsAndPolicyPage() {
               </p>
             </section>
 
-            {/* Confirmation statement */}
-            <div className="mt-8 rounded-xl border border-indigo-100 bg-indigo-50/70 px-5 py-4 sm:px-6 sm:py-5">
-              <p className="text-center font-medium leading-relaxed text-slate-800 sm:text-lg">
-                I / We confirm that I / We have read this Waiver of Liability and Consent Form in its entirety,
-                understand its contents, and voluntarily agree to its terms.
-              </p>
-            </div>
-
-            {/* Signature block */}
-            <div className="mt-10 space-y-6 border-t border-slate-200 pt-10">
-              <div>
-                <p className="text-sm font-semibold text-slate-600">Participant Name:</p>
-                <div className="mt-1 h-8 border-b border-slate-300" aria-hidden />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-600">Signature:</p>
-                <div className="mt-1 h-8 border-b border-slate-300" aria-hidden />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-600">Date:</p>
-                <div className="mt-1 h-8 w-48 border-b border-slate-300" aria-hidden />
-              </div>
-
-              <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-4 sm:p-5">
-                <p className="text-sm font-bold text-amber-900">If participant is under 18:</p>
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-600">Parent/Guardian Name:</p>
-                    <div className="mt-1 h-8 border-b border-slate-300" aria-hidden />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-600">Parent/Guardian Signature:</p>
-                    <div className="mt-1 h-8 border-b border-slate-300" aria-hidden />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* PDF download link */}
             <div className="mt-10 text-center">
               <a

@@ -119,6 +119,8 @@ function SevaActivitiesContent() {
   const [signUpInfo, setSignUpInfo] = useState<string | null>(null);
   const [signUpSubmitting, setSignUpSubmitting] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [adultsCount, setAdultsCount] = useState(1); // 0 allowed when only kids are participating
+  const [kidsCount, setKidsCount] = useState(0);
   const [tabsPage, setTabsPage] = useState(0);
   const [tabsPerPage, setTabsPerPage] = useState(5);
   const [user, setUser] = useState<{
@@ -230,6 +232,10 @@ function SevaActivitiesContent() {
       setSignUpError("Name and email are required.");
       return;
     }
+    if (adultsCount + kidsCount < 1) {
+      setSignUpError("The total count of adults and kids must be at least 1.");
+      return;
+    }
     setSignUpSubmitting(true);
     try {
       const res = await fetch("/api/seva-signups", {
@@ -240,6 +246,8 @@ function SevaActivitiesContent() {
           name,
           email,
           phone: signUpPhone.trim() || undefined,
+          adultsCount: Math.max(0, adultsCount),
+          kidsCount: Math.max(0, kidsCount),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -482,9 +490,6 @@ function SevaActivitiesContent() {
               {signUpInfo && (
                 <p className="rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{signUpInfo}</p>
               )}
-              {signUpError && (
-                <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{signUpError}</p>
-              )}
               <div>
                 <label htmlFor="vol-name" className="block text-sm font-semibold text-emerald-800">
                   Name <span className="text-red-600" aria-label="required">*</span>
@@ -526,6 +531,44 @@ function SevaActivitiesContent() {
                   className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* Family / group participants */}
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+                <p className="text-sm font-semibold text-emerald-800">
+                  Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
+                      Adults
+                    </label>
+                    <input
+                      id="adults-count"
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={adultsCount}
+                      onChange={(e) => setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
+                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
+                      Kids
+                    </label>
+                    <input
+                      id="kids-count"
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={kidsCount}
+                      onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
+                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
                 <input
                   id="agree-terms"
@@ -555,6 +598,14 @@ function SevaActivitiesContent() {
                 >
                   {signUpSubmitting ? "Submitting…" : "Join Seva"}
                 </button>
+                {signUpError && (
+                  <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{signUpError}</p>
+                )}
+                {!agreedToTerms && (
+                  <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+                    Please read and acknowledge the Terms and Policy above before you can join this Seva activity.
+                  </p>
+                )}
               </div>
             </form>
           )}
