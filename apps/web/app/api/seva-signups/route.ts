@@ -70,8 +70,9 @@ export async function POST(req: Request) {
       },
       select: { adultsCount: true, kidsCount: true },
     });
+    type SignupCounts = { adultsCount?: number; kidsCount?: number };
     const currentParticipants = existingSignups.reduce(
-      (sum, s) => sum + (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
+      (sum, s: SignupCounts) => sum + (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
       0
     );
     const newParticipants = adultsCount + kidsCount;
