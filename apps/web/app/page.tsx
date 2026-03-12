@@ -336,29 +336,37 @@ export default function HomePage() {
     <div className="min-h-screen">
       {/* HERO WHEEL — 1600×900 (16:9). Portrait: size by height (75vh) so image is big, 16:9, no top/bottom space; center and clip sides. Desktop: width-based aspect-video. */}
       <section
-        className="w-full overflow-hidden py-0"
+        className="-mt-2 w-full overflow-hidden py-0"
         style={{
           background: "linear-gradient(180deg, #e0f2fe 0%, #bae6fd 25%, #7dd3fc 50%, #38bdf8 75%, #0ea5e9 100%)",
         }}
       >
-        <div className="mx-auto max-w-6xl px-0 py-0">
-          <div className="relative mx-auto flex w-full max-w-5xl justify-center overflow-x-hidden">
-            {/* banner_new for desktop + mobile landscape; mobile_banner for mobile portrait only. */}
-            <div className="relative aspect-video h-[75vh] w-[calc(75vh*16/9)] md:h-auto md:w-full">
+        <div className="w-full px-0 py-0">
+          <div className="relative flex h-[calc(100vh-5rem-10px)] w-full items-center justify-center overflow-hidden">
+            {/* Banner at 92% size so nothing is cut or overflows. */}
+            <div className="relative h-[92%] w-[92%] min-h-0">
+              <Image
+                src="/banner_newest.png"
+                alt="Seva Wheel"
+                fill
+                priority
+                className="object-contain object-top hidden md:block"
+                sizes="100vw"
+              />
               <Image
                 src="/banner_new.png"
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-center portrait:max-md:hidden"
-                sizes="(max-width: 768px) 100vw, 1024px"
+                className="object-contain object-top md:hidden portrait:max-md:hidden"
+                sizes="100vw"
               />
               <Image
                 src="/mobile_banner.png"
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-center hidden portrait:max-md:block"
+                className="object-contain object-top hidden portrait:max-md:block"
                 sizes="100vw"
               />
             </div>
