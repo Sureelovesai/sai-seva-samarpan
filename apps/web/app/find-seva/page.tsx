@@ -280,17 +280,35 @@ export default function FindSevaPage() {
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="mx-auto grid w-full grid-cols-[180px_1fr] overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)]"
+              className="mx-auto grid w-full grid-cols-[180px_1fr] items-stretch overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)]"
             >
-              {/* LEFT IMAGE - fixed space as before; image fits inside with object-contain (full image visible) */}
-              <div className="relative aspect-[9/8] w-[180px] shrink-0 overflow-hidden bg-zinc-200">
-                <Image
-                  src={item.imageUrl ?? "/swami-circle.jpeg"}
-                  alt={item.title}
-                  fill
-                  className="object-contain object-center"
-                  sizes="180px"
-                />
+              {/* LEFT IMAGE - fixed space; image centered vertically (symmetric up/down) on all viewports */}
+              <div className="flex min-h-0 h-full min-h-[140px] w-[180px] shrink-0 items-center justify-center overflow-hidden bg-zinc-200">
+                <div className="relative aspect-[9/8] w-full max-w-[180px] overflow-hidden">
+                {(() => {
+                  const src = item.imageUrl ?? "/swami-circle.jpeg";
+                  const isRelativeOrBlob =
+                    src.startsWith("/") || src.includes("blob.vercel-storage.com");
+                  if (isRelativeOrBlob) {
+                    return (
+                      <Image
+                        src={src}
+                        alt={item.title}
+                        fill
+                        className="object-contain object-center"
+                        sizes="180px"
+                      />
+                    );
+                  }
+                  return (
+                    <img
+                      src={src}
+                      alt={item.title}
+                      className="absolute inset-0 h-full w-full object-contain object-center"
+                    />
+                  );
+                })()}
+                </div>
               </div>
 
               {/* RIGHT PANEL */}

@@ -116,7 +116,7 @@ export function SiteHeader() {
             />
           </Link>
 
-          <div className="min-w-0 flex-1 hidden md:block">
+          <div className="min-w-0 flex-1 hidden md:block landscape-desktop:block">
             <nav className="flex flex-wrap items-center gap-x-10 gap-y-1 text-[16px] sm:text-lg">
               {topLinks.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass(l.href)}>
@@ -246,7 +246,7 @@ export function SiteHeader() {
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
-            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-md text-zinc-700 hover:bg-zinc-100 md:hidden"
+            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-md text-zinc-700 hover:bg-zinc-100 md:hidden landscape-desktop:hidden"
             onClick={() => setMenuOpen((o) => !o)}
           >
             <span className={`h-0.5 w-6 bg-current transition-transform ${menuOpen ? "translate-y-2 rotate-45" : ""}`} />
@@ -256,7 +256,7 @@ export function SiteHeader() {
         </div>
 
         {menuOpen && (
-          <div className="mt-3 flex flex-col gap-1 border-t border-gray-200 pt-3 md:hidden">
+          <div className="mt-3 flex flex-col gap-1 border-t border-gray-200 pt-3 md:hidden landscape-desktop:hidden">
             {topLinks.map((l) => (
               <Link key={l.href} href={l.href} className={`block py-2 text-[16px] ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
                 {l.label}

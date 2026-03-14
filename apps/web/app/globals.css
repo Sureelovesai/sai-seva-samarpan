@@ -1,4 +1,7 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
+
+/* Mobile landscape: use desktop-like layout (min-width 480px in landscape = typical phone landscape) */
+@custom-variant landscape-desktop (@media (orientation: landscape) and (min-width: 480px));
 
 :root { color-scheme: light; }
 @media (prefers-color-scheme: dark) { :root { color-scheme: dark; } }

@@ -30,7 +30,7 @@ export default function AddSevaActivityPage() {
   const [active, setActive] = useState(true);
   const [featured, setFeatured] = useState(false);
 
-  // Activity image: upload or paste URL
+  // Activity image: upload only
   const [imageUrl, setImageUrl] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -278,7 +278,7 @@ export default function AddSevaActivityPage() {
                   onChange={handleImageUpload}
                 />
                 <span className="text-2xl leading-none">＋</span>
-                {uploading ? "Uploading…" : "Upload Activity Image (Optional)"}
+                {uploading ? "Uploading…" : "Upload Activity Image"}
               </label>
               {uploadError && (
                 <p className="mt-2 text-sm text-red-600">{uploadError}</p>
@@ -306,17 +306,6 @@ export default function AddSevaActivityPage() {
                   </div>
                 </div>
               )}
-              <div className="mt-4">
-                <label className="block text-xs font-semibold text-zinc-700">
-                  Or paste Image URL
-                </label>
-                <input
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="/uploads/... or https://..."
-                  className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
             </div>
           </div>
 

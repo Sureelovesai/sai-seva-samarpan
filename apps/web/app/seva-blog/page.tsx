@@ -50,6 +50,7 @@ type CommunityPost = {
   emojiCounts: Record<string, number>;
 };
 
+/** Default image when a post has no image or when imageUrl is cleared in DB (e.g. to hide an inappropriate image). */
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop";
 
@@ -72,6 +73,7 @@ export default function SevaBlogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   const [createModal, setCreateModal] = useState<{ open: boolean; section: string }>({
     open: false,
@@ -95,8 +97,15 @@ export default function SevaBlogPage() {
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { user: null }))
-      .then((data) => setIsLoggedIn(!!data?.user))
-      .catch(() => setIsLoggedIn(false));
+      .then((data) => {
+        const user = data?.user ?? null;
+        setIsLoggedIn(!!user);
+        setIsAdmin(Array.isArray(user?.roles) ? user.roles.includes("ADMIN") : false);
+      })
+      .catch(() => {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -188,7 +197,7 @@ export default function SevaBlogPage() {
 
       {/* Hero: title, tagline, heart-framed image + taglines (reference: Sai Heart Beats style) */}
       <section
-        className="relative overflow-hidden px-4 py-4 sm:py-5 md:py-6"
+        className="relative overflow-hidden px-4 pt-4 pb-2 sm:pt-5 sm:pb-3 md:pt-6 md:pb-4"
         style={{
           background:
             "linear-gradient(145deg, #fdf2f0 0%, #f8e8e6 40%, #f0e0f5 70%, #f8e4e1 100%)",
@@ -212,28 +221,28 @@ export default function SevaBlogPage() {
               LOVE IN ACTION
             </p>
           </div>
-          <div className="-mt-1 flex flex-col items-center gap-5 lg:flex-row lg:items-center lg:justify-center lg:gap-8">
+          <div className="-mt-1 flex flex-col items-center gap-3 landscape-desktop:flex-row landscape-desktop:items-center landscape-desktop:justify-center landscape-desktop:gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-6">
             {/* Left: heart-framed portrait (soft pink outline, symmetrical) */}
             <div
-              className="flex shrink-0 justify-center lg:flex-1 lg:justify-end"
+              className="flex shrink-0 justify-center landscape-desktop:flex-1 landscape-desktop:justify-end lg:flex-1 lg:justify-end"
               style={{ minHeight: "160px" }}
             >
               <div
-                className="h-[160px] w-[160px] sm:h-[200px] sm:w-[200px] md:h-[220px] md:w-[220px] lg:h-[240px] lg:w-[240px]"
+                className="h-[160px] w-[160px] landscape-desktop:h-[200px] landscape-desktop:w-[200px] sm:h-[200px] sm:w-[200px] md:h-[220px] md:w-[220px] lg:h-[240px] lg:w-[240px]"
                 style={{
                   filter: "drop-shadow(0 8px 24px rgba(244, 182, 182, 0.35))",
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/Sai_In_Heart.png"
+                  src="/PINK_SWAMI.png"
                   alt=""
                   className="h-full w-full object-contain object-center"
                 />
               </div>
             </div>
             {/* Right: quotes (balanced with image) */}
-            <div className="flex flex-1 flex-col justify-center text-center lg:max-w-xl lg:text-left">
+            <div className="flex flex-1 flex-col justify-center text-center landscape-desktop:max-w-xl landscape-desktop:text-left lg:max-w-xl lg:text-left">
               <p className="text-base font-medium italic text-[#6b5344] sm:text-lg md:text-xl md:whitespace-nowrap">
                 Stories of Love in Action · Seva that Transforms · Hearts that Unite
               </p>
@@ -325,7 +334,7 @@ export default function SevaBlogPage() {
 
       {/* Four info cards + Create A Post per section */}
       <section className="mx-auto max-w-6xl px-4 py-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 landscape-desktop:grid-cols-4">
           {[
             {
               section: SECTIONS[0].id,
@@ -403,13 +412,13 @@ export default function SevaBlogPage() {
         aria-label="Guideline for posting"
       >
         <div
-          className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-[#e8b4a0]/40 bg-white/95 px-6 py-8 shadow-sm sm:flex-row sm:gap-6"
+          className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-[#e8b4a0]/40 bg-white/95 px-6 py-8 shadow-sm landscape-desktop:flex-row landscape-desktop:gap-6 sm:flex-row sm:gap-6"
           style={{
             background:
               "linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(253, 242, 240, 0.5) 100%)",
           }}
         >
-          <div className="flex flex-1 flex-col items-center text-center sm:items-start sm:text-left">
+          <div className="flex flex-1 flex-col items-center text-center landscape-desktop:items-start landscape-desktop:text-left sm:items-start sm:text-left">
             <h3 className="font-serif text-xl font-semibold text-[#6b5344] sm:text-2xl">
               Guideline For Posting
             </h3>
@@ -446,12 +455,14 @@ export default function SevaBlogPage() {
             No stories yet. Be the first to create a post above.
           </p>
         ) : (
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 landscape-desktop:grid-cols-3">
             {communityPosts.map((post) => (
               <CommunityPostCard
                 key={post.id}
                 post={post}
                 onReaction={fetchCommunityPosts}
+                isAdmin={isAdmin}
+                onDelete={fetchCommunityPosts}
               />
             ))}
           </div>
@@ -531,11 +542,16 @@ function stripHtml(html: string): string {
 function CommunityPostCard({
   post,
   onReaction,
+  isAdmin,
+  onDelete,
 }: {
   post: CommunityPost;
   onReaction: () => void;
+  isAdmin: boolean;
+  onDelete: () => void;
 }) {
   const [reacting, setReacting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [emojiCounts, setEmojiCounts] = useState(post.emojiCounts);
 
   async function setReaction(emojiCode: string) {
@@ -586,21 +602,52 @@ function CommunityPostCard({
           )}
         </div>
       </Link>
-      <div className="flex flex-wrap items-center gap-2 border-t border-[#f8e4e1] px-4 py-2">
-        {EMOJIS.map((emoji) => (
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f8e4e1] px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setReaction(emoji);
+              }}
+              disabled={reacting}
+              className="rounded border border-[#e8b4a0] px-2 py-1 text-sm hover:bg-[#fdf2f0]"
+            >
+              {emoji} {(emojiCounts[emoji] || 0) > 0 && emojiCounts[emoji]}
+            </button>
+          ))}
+        </div>
+        {isAdmin && (
           <button
-            key={emoji}
             type="button"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
-              setReaction(emoji);
+              if (deleting) return;
+              if (!confirm("Delete this post? This cannot be undone.")) return;
+              setDeleting(true);
+              try {
+                const res = await fetch(`/api/admin/blog-posts/${post.id}`, {
+                  method: "DELETE",
+                  credentials: "include",
+                });
+                if (res.ok) {
+                  onDelete();
+                } else {
+                  const body = await res.json().catch(() => ({}));
+                  alert(body?.error ?? "Failed to delete post.");
+                }
+              } finally {
+                setDeleting(false);
+              }
             }}
-            disabled={reacting}
-            className="rounded border border-[#e8b4a0] px-2 py-1 text-sm hover:bg-[#fdf2f0]"
+            disabled={deleting}
+            className="rounded border border-red-300 bg-red-50 px-2 py-1 text-sm text-red-700 hover:bg-red-100 disabled:opacity-50"
           >
-            {emoji} {(emojiCounts[emoji] || 0) > 0 && emojiCounts[emoji]}
+            {deleting ? "Deleting…" : "Delete"}
           </button>
-        ))}
+        )}
       </div>
     </article>
   );

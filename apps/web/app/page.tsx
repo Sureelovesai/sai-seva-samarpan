@@ -356,7 +356,7 @@ export default function HomePage() {
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-top hidden md:block"
+                className="object-contain object-top hidden landscape-desktop:block md:block"
                 sizes="100vw"
               />
               <Image
@@ -364,7 +364,7 @@ export default function HomePage() {
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-top md:hidden"
+                className="object-contain object-top md:hidden landscape-desktop:hidden"
                 sizes="100vw"
               />
             </div>
@@ -374,8 +374,8 @@ export default function HomePage() {
 
       {/* BUTTONS ROW — equal width: My Seva Dashboard natural, Find Seva stretches to match */}
       <section className="bg-[linear-gradient(90deg,rgba(112,153,63,0.55),rgba(200,214,117,0.55),rgba(255,170,120,0.55))] py-14">
-        <div className="mx-auto flex max-w-5xl flex-col items-stretch justify-center gap-10 px-4 md:flex-row">
-          <div className="flex w-full max-w-xl flex-col gap-6 md:max-w-none md:flex-1 md:flex-row md:basis-0 md:gap-10">
+        <div className="mx-auto flex max-w-5xl flex-col items-stretch justify-center gap-10 px-4 landscape-desktop:flex-row md:flex-row">
+          <div className="flex w-full max-w-xl flex-col gap-6 landscape-desktop:max-w-none landscape-desktop:flex-1 landscape-desktop:flex-row landscape-desktop:basis-0 landscape-desktop:gap-10 md:max-w-none md:flex-1 md:flex-row md:basis-0 md:gap-10">
             <Link
               href="/find-seva"
               className="flex min-w-0 flex-1 items-center justify-center rounded-full bg-[linear-gradient(180deg,#2563eb_0%,#0ea5e9_50%,#059669_100%)] px-6 py-4 text-xl font-extrabold tracking-[0.15em] text-white shadow-[0_18px_30px_rgba(0,0,0,0.25)] transition-colors hover:[background:#059669] [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] sm:px-8 sm:py-4 sm:text-2xl sm:tracking-[0.18em] md:px-12 md:py-5 md:text-3xl md:tracking-[0.20em] lg:px-16 lg:py-6 lg:text-4xl"
