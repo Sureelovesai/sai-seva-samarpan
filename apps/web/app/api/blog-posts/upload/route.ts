@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { put as putBlob } from "@vercel/blob";
 
 const UPLOAD_DIR = "public/uploads/blog";
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 4 * 1024 * 1024; // 4MB (Vercel serverless body limit is 4.5MB)
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 function getUploadDir() {
@@ -13,6 +14,9 @@ function getUploadDir() {
   }
   return path.join(cwd, "apps", "web", UPLOAD_DIR);
 }
+
+const PROD_STORAGE_UNAVAILABLE =
+  "Image storage is not available in this environment. You can submit your post without an image.";
 
 export async function POST(req: Request) {
   try {
@@ -35,7 +39,7 @@ export async function POST(req: Request) {
 
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
+        { error: "File too large. Maximum size is 4MB." },
         { status: 400 }
       );
     }
@@ -45,8 +49,19 @@ export async function POST(req: Request) {
       (file.type === "image/png" ? ".png" : ".jpg");
     const base = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const filename = `${base}${ext}`;
-    const uploadDir = getUploadDir();
 
+    // Production: use Vercel Blob when token is set (same as activity image upload)
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await putBlob(`blog/${filename}`, file, {
+        access: "public",
+        addRandomSuffix: true,
+        contentType: file.type,
+      });
+      return NextResponse.json({ url: blob.url });
+    }
+
+    // Local dev: write to filesystem
+    const uploadDir = getUploadDir();
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();
@@ -64,9 +79,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "Upload failed",
-        detail: isReadOnly
-          ? "Image storage is not available in this environment. You can submit your post without an image."
-          : message,
+        detail: isReadOnly ? PROD_STORAGE_UNAVAILABLE : message,
       },
       { status: 500 }
     );
