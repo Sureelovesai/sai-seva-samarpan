@@ -741,7 +741,7 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
 
       {/* Charts + Engagement row: compact 2-column layout */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Left column: Category Distribution (bar chart) + Center Comparison (compact) */}
+        {/* Left column: Category Distribution (bar chart) + Center Overview (compact) */}
         <div className="space-y-6">
           <div className={`${chartCard} px-4 py-3`}>
             <h3 className={`mb-3 text-sm font-semibold ${chartTitle}`}>Category Distribution</h3>
@@ -772,7 +772,7 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
             </div>
           </div>
           <div className={`${chartCard} px-4 py-3`}>
-            <h3 className={`mb-3 text-sm font-semibold ${chartTitle}`}>Center Comparison</h3>
+            <h3 className={`mb-3 text-sm font-semibold ${chartTitle}`}>Center Overview</h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(data.cityCounts)
                 .sort(([, a], [, b]) => b - a)

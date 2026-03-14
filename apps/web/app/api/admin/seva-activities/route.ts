@@ -63,9 +63,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
+    const category = body.category?.trim?.();
+    if (!category) {
+      return NextResponse.json({ error: "Category is required" }, { status: 400 });
+    }
+
     const city = body.city?.trim?.();
     if (!city) {
       return NextResponse.json({ error: "City is required" }, { status: 400 });
+    }
+
+    if (!body.startDate || !String(body.startDate).trim()) {
+      return NextResponse.json({ error: "Start date is required" }, { status: 400 });
+    }
+    if (!body.endDate || !String(body.endDate).trim()) {
+      return NextResponse.json({ error: "End date is required" }, { status: 400 });
+    }
+    if (!body.startTime || !String(body.startTime).trim()) {
+      return NextResponse.json({ error: "Start time is required" }, { status: 400 });
+    }
+    if (!body.endTime || !String(body.endTime).trim()) {
+      return NextResponse.json({ error: "End time is required" }, { status: 400 });
+    }
+    const durationHours = typeof body.durationHours === "number" ? body.durationHours : parseFloat(body.durationHours);
+    if (!Number.isFinite(durationHours) || durationHours <= 0) {
+      return NextResponse.json({ error: "Duration (hours) is required and must be greater than 0" }, { status: 400 });
+    }
+    const address = body.address?.trim?.();
+    if (!address) {
+      return NextResponse.json({ error: "Address is required" }, { status: 400 });
+    }
+    const coordinatorName = body.coordinatorName?.trim?.();
+    if (!coordinatorName) {
+      return NextResponse.json({ error: "Coordinator name is required" }, { status: 400 });
+    }
+    const coordinatorEmail = body.coordinatorEmail?.trim?.();
+    if (!coordinatorEmail) {
+      return NextResponse.json({ error: "Coordinator email is required" }, { status: 400 });
+    }
+    const coordinatorPhone = body.coordinatorPhone?.trim?.();
+    if (!coordinatorPhone) {
+      return NextResponse.json({ error: "Coordinator phone number is required" }, { status: 400 });
     }
 
     if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
@@ -83,24 +121,24 @@ export async function POST(req: Request) {
     const created = await prisma.sevaActivity.create({
       data: {
         title: body.title.trim(),
-        category: body.category?.trim?.() || null,
+        category,
         description: body.description?.trim?.() || null,
 
-        startDate: body.startDate ? new Date(body.startDate) : null,
-        endDate: body.endDate ? new Date(body.endDate) : null,
-        startTime: body.startTime?.trim?.() || null,
-        endTime: body.endTime?.trim?.() || null,
-        durationHours: typeof body.durationHours === "number" && body.durationHours >= 0 ? body.durationHours : null,
+        startDate: new Date(body.startDate),
+        endDate: new Date(body.endDate),
+        startTime: String(body.startTime).trim(),
+        endTime: String(body.endTime).trim(),
+        durationHours,
 
         city,
         locationName: body.locationName?.trim?.() || null,
-        address: body.address?.trim?.() || null,
+        address,
 
         capacity: toIntOrNull(body.capacity),
 
-        coordinatorName: body.coordinatorName?.trim?.() || null,
-        coordinatorEmail: body.coordinatorEmail?.trim?.() || null,
-        coordinatorPhone: body.coordinatorPhone?.trim?.() || null,
+        coordinatorName,
+        coordinatorEmail,
+        coordinatorPhone,
 
         imageUrl: body.imageUrl?.trim?.() || null,
 

@@ -149,6 +149,27 @@ function SevaActivitiesContent() {
     setSignUpEmail((prev) => (prev.trim() ? prev : email));
   }, [user?.id, user?.name, user?.firstName, user?.lastName, user?.email]);
 
+  // When user switches activity tab: clear success/error and show unfilled form for the new activity
+  const prevSelectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevSelectedIdRef.current;
+    if (prev !== selectedId) {
+      prevSelectedIdRef.current = selectedId;
+      setSignUpSubmitted(false);
+      setSignUpPending(false);
+      setSignUpError(null);
+      setSignUpInfo(null);
+      if (prev != null && selectedId != null) {
+        setSignUpName("");
+        setSignUpEmail("");
+        setSignUpPhone("");
+        setAdultsCount(1);
+        setKidsCount(0);
+        setAgreedToTerms(false);
+      }
+    }
+  }, [selectedId]);
+
   useEffect(() => {
     const el = tabsRowRef.current;
     if (!el) return;
@@ -228,8 +249,13 @@ function SevaActivitiesContent() {
     }
     const name = signUpName.trim();
     const email = signUpEmail.trim();
+    const phone = signUpPhone.trim();
     if (!name || !email) {
       setSignUpError("Name and email are required.");
+      return;
+    }
+    if (!phone) {
+      setSignUpError("Phone number is required.");
       return;
     }
     if (adultsCount + kidsCount < 1) {
@@ -245,7 +271,7 @@ function SevaActivitiesContent() {
           activityId: activityIdToSubmit,
           name,
           email,
-          phone: signUpPhone.trim() || undefined,
+          phone,
           adultsCount: Math.max(0, adultsCount),
           kidsCount: Math.max(0, kidsCount),
         }),
@@ -520,7 +546,7 @@ function SevaActivitiesContent() {
               </div>
               <div>
                 <label htmlFor="vol-phone" className="block text-sm font-semibold text-emerald-800">
-                  Phone number <span className="font-normal text-zinc-500">(optional)</span>
+                  Phone number <span className="text-red-600" aria-label="required">*</span>
                 </label>
                 <input
                   id="vol-phone"
@@ -528,6 +554,7 @@ function SevaActivitiesContent() {
                   value={signUpPhone}
                   onChange={(e) => setSignUpPhone(e.target.value)}
                   placeholder="Phone"
+                  required
                   className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>

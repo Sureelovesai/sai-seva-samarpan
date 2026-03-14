@@ -534,9 +534,24 @@ export default function SevaBlogPage() {
   );
 }
 
+/** Decode common HTML entities so excerpt/plain text doesn't show &amp; or &nbsp; etc. */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
 function stripHtml(html: string): string {
-  if (!html || !html.trimStart().startsWith("<")) return html;
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  if (!html || typeof html !== "string") return "";
+  const withoutTags = html.replace(/<[^>]*>/g, " ");
+  const decoded = decodeHtmlEntities(withoutTags);
+  return decoded.replace(/\s+/g, " ").trim();
 }
 
 function CommunityPostCard({

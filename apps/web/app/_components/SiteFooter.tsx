@@ -20,7 +20,7 @@ export function SiteFooter() {
           {/* Right Text - center aligned; org block width tied to first line */}
           <div className="w-full max-w-2xl text-center">
             <div className="inline-block text-center">
-              <p className="text-base font-semibold text-orange-600 md:text-lg">
+              <p className="text-sm font-semibold text-orange-600 md:text-base">
                 The Sri Sathya Sai Global Council Foundation, Inc. (EIN: 88-0716268)
               </p>
               <p className="mt-1 text-[11px] leading-snug text-gray-600 md:text-xs">
@@ -31,10 +31,10 @@ export function SiteFooter() {
                 initiatives inspired by the teachings of Bhagawan Sri Sathya Sai Baba.
               </p>
             </div>
-            <p className="mt-4 text-gray-700">
+            <p className="mt-4 text-sm text-gray-700">
               For any general questions, please reach out to
             </p>
-            <p className="mt-1 font-medium text-blue-600">
+            <p className="mt-1 text-sm font-medium text-blue-600">
               LoveSaiServeSai@gmail.com
             </p>
           </div>

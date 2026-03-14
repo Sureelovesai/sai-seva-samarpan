@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { formatActivityDateTime } from "@/lib/formatSevaDateTime";
 
 function escapeHtml(s: string): string {
   return s
@@ -61,11 +62,11 @@ async function runReminders(req: Request) {
 
     for (const activity of activities) {
       const title = activity.title ?? "Seva Activity";
-      const startDate = activity.startDate!;
-      const startStr = startDate.toLocaleString("en-US", {
-        dateStyle: "full",
-        timeStyle: "short",
-      });
+      const startStr = formatActivityDateTime(
+        activity.startDate,
+        activity.startTime,
+        activity.endTime
+      );
       let volunteerCount = 0;
       let coordinatorSent = false;
 

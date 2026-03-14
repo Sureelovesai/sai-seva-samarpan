@@ -60,8 +60,34 @@ export default function AddSevaActivityPage() {
   }, []);
 
   const canSave = useMemo(() => {
-    return title.trim() && category.trim() && city.trim();
-  }, [title, category, city]);
+    return (
+      title.trim() &&
+      category.trim() &&
+      city.trim() &&
+      startDate.trim() &&
+      endDate.trim() &&
+      startTime.trim() &&
+      endTime.trim() &&
+      durationHours > 0 &&
+      address.trim() &&
+      coordinatorName.trim() &&
+      coordinatorEmail.trim() &&
+      coordinatorPhone.trim()
+    );
+  }, [
+    title,
+    category,
+    city,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    durationHours,
+    address,
+    coordinatorName,
+    coordinatorEmail,
+    coordinatorPhone,
+  ]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -92,7 +118,7 @@ export default function AddSevaActivityPage() {
     if (!canSave) {
       setMsg({
         kind: "err",
-        text: "Please fill required fields: Seva Activity, Category, and City.",
+        text: "Please fill all required fields: Seva Activity, Category, Start Date, End Date, Start Time, End Time, Duration, City, Address, Coordinator Name, Coordinator Email, and Coordinator Phone.",
       });
       return;
     }
@@ -106,8 +132,8 @@ export default function AddSevaActivityPage() {
         capacity: capacity.trim() ? Number(capacity) : undefined,
 
         // keep these simple for now
-        startDate: startDate ? new Date(startDate).toISOString() : undefined,
-        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+        startDate: startDate ? new Date(startDate + "T12:00:00").toISOString() : undefined,
+        endDate: endDate ? new Date(endDate + "T12:00:00").toISOString() : undefined,
         startTime: startTime || undefined,
         endTime: endTime || undefined,
         durationHours: durationHours > 0 ? durationHours : undefined,
@@ -315,55 +341,59 @@ export default function AddSevaActivityPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-semibold text-zinc-800">
-                    Start Date
+                    Start Date <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    required
                     className="mt-2 w-full rounded-none border-b-2 border-b-indigo-600 border-transparent bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-zinc-800">
-                    Start Time
+                    Start Time <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
+                    required
                     className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-zinc-800">
-                    End Date
+                    End Date <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    required
                     className="mt-2 w-full rounded-none border-b-2 border-b-indigo-600 border-transparent bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-zinc-800">
-                    End Time
+                    End Time <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
+                    required
                     className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-zinc-800">
-                    Duration (hours)
+                    Duration (hours) <span className="text-red-600">*</span>
                   </label>
                   <div className="mt-2 flex items-center gap-3">
                     <button
@@ -407,6 +437,7 @@ export default function AddSevaActivityPage() {
                 <select
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  required
                   className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Select location</option>
@@ -420,6 +451,7 @@ export default function AddSevaActivityPage() {
                 <select
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  required
                   className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Select city</option>
@@ -441,12 +473,13 @@ export default function AddSevaActivityPage() {
               />
 
               <label className="mt-5 block text-sm font-semibold text-zinc-800">
-                Address
+                Address <span className="text-red-600">*</span>
               </label>
               <textarea
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 rows={6}
+                required
                 className="mt-2 w-full resize-none rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -460,34 +493,39 @@ export default function AddSevaActivityPage() {
               <div className="grid gap-6 md:grid-cols-3">
                 <div>
                   <label className="block text-sm font-semibold text-indigo-600">
-                    Coordinator Name
+                    Coordinator Name <span className="text-red-600">*</span>
                   </label>
                   <input
                     value={coordinatorName}
                     onChange={(e) => setCoordinatorName(e.target.value)}
+                    required
                     className="mt-2 w-full border-b-2 border-indigo-500 bg-indigo-50/40 px-3 py-2 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-indigo-600">
-                    Coordinator Email
+                    Coordinator Email <span className="text-red-600">*</span>
                   </label>
                   <input
+                    type="email"
                     value={coordinatorEmail}
                     onChange={(e) => setCoordinatorEmail(e.target.value)}
                     placeholder="example@domain.com"
+                    required
                     className="mt-2 w-full rounded-none border border-indigo-500 bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-indigo-600">
-                    Coordinator Phone number
+                    Coordinator Phone number <span className="text-red-600">*</span>
                   </label>
                   <input
+                    type="tel"
                     value={coordinatorPhone}
                     onChange={(e) => setCoordinatorPhone(e.target.value)}
+                    required
                     className="mt-2 w-full rounded-xl border border-indigo-500 bg-white px-4 py-3 text-zinc-900 outline-none"
                   />
                 </div>

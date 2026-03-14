@@ -173,16 +173,10 @@ export default function BlogPostPage({
               </div>
             </div>
 
-            {post.content.trimStart().startsWith("<") ? (
-              <div
-                className="prose prose-lg mt-6 max-w-none text-[#4a3f3a] [&_img]:max-w-full"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
-              />
-            ) : (
-              <div className="prose prose-lg mt-6 max-w-none whitespace-pre-wrap text-[#4a3f3a]">
-                {post.content}
-              </div>
-            )}
+            <div
+              className="prose prose-lg mt-6 max-w-none text-[#4a3f3a] [&_img]:max-w-full [&_div]:mb-2 [&_br]:block"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+            />
 
             <CommentsSection postId={id} />
 

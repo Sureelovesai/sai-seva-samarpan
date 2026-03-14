@@ -111,15 +111,34 @@ function tileBg(category: string) {
   return "bg-purple-200/80";
 }
 
+function timeToAMPM(hhmm: string | null): string {
+  if (!hhmm || !hhmm.trim()) return "";
+  const [h, m] = hhmm.trim().split(":");
+  const hour = parseInt(h, 10);
+  if (Number.isNaN(hour)) return hhmm;
+  const min = (m ?? "00").padStart(2, "0");
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 || 12;
+  return `${h12}:${min} ${ampm}`;
+}
+
 function formatWhenWhere(a: SevaActivity) {
   const city = a.city || "";
-  const d = a.startDate ? new Date(a.startDate) : null;
-  const dateStr = d
-    ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+  const dateStr = a.startDate
+    ? (() => {
+        const iso = String(a.startDate);
+        const dateOnly = iso.slice(0, 10);
+        const [y, mo, day] = dateOnly.split("-").map(Number);
+        if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(day)) return "";
+        const d = new Date(y, mo - 1, day);
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      })()
     : "";
 
-  // show time if available (stored as string)
-  const timeStr = a.startTime ? a.startTime : "";
+  const startAMPM = timeToAMPM(a.startTime);
+  const endAMPM = timeToAMPM(a.endTime);
+  const timeStr = [startAMPM, endAMPM].filter(Boolean).join(" – ");
+
   const parts = [dateStr, timeStr].filter(Boolean).join(", ");
   return [parts, city].filter(Boolean).join(" — ");
 }

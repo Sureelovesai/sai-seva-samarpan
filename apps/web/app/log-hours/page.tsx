@@ -9,7 +9,6 @@ export default function LogHoursPage() {
   const router = useRouter();
 
   const [activity, setActivity] = useState("");
-  const [participated, setParticipated] = useState<"yes" | "no">("yes");
   const [hours, setHours] = useState("");
   const [date, setDate] = useState("");
   const [comments, setComments] = useState("");
@@ -63,15 +62,20 @@ export default function LogHoursPage() {
   // View Certificate enabled only after a successful submit (not just when form is filled)
   const canViewCertificate = submitSuccess;
 
+  const todayYyyyMmDd = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
   const formValid = useMemo(() => {
     const h = parseFloat(hours);
+    const hasHours = hours.trim().length > 0 && Number.isFinite(h) && h >= 0;
+    const dateNotFuture = date.trim().length > 0 && date <= todayYyyyMmDd;
     return (
       volunteerName.trim().length > 0 &&
+      location.trim().length > 0 &&
       activity.trim().length > 0 &&
-      Number.isFinite(h) && h >= 0 &&
-      date.trim().length > 0
+      hasHours &&
+      dateNotFuture
     );
-  }, [volunteerName, activity, hours, date]);
+  }, [volunteerName, location, activity, hours, date, todayYyyyMmDd]);
 
   // Submit enabled only when form is valid and we're not in success state (must Clear first to submit again)
   const canSubmit = formValid && !submitSuccess;
@@ -111,7 +115,6 @@ export default function LogHoursPage() {
     setVolunteerName("");
     setLocation("");
     setActivity("");
-    setParticipated("yes");
     setHours("");
     setDate("");
     setComments("");
@@ -126,7 +129,6 @@ export default function LogHoursPage() {
     params.set("hours", hours.trim());
     params.set("date", date.trim());
     params.set("location", (location || "").trim());
-    params.set("participated", participated);
     params.set("comments", (comments || "").trim());
 
     router.push(`/log-hours/certificate?${params.toString()}`);
@@ -158,13 +160,14 @@ export default function LogHoursPage() {
               {/* NEW: Volunteer name */}
               <div>
                 <div className="text-lg font-semibold text-zinc-900">
-                  Volunteer Name
+                  Volunteer Name <span className="text-red-600">*</span>
                 </div>
                 <input
                   value={volunteerName}
                   onChange={(e) => setVolunteerName(e.target.value)}
                   placeholder="Enter your name"
                   disabled={submitSuccess}
+                  required
                   className="mt-3 w-full rounded-none border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed"
                 />
               </div>
@@ -172,12 +175,13 @@ export default function LogHoursPage() {
               {/* Location (City) - dropdown with same cities as elsewhere */}
               <div>
                 <div className="text-lg font-semibold text-zinc-900">
-                  Location (City)
+                  Location (City) <span className="text-red-600">*</span>
                 </div>
                 <select
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   disabled={submitSuccess}
+                  required
                   className="mt-3 w-full rounded-lg border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed focus:ring-2 focus:ring-indigo-400 focus:border-indigo-500"
                 >
                   <option value="">Select city</option>
@@ -190,7 +194,7 @@ export default function LogHoursPage() {
               {/* Seva Activity - free text */}
               <div>
                 <div className="text-lg font-semibold text-zinc-900">
-                  Seva Activity
+                  Seva Activity <span className="text-red-600">*</span>
                 </div>
                 <input
                   type="text"
@@ -198,67 +202,46 @@ export default function LogHoursPage() {
                   onChange={(e) => setActivity(e.target.value)}
                   placeholder="e.g. Food Service, Medical Camp, Teaching"
                   disabled={submitSuccess}
+                  required
                   className="mt-3 w-full rounded-none border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed"
                 />
               </div>
 
-              {/* Participate + Hours row */}
-              <div className="grid gap-6 md:grid-cols-2 md:items-end">
-                <div>
-                  <div className="text-lg font-semibold text-zinc-900">
-                    Did you participate?
-                  </div>
-                  <div className="mt-3 flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-zinc-900">
-                      <input
-                        type="radio"
-                        name="participated"
-                        checked={participated === "yes"}
-                        onChange={() => setParticipated("yes")}
-                        disabled={submitSuccess}
-                      />
-                      <span className="font-medium">Yes</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 text-zinc-900">
-                      <input
-                        type="radio"
-                        name="participated"
-                        checked={participated === "no"}
-                        onChange={() => setParticipated("no")}
-                        disabled={submitSuccess}
-                      />
-                      <span className="font-medium">No</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <input
-                    value={hours}
-                    onChange={(e) => setHours(e.target.value)}
-                    placeholder="Enter Hours Served"
-                    disabled={submitSuccess}
-                    className="w-full rounded-lg border border-emerald-700/40 bg-white px-5 py-3 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {/* Date — label + visible "Select date" so picker is obvious on mobile; scroll into view when opening */}
+              {/* Enter Hours Served */}
               <div>
                 <div className="text-lg font-semibold text-zinc-900">
-                  Date of Service
+                  Enter Hours Served <span className="text-red-600">*</span>
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.5"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                  placeholder="e.g. 2 or 2.5"
+                  disabled={submitSuccess}
+                  required
+                  className="mt-3 w-full rounded-lg border border-emerald-700/40 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Date — label + visible "Select date" so picker is obvious on mobile; current or past only */}
+              <div>
+                <div className="text-lg font-semibold text-zinc-900">
+                  Date of Service <span className="text-red-600">*</span>
                 </div>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <input
                     ref={dateInputRef}
                     type="date"
                     value={date}
+                    max={todayYyyyMmDd}
                     onChange={(e) => setDate(e.target.value)}
                     onFocus={(e) => {
                       e.target.scrollIntoView({ behavior: "smooth", block: "center" });
                     }}
                     disabled={submitSuccess}
+                    required
                     className="w-full min-w-0 flex-1 rounded-none border border-zinc-500 bg-white px-5 py-4 text-zinc-800 shadow-sm outline-none disabled:bg-zinc-100 disabled:cursor-not-allowed [color-scheme:light]"
                   />
                   <button
@@ -279,7 +262,7 @@ export default function LogHoursPage() {
                   </button>
                 </div>
                 <p className="mt-1.5 text-sm text-zinc-600">
-                  Tap the field or &quot;Select date&quot; to open the calendar.
+                  Current or past date only. Tap the field or &quot;Select date&quot; to open the calendar.
                 </p>
               </div>
 

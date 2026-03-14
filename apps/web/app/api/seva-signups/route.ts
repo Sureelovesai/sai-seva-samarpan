@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { formatActivityDateTime } from "@/lib/formatSevaDateTime";
 
 function escapeHtml(s: string): string {
   return s
@@ -17,7 +18,7 @@ function escapeHtml(s: string): string {
  * 1. Confirmation email to the volunteer.
  * 2. Notification email to the seva coordinator (if coordinatorEmail is set).
  * 24h before activity start, volunteers and coordinator get reminders via /api/cron/seva-reminders.
- * Body: { activityId: string, name: string, email: string, phone?: string, adultsCount?: number, kidsCount?: number }
+ * Body: { activityId: string, name: string, email: string, phone: string, adultsCount?: number, kidsCount?: number }
  * adultsCount = adults including the primary volunteer (default 1). Can be 0 when only kids participate. kidsCount = number of children (default 0).
  */
 export async function POST(req: Request) {
@@ -33,6 +34,12 @@ export async function POST(req: Request) {
     if (!activityId || !name || !email) {
       return NextResponse.json(
         { error: "Activity, name, and email are required" },
+        { status: 400 }
+      );
+    }
+    if (!phone) {
+      return NextResponse.json(
+        { error: "Phone number is required" },
         { status: 400 }
       );
     }
@@ -52,6 +59,8 @@ export async function POST(req: Request) {
         coordinatorEmail: true,
         capacity: true,
         startDate: true,
+        startTime: true,
+        endTime: true,
         locationName: true,
       },
     });
@@ -110,9 +119,11 @@ export async function POST(req: Request) {
     }
 
     if (activity.coordinatorEmail?.trim()) {
-      const startStr = activity.startDate
-        ? activity.startDate.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" })
-        : "TBD";
+      const startStr = formatActivityDateTime(
+        activity.startDate,
+        activity.startTime,
+        activity.endTime
+      );
       const coordinatorEmailResult = await sendEmail({
         to: activity.coordinatorEmail.trim(),
         subject: `New volunteer joined: ${activityTitle}`,

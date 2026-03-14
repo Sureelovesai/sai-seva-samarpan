@@ -84,7 +84,13 @@ function DashboardContent() {
         if (!res.ok) return;
         const data = await res.json();
         if (!Array.isArray(data) || cancelled) return;
-        setUpcoming(data);
+        const seen = new Set<string>();
+        const deduped = data.filter((a: UpcomingActivity) => {
+          if (!a?.id || seen.has(a.id)) return false;
+          seen.add(a.id);
+          return true;
+        });
+        setUpcoming(deduped);
       } finally {
         if (!cancelled) setUpcomingLoading(false);
       }

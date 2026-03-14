@@ -117,7 +117,7 @@ export function SiteHeader() {
           </Link>
 
           <div className="min-w-0 flex-1 hidden md:block landscape-desktop:block">
-            <nav className="flex flex-wrap items-center gap-x-10 gap-y-1 text-[16px] sm:text-lg">
+            <nav className="flex flex-wrap items-center gap-x-8 gap-y-1 text-sm sm:text-base">
               {topLinks.map((l) => (
                 <Link key={l.href} href={l.href} className={linkClass(l.href)}>
                   {l.label}
@@ -207,7 +207,7 @@ export function SiteHeader() {
               </div>
             </nav>
             {secondRow.length > 0 && (
-            <nav className="mt-0.5 flex flex-wrap items-center gap-x-12 gap-y-1 text-[16px] sm:text-lg">
+            <nav className="mt-0.5 flex flex-wrap items-center gap-x-8 gap-y-1 text-sm sm:text-base">
               {secondRow.map((l) => (
                 <Link
                   key={l.href}
@@ -228,7 +228,7 @@ export function SiteHeader() {
               {authChecked && (
                 user ? (
                   <>
-                    <span className="text-zinc-600 text-sm">Hi, {user.firstName || user.name || user.email}</span>
+                    <span className="text-xs text-zinc-600 sm:text-sm">Hi, {user.firstName || user.name || user.email}</span>
                     <button type="button" onClick={handleLogout} className="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2">
                       Logout
                     </button>
@@ -258,11 +258,11 @@ export function SiteHeader() {
         {menuOpen && (
           <div className="mt-3 flex flex-col gap-1 border-t border-gray-200 pt-3 md:hidden landscape-desktop:hidden">
             {topLinks.map((l) => (
-              <Link key={l.href} href={l.href} className={`block py-2 text-[16px] ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
+              <Link key={l.href} href={l.href} className={`block py-2 text-sm ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
                 {l.label}
               </Link>
             ))}
-            <span className="mt-2 block py-1 text-sm font-semibold text-zinc-500">About Us</span>
+            <span className="mt-2 block py-1 text-xs font-semibold text-zinc-500">About Us</span>
             {ABOUT_LINKS.map((item) =>
               item.openInNewTab ? (
                 <a
@@ -271,7 +271,7 @@ export function SiteHeader() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 pl-3 text-[16px] text-zinc-800 hover:text-blue-700"
+                  className="block py-1.5 pl-3 text-sm text-zinc-800 hover:text-blue-700"
                 >
                   {item.label}
                 </a>
@@ -280,13 +280,13 @@ export function SiteHeader() {
                   key={item.href}
                   href={externalViewHref(item.href)}
                   onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 pl-3 text-[16px] text-zinc-800 hover:text-blue-700"
+                  className="block py-1.5 pl-3 text-sm text-zinc-800 hover:text-blue-700"
                 >
                   {item.label}
                 </Link>
               )
             )}
-            <span className="mt-2 block py-1 text-sm font-semibold text-zinc-500">Resources</span>
+            <span className="mt-2 block py-1 text-xs font-semibold text-zinc-500">Resources</span>
             {RESOURCES_LINKS.map((item) =>
               item.openInNewTab ? (
                 <a
@@ -295,7 +295,7 @@ export function SiteHeader() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 pl-3 text-[16px] text-zinc-800 hover:text-blue-700"
+                  className="block py-1.5 pl-3 text-sm text-zinc-800 hover:text-blue-700"
                 >
                   {item.label}
                 </a>
@@ -304,24 +304,24 @@ export function SiteHeader() {
                   key={item.href}
                   href={externalViewHref(item.href)}
                   onClick={() => setMenuOpen(false)}
-                  className="block py-1.5 pl-3 text-[16px] text-zinc-800 hover:text-blue-700"
+                  className="block py-1.5 pl-3 text-sm text-zinc-800 hover:text-blue-700"
                 >
                   {item.label}
                 </Link>
               )
             )}
             {secondRow.map((l) => (
-              <Link key={l.href} href={l.href} className={`block py-2 text-[16px] ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
+              <Link key={l.href} href={l.href} className={`block py-2 text-sm ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
                 {l.label}
               </Link>
             ))}
             {!user && (
-              <Link href="/login" className={`block py-2 text-[16px] ${linkClass("/login")}`} onClick={() => setMenuOpen(false)}>
+              <Link href="/login" className={`block py-2 text-sm ${linkClass("/login")}`} onClick={() => setMenuOpen(false)}>
                 Login
               </Link>
             )}
             {user && (
-              <button type="button" onClick={() => { setMenuOpen(false); handleLogout(); }} className="block py-2 text-left text-[16px] font-semibold text-red-600 hover:text-red-700">
+              <button type="button" onClick={() => { setMenuOpen(false); handleLogout(); }} className="block py-2 text-left text-sm font-semibold text-red-600 hover:text-red-700">
                 Logout
               </button>
             )}
