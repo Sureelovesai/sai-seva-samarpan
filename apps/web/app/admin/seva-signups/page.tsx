@@ -111,12 +111,13 @@ function SevaSignUpsContent() {
       return;
     }
     setLoadError(null);
-    const headers = ["Name", "Email", "Phone", "Status", "Date"];
+    const headers = ["Seva Activity", "Name", "Email", "Phone", "Status", "Date"];
     const rows = realSignups.map((s) => {
       const dateStr = s.createdAt
         ? new Date(s.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
         : "";
       return [
+        escapeCsvCell(s.activity?.title ?? ""),
         escapeCsvCell(s.volunteerName),
         escapeCsvCell(s.email),
         escapeCsvCell(s.phone ?? ""),
@@ -317,6 +318,7 @@ function SevaSignUpsContent() {
           {displayCards.map((c) => (
             <div key={c.id} className="rounded-lg border border-zinc-300 bg-zinc-200/90 px-6 py-8 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
               <div className="space-y-6">
+                <Field label="Seva Activity" value={c.activity?.title ?? "—"} />
                 <Field label="Name" value={c.volunteerName} />
                 <Field label="Email" value={c.email} />
                 <Field label="Phone" value={c.phone ?? "—"} />

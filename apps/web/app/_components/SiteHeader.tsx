@@ -80,11 +80,14 @@ export function SiteHeader() {
     router.refresh();
   }
 
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+
   const linkClass = (href: string) =>
-    `underline underline-offset-4 transition-colors ${
-      pathname === href
-        ? "text-blue-700 font-semibold decoration-blue-600"
-        : "text-zinc-800 hover:text-blue-700"
+    `transition-colors ${
+      isActive(href)
+        ? "text-blue-700 font-semibold underline underline-offset-4 decoration-blue-600"
+        : "text-zinc-800 hover:text-blue-700 no-underline"
     }`;
 
   // Top row: same for everyone (non-logged-in users see "To view this you should login" on dashboard)
@@ -99,28 +102,18 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
-      <div className="mx-auto max-w-6xl px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2 md:pl-16 md:pr-4">
+      <div className="mx-auto max-w-6xl px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2 md:pl-6 md:pr-4">
         <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex shrink-0 items-center gap-0" onClick={() => setMenuOpen(false)}>
-            <div className="relative flex h-14 w-[120px] shrink-0 items-center justify-start sm:h-[58px] sm:w-[144px] md:h-[72px] md:w-[156px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo-left.jpeg"
-                alt="Sri Sathya Sai Seva Samarpan"
-                width={156}
-                height={72}
-                fetchPriority="high"
-                className="h-full w-auto max-w-full object-contain object-left"
-                style={{
-                  imageRendering: "-webkit-optimize-contrast",
-                  filter: "contrast(1.15) brightness(1.02) saturate(1.05)",
-                }}
-              />
-            </div>
-            <span className="-ml-14 block text-left font-serif font-extrabold uppercase leading-tight tracking-wide sm:-ml-16 md:-ml-20" style={{ color: "#1e3a8a", WebkitFontSmoothing: "antialiased", letterSpacing: "0.04em" }}>
-              <span className="block text-sm sm:text-base md:text-lg">Sri Sathya Sai</span>
-              <span className="block text-[10px] sm:text-xs md:text-sm mt-0.5">Seva Samarpan</span>
-            </span>
+          <Link href="/" className="flex shrink-0 items-center md:mr-10" onClick={() => setMenuOpen(false)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Sri Sathya Sai Seva Samarpan"
+              width={156}
+              height={72}
+              fetchPriority="high"
+              className="h-[88px] w-auto max-w-[200px] object-contain object-left sm:h-[92px] sm:max-w-[220px] md:h-20 md:max-w-[280px]"
+            />
           </Link>
 
           <div className="min-w-0 flex-1 hidden md:block">
@@ -138,7 +131,7 @@ export function SiteHeader() {
                     setResourcesOpen(false);
                     setAboutOpen((o) => !o);
                   }}
-                  className={`inline-flex items-center gap-0.5 underline underline-offset-4 transition-colors ${aboutOpen ? "text-blue-700 font-semibold decoration-blue-600" : "text-zinc-800 hover:text-blue-700"}`}
+                  className={`inline-flex items-center gap-0.5 transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
                 >
                   About Us
                   <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
@@ -179,7 +172,7 @@ export function SiteHeader() {
                     setAboutOpen(false);
                     setResourcesOpen((o) => !o);
                   }}
-                  className={`inline-flex items-center gap-0.5 underline underline-offset-4 transition-colors ${resourcesOpen ? "text-blue-700 font-semibold decoration-blue-600" : "text-zinc-800 hover:text-blue-700"}`}
+                  className={`inline-flex items-center gap-0.5 transition-colors ${resourcesOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
                 >
                   Resources
                   <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
@@ -214,7 +207,7 @@ export function SiteHeader() {
               </div>
             </nav>
             {secondRow.length > 0 && (
-            <nav className="mt-2 flex flex-wrap items-center gap-x-12 gap-y-1 text-[16px] sm:text-lg">
+            <nav className="mt-0.5 flex flex-wrap items-center gap-x-12 gap-y-1 text-[16px] sm:text-lg">
               {secondRow.map((l) => (
                 <Link
                   key={l.href}
@@ -231,7 +224,7 @@ export function SiteHeader() {
               ))}
             </nav>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-6 gap-y-1">
               {authChecked && (
                 user ? (
                   <>
@@ -241,7 +234,7 @@ export function SiteHeader() {
                     </button>
                   </>
                 ) : (
-                  <Link href="/login" className={pathname === "/login" ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}>
+                  <Link href="/login" className={linkClass("/login")}>
                     Login
                   </Link>
                 )

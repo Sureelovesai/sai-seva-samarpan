@@ -75,14 +75,12 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(activities);
-  } catch (error: any) {
-    console.error("Seva GET error:", error);
-
+  } catch (e: unknown) {
+    const err = e as Error & { error?: Error; message?: string };
+    const detail = err?.error?.message ?? err?.message ?? (typeof e === "object" && e !== null ? String(e) : String(e));
+    console.error("Seva GET error:", detail, e);
     return NextResponse.json(
-      {
-        error: "Failed to load activities",
-        detail: error?.message || String(error),
-      },
+      { error: "Failed to load activities", detail },
       { status: 500 }
     );
   }

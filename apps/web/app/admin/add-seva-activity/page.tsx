@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
@@ -177,35 +176,33 @@ export default function AddSevaActivityPage() {
 
         {/* TITLE ROW */}
         <div className="mt-6 text-center">
-          <div className="text-5xl font-extrabold italic tracking-wide text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.30)] md:text-6xl">
+          <div className="text-5xl font-black italic tracking-wide text-indigo-900 drop-shadow-[0_2px_0_rgba(255,255,255,0.8)] md:text-6xl" style={{ textShadow: "0 2px 0 rgba(255,255,255,0.9), 0 3px 6px rgba(0,0,0,0.25)" }}>
             CREATE SEVA ACTIVITY
           </div>
         </div>
 
         {/* TOP IMAGE ROW */}
         <section className="mt-6 grid gap-8 md:grid-cols-2 md:items-start">
-          {/* Left: Create Seva image placeholder */}
+          {/* Left: Create Seva image */}
           <div className="mx-auto w-full max-w-[520px]">
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-none bg-white shadow-[0_12px_26px_rgba(0,0,0,0.28)]">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/create-seva-graphic.jpg"
                 alt="Create Seva Graphic"
-                fill
-                className="object-contain"
-                priority
+                className="h-full w-full object-contain"
               />
             </div>
           </div>
 
-          {/* Right: Swami image placeholder */}
+          {/* Right: Swami image */}
           <div className="mx-auto w-full max-w-[520px]">
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-none bg-white shadow-[0_12px_26px_rgba(0,0,0,0.28)]">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/swami-create-seva.jpg"
                 alt="Swami"
-                fill
-                className="object-cover"
-                priority
+                className="h-full w-full object-cover"
               />
             </div>
           </div>
@@ -289,11 +286,11 @@ export default function AddSevaActivityPage() {
               {imageUrl && (
                 <div className="mt-4 flex items-start gap-3">
                   <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded border border-zinc-300 bg-zinc-100">
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={imageUrl}
                       alt="Activity"
-                      fill
-                      className="object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                   <div className="min-w-0 flex-1">

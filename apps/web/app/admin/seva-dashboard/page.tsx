@@ -261,7 +261,8 @@ export default function SevaAdminDashboardPage() {
       const res = await fetch(`/api/admin/export-activities?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Export failed");
       const data = (await res.json()) as Array<{
-        title: string;
+        sevaActivity?: string;
+        title?: string;
         category: string;
         city: string;
         startDate: string | null;
@@ -274,9 +275,9 @@ export default function SevaAdminDashboardPage() {
         signupCount: number;
       }>;
       const rows: string[][] = [
-        ["Title", "Category", "Center", "Start Date", "End Date", "Start Time", "End Time", "Status", "Active", "Capacity", "Signups"],
+        ["Seva Activity", "Category", "Center", "Start Date", "End Date", "Start Time", "End Time", "Status", "Active", "Capacity", "Signups"],
         ...data.map((a) => [
-          a.title,
+          (a.sevaActivity ?? a.title ?? "").trim(),
           a.category,
           a.city,
           a.startDate ? new Date(a.startDate).toLocaleDateString() : "",

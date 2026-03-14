@@ -122,7 +122,10 @@ function FeaturedSevaSection() {
   const maxIndex = Math.max(0, total - cardsPerView);
   const goPrev = () => setSlideIndex((i) => (i <= 0 ? maxIndex : i - 1));
   const goNext = () => setSlideIndex((i) => (i >= maxIndex ? 0 : i + 1));
-  const translatePercent = total > 0 ? (slideIndex * 100) / cardsPerView : 0;
+  // Track width = total * (100/cardsPerView) % of container; each card = (100/total) % of track so card = (100/cardsPerView) % of container
+  const trackWidthPercent = total > 0 ? (total * 100) / cardsPerView : 100;
+  const cardWidthPercentOfTrack = total > 0 ? 100 / total : 100;
+  const translatePercent = total > 0 ? (slideIndex / total) * 100 : 0;
 
   return (
     <section
@@ -149,19 +152,23 @@ function FeaturedSevaSection() {
           No featured activities yet. Mark activities as Featured in Add Seva Activity or Manage Seva → Edit.
         </div>
       ) : (
-        <div className="relative mx-auto max-w-6xl px-4">
-          {/* Slider track */}
+        <div className="relative mx-auto max-w-6xl px-2 sm:px-4">
+          {/* Slider: explicit track width and card % of track so each slide shows exactly 1 or 2 full cards */}
           <div className="overflow-hidden">
             <div
-              className="flex transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${translatePercent}%)` }}
+              className="flex shrink-0 transition-transform duration-300 ease-out"
+              style={{
+                width: `${trackWidthPercent}%`,
+                transform: `translateX(-${translatePercent}%)`,
+              }}
             >
               {activities.map((c) => (
                 <div
                   key={c.id}
-                  className="min-w-full shrink-0 px-2 sm:min-w-[50%] sm:px-3"
+                  className="flex shrink-0 flex-col px-1 sm:px-2"
+                  style={{ width: `${cardWidthPercentOfTrack}%`, minWidth: `${cardWidthPercentOfTrack}%` }}
                 >
-                  <div className="mx-auto grid h-[420px] max-w-2xl grid-cols-1 overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] sm:h-[460px] sm:grid-cols-[1fr_1.4fr]">
+                  <div className="mx-auto grid h-[380px] w-full max-w-[420px] grid-cols-1 overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] sm:h-[440px] sm:max-w-none sm:grid-cols-[1fr_1.4fr]">
                     <div className={`flex min-h-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-6 text-white sm:p-8`}>
                       <div className="text-xl font-bold leading-tight sm:text-2xl">
                         {c.title}
@@ -334,17 +341,16 @@ function OurImpactSection() {
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      {/* HERO WHEEL — 1600×900 (16:9). Portrait: size by height (75vh) so image is big, 16:9, no top/bottom space; center and clip sides. Desktop: width-based aspect-video. */}
+      {/* HERO — full-width image under the menu. */}
       <section
         className="-mt-2 w-full overflow-hidden py-0"
         style={{
-          background: "linear-gradient(180deg, #e0f2fe 0%, #bae6fd 25%, #7dd3fc 50%, #38bdf8 75%, #0ea5e9 100%)",
+          background: "linear-gradient(180deg, #f8fcff 0%, #e8f7fe 20%, #d4f0fd 45%, #b0e5fc 70%, #7dd3fa 100%)",
         }}
       >
         <div className="w-full px-0 py-0">
-          <div className="relative flex h-[calc(100vh-5rem-10px)] w-full items-center justify-center overflow-hidden">
-            {/* Banner at 92% size so nothing is cut or overflows. */}
-            <div className="relative h-[92%] w-[92%] min-h-0">
+          <div className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px]">
+            <div className="relative h-full w-full min-h-0">
               <Image
                 src="/banner_newest.png"
                 alt="Seva Wheel"
@@ -354,19 +360,11 @@ export default function HomePage() {
                 sizes="100vw"
               />
               <Image
-                src="/banner_new.png"
+                src="/mobile_copy_newest.png"
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-top md:hidden portrait:max-md:hidden"
-                sizes="100vw"
-              />
-              <Image
-                src="/mobile_banner.png"
-                alt="Seva Wheel"
-                fill
-                priority
-                className="object-contain object-top hidden portrait:max-md:block"
+                className="object-contain object-top md:hidden"
                 sizes="100vw"
               />
             </div>

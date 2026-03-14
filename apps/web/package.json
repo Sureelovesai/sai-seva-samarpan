@@ -18,6 +18,7 @@
     "reset-seva-activities": "node scripts/reset-all-data.js"
   },
   "dependencies": {
+    "@vercel/blob": "^0.25.0",
     "@prisma/adapter-neon": "^6.15.0",
     "@prisma/client": "^6.15.0",
     "next": "16.1.6",

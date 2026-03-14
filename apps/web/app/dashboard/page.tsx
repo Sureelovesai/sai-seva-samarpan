@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -120,15 +119,14 @@ function DashboardContent() {
     <div className="w-full bg-[#FFF2A8]">
       <section className="mx-auto max-w-6xl px-4 py-8 md:py-10">
         
-        {/* Top image - slightly bigger & tighter */}
+        {/* Top image - Love All Serve All */}
         <div className="flex justify-center">
           <div className="relative h-[130px] w-[200px] md:h-[160px] md:w-[240px]">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/love-all-serve-all.jpg"
               alt="Love All Serve All"
-              fill
-              className="object-contain"
-              priority
+              className="h-full w-full object-contain"
             />
           </div>
         </div>

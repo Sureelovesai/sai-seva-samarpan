@@ -51,7 +51,9 @@ export async function GET() {
       hours: totalHours,
     });
   } catch (e: unknown) {
-    console.error("Impact stats error:", e);
-    return NextResponse.json({ error: "Failed to load impact stats", detail: (e as Error)?.message }, { status: 500 });
+    const err = e as Error & { error?: Error; message?: string };
+    const detail = err?.error?.message ?? err?.message ?? (typeof e === "object" && e !== null ? String(e) : String(e));
+    console.error("Impact stats error:", detail, e);
+    return NextResponse.json({ error: "Failed to load impact stats", detail }, { status: 500 });
   }
 }

@@ -69,6 +69,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       activities.map((a: (typeof activities)[number]) => ({
         id: a.id,
+        sevaActivity: a.title ?? "",
         title: a.title,
         category: a.category,
         city: a.city,
