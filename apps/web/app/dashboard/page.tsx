@@ -322,8 +322,9 @@ function UpcomingSignupModal({
           setComment(data.comment ?? "");
         }
       })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message ?? "Failed to load");
+      .catch((e: unknown) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -347,8 +348,8 @@ function UpcomingSignupModal({
         throw new Error(data?.error ?? "Failed to save");
       }
       onSaved();
-    } catch (e: Error) {
-      setError(e.message ?? "Failed to save");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -370,8 +371,8 @@ function UpcomingSignupModal({
         throw new Error(data?.error ?? "Failed to withdraw");
       }
       onSaved(signupId);
-    } catch (e: Error) {
-      setError(e.message ?? "Failed to withdraw");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to withdraw");
     } finally {
       setWithdrawing(false);
     }
