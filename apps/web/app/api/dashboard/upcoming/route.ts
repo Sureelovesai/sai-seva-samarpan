@@ -27,10 +27,11 @@ export async function GET(req: Request) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Only activities where the user joined with the same email they're signed in with
+    // Only activities where the user joined with the same email they're signed in with (exclude withdrawn)
     const signups = await prisma.sevaSignup.findMany({
       where: {
         email: { equals: signedInEmail, mode: "insensitive" },
+        status: { in: ["PENDING", "APPROVED"] },
       },
       include: {
         activity: {
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
       })
       .map((s: (typeof signups)[number]) => ({
         id: s.activity!.id,
+        signupId: s.id,
         title: s.activity!.title,
         startDate: s.activity!.startDate,
         city: s.activity!.city,

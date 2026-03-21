@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+/** YYYY-MM-DD from a Date (UTC calendar day, matches typical stored activity dates). */
+function dateKeyUTC(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Public listings (Find Seva, featured on Home, Join page): hide activities whose last day has passed.
+ * Uses endDate if set, otherwise startDate (same-day activities use that day as the last day).
+ * Undated activities (no start/end) stay listed. Does not delete data — analytics / dashboards still use historical signups & hours.
+ */
+function isStillOpenForPublicListing(a: { startDate: Date | null; endDate: Date | null }): boolean {
+  const lastDay = a.endDate ?? a.startDate;
+  if (!lastDay) return true;
+  const lastKey = dateKeyUTC(lastDay);
+  const todayKey = dateKeyUTC(new Date());
+  return lastKey >= todayKey;
+}
+
 /**
  * GET /api/seva-activities
  * Returns active seva activities
@@ -9,6 +27,9 @@ import { prisma } from "@/lib/prisma";
  *   - city
  *   - q (search text)
  *   - featured (true = only activities with isFeatured true)
+ *
+ * Past activities (last calendar day before today) are omitted from this response only;
+ * they remain in the database for analytics, admin, and impact stats.
  */
 export async function GET(req: Request) {
   try {
@@ -74,7 +95,9 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json(activities);
+    const openForListing = activities.filter(isStillOpenForPublicListing);
+
+    return NextResponse.json(openForListing);
   } catch (e: unknown) {
     const err = e as Error & { error?: Error; message?: string };
     const detail = err?.error?.message ?? err?.message ?? (typeof e === "object" && e !== null ? String(e) : String(e));

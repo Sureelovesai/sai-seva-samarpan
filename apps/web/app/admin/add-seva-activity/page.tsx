@@ -60,6 +60,12 @@ export default function AddSevaActivityPage() {
   }, []);
 
   const canSave = useMemo(() => {
+    const capNum = capacity.trim() ? Number(capacity) : NaN;
+    const capacityOk =
+      capacity.trim() !== "" &&
+      Number.isFinite(capNum) &&
+      Number.isInteger(capNum) &&
+      capNum >= 1;
     return (
       title.trim() &&
       category.trim() &&
@@ -72,7 +78,8 @@ export default function AddSevaActivityPage() {
       address.trim() &&
       coordinatorName.trim() &&
       coordinatorEmail.trim() &&
-      coordinatorPhone.trim()
+      coordinatorPhone.trim() &&
+      capacityOk
     );
   }, [
     title,
@@ -87,6 +94,7 @@ export default function AddSevaActivityPage() {
     coordinatorName,
     coordinatorEmail,
     coordinatorPhone,
+    capacity,
   ]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -118,7 +126,7 @@ export default function AddSevaActivityPage() {
     if (!canSave) {
       setMsg({
         kind: "err",
-        text: "Please fill all required fields: Seva Activity, Category, Start Date, End Date, Start Time, End Time, Duration, City, Address, Coordinator Name, Coordinator Email, and Coordinator Phone.",
+        text: "Please fill all required fields: Seva Activity, Category, Start Date, End Date, Start Time, End Time, Duration, City, Address, Capacity (whole number ≥ 1), Coordinator Name, Coordinator Email, and Coordinator Phone.",
       });
       return;
     }
@@ -129,7 +137,7 @@ export default function AddSevaActivityPage() {
         title: title.trim(),
         category: category.trim(),
         description: description.trim() || undefined,
-        capacity: capacity.trim() ? Number(capacity) : undefined,
+        capacity: Number(capacity.trim()),
 
         // keep these simple for now
         startDate: startDate ? new Date(startDate + "T12:00:00").toISOString() : undefined,
@@ -283,9 +291,13 @@ export default function AddSevaActivityPage() {
 
             <div className="px-5 py-6">
               <label className="block text-sm font-semibold text-zinc-800">
-                Capacity
+                Capacity <span className="text-red-600">*</span>
               </label>
               <input
+                type="number"
+                min={1}
+                step={1}
+                required
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
                 placeholder="# Volunteers Required"

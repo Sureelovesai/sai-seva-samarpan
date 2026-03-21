@@ -122,18 +122,32 @@ function timeToAMPM(hhmm: string | null): string {
   return `${h12}:${min} ${ampm}`;
 }
 
+/** Format ISO date to short local date string, or "" if invalid/missing */
+function formatDateOnly(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const dateOnly = String(iso).slice(0, 10);
+  const [y, mo, day] = dateOnly.split("-").map(Number);
+  if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(day)) return "";
+  const d = new Date(y, mo - 1, day);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 function formatWhenWhere(a: SevaActivity) {
   const city = a.city || "";
-  const dateStr = a.startDate
-    ? (() => {
-        const iso = String(a.startDate);
-        const dateOnly = iso.slice(0, 10);
-        const [y, mo, day] = dateOnly.split("-").map(Number);
-        if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(day)) return "";
-        const d = new Date(y, mo - 1, day);
-        return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-      })()
-    : "";
+  const startStr = formatDateOnly(a.startDate);
+  const endStr = formatDateOnly(a.endDate);
+
+  let dateStr = "";
+  if (startStr && endStr) {
+    dateStr =
+      startStr === endStr
+        ? startStr
+        : `${startStr} – ${endStr}`;
+  } else if (startStr) {
+    dateStr = startStr;
+  } else if (endStr) {
+    dateStr = endStr;
+  }
 
   const startAMPM = timeToAMPM(a.startTime);
   const endAMPM = timeToAMPM(a.endTime);

@@ -1097,14 +1097,14 @@ function AdminTile(props: {
         )}
       </div>
 
-      {/* Rounded pill button - same as other 3 tiles */}
-      <div className="flex min-h-[88px] items-center justify-center py-5">
+      {/* Green button row */}
+      <div className="flex min-h-[98px] items-center justify-center pt-8 pb-5">
         <Link
           href={props.href}
           className="inline-flex min-h-[52px] min-w-0 items-center justify-center gap-4 rounded-full bg-emerald-800 px-10 py-3.5 text-lg font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition hover:bg-emerald-900"
         >
-          <span className="min-h-[1.5rem] leading-tight">{props.buttonText}</span>
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-2xl leading-none">
+          <span className="leading-tight">{props.buttonText}</span>
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-2xl leading-none">
             ›
           </span>
         </Link>

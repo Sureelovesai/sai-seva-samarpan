@@ -18,6 +18,7 @@ function escapeHtml(s: string): string {
  * 1. Confirmation email to the volunteer.
  * 2. Notification email to the seva coordinator (if coordinatorEmail is set).
  * 24h before activity start, volunteers and coordinator get reminders via /api/cron/seva-reminders.
+ * Capacity uses only APPROVED signups; if joining would exceed capacity, status is PENDING (waitlist).
  * Body: { activityId: string, name: string, email: string, phone: string, adultsCount?: number, kidsCount?: number }
  * adultsCount = adults including the primary volunteer (default 1). Can be 0 when only kids participate. kidsCount = number of children (default 0).
  */
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
         title: true,
         coordinatorName: true,
         coordinatorEmail: true,
+        coordinatorPhone: true,
         capacity: true,
         startDate: true,
         startTime: true,
@@ -71,11 +73,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Count current participants (sum of adults + kids) for PENDING + APPROVED signups
+    // Count only APPROVED toward capacity (PENDING = waitlist)
     const existingSignups = await prisma.sevaSignup.findMany({
       where: {
         activityId,
-        status: { in: ["PENDING", "APPROVED"] },
+        status: "APPROVED",
       },
       select: { adultsCount: true, kidsCount: true },
     });
@@ -102,15 +104,42 @@ export async function POST(req: Request) {
     });
 
     const activityTitle = activity.title ?? "Seva Activity";
-    const coordinatorName = activity.coordinatorName ?? "the coordinator";
+    const coordinatorName = activity.coordinatorName?.trim() || "the coordinator";
+    const coordEmail = activity.coordinatorEmail?.trim();
+    const coordPhone = activity.coordinatorPhone?.trim();
+    const contactLine =
+      coordEmail || coordPhone
+        ? ` If you have questions, you may contact ${escapeHtml(coordinatorName)}${coordEmail ? ` at ${escapeHtml(coordEmail)}` : ""}${coordPhone ? `${coordEmail ? " or" : ""} ${escapeHtml(coordPhone)}` : ""}.`
+        : "";
+
+    const startStr = formatActivityDateTime(
+      activity.startDate,
+      activity.startTime,
+      activity.endTime
+    );
 
     const volunteerEmailResult = await sendEmail({
       to: email,
-      subject: `You've joined: ${activityTitle}`,
-      html: `
+      subject:
+        status === "PENDING"
+          ? `Pending: ${activityTitle} (waitlist)`
+          : `You've joined: ${activityTitle}`,
+      html:
+        status === "PENDING"
+          ? `
+        <p>Dear ${escapeHtml(name)},</p>
+        <p>Thank you for your interest in the seva activity: <strong>${escapeHtml(activityTitle)}</strong>.</p>
+        <p>Your sign-up is <strong>pending</strong> because the activity is at capacity. You are on the <strong>waitlist</strong>. If a spot opens, you will receive another email when your sign-up is approved.</p>
+        <p><strong>When:</strong> ${escapeHtml(startStr)}</p>
+        ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
+        <p><strong>Participants requested:</strong> ${adultsCount} adult(s), ${kidsCount} child(ren)</p>
+        <p>You will not receive the usual 24-hour reminder until your sign-up is approved.${contactLine}</p>
+        <p>Jai Sai Ram.</p>
+      `
+          : `
         <p>Dear ${escapeHtml(name)},</p>
         <p>Thank you for joining the seva activity: <strong>${escapeHtml(activityTitle)}</strong>.</p>
-        <p>Your sign-up has been recorded. You will receive a reminder 24 hours before the activity starts.${activity.coordinatorEmail ? ` If you have questions, you may contact ${escapeHtml(coordinatorName)} at ${escapeHtml(activity.coordinatorEmail)}.` : ""}</p>
+        <p>Your sign-up has been <strong>approved</strong>. You will receive a reminder 24 hours before the activity starts.${contactLine}</p>
         <p>Jai Sai Ram.</p>
       `,
     });
@@ -118,17 +147,15 @@ export async function POST(req: Request) {
       console.error("Seva signup: volunteer email failed", volunteerEmailResult.error ?? volunteerEmailResult.skipped);
     }
 
-    if (activity.coordinatorEmail?.trim()) {
-      const startStr = formatActivityDateTime(
-        activity.startDate,
-        activity.startTime,
-        activity.endTime
-      );
+    if (coordEmail) {
       const coordinatorEmailResult = await sendEmail({
-        to: activity.coordinatorEmail.trim(),
-        subject: `New volunteer joined: ${activityTitle}`,
+        to: coordEmail,
+        subject:
+          status === "PENDING"
+            ? `Waitlist sign-up: ${activityTitle}`
+            : `New volunteer joined: ${activityTitle}`,
         html: `
-          <p>A new volunteer has signed up for your seva activity.</p>
+          <p>${status === "PENDING" ? "A volunteer has joined the <strong>waitlist</strong> (pending — activity at capacity)." : "A new volunteer has signed up for your seva activity (approved)."}</p>
           <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
           <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
           ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
@@ -136,6 +163,7 @@ export async function POST(req: Request) {
           <p><strong>Email:</strong> ${escapeHtml(email)}</p>
           ${phone ? `<p><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}
           <p><strong>Participants:</strong> ${adultsCount} adult(s), ${kidsCount} child(ren) — ${adultsCount + kidsCount} total</p>
+          <p><strong>Status:</strong> ${status === "PENDING" ? "PENDING (waitlist)" : "APPROVED"}</p>
           <p>Jai Sai Ram.</p>
         `,
       });

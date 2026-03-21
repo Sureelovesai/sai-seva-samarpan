@@ -106,6 +106,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Coordinator phone number is required" }, { status: 400 });
     }
 
+    const capacityNum = toIntOrNull(body.capacity);
+    if (
+      capacityNum === null ||
+      !Number.isInteger(capacityNum) ||
+      capacityNum < 1
+    ) {
+      return NextResponse.json(
+        { error: "Capacity is required and must be a whole number of at least 1" },
+        { status: 400 }
+      );
+    }
+
     if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
       const allowed = session.coordinatorCities.some(
         (c) => c.trim().toLowerCase() === city.toLowerCase()
@@ -134,7 +146,7 @@ export async function POST(req: Request) {
         locationName: body.locationName?.trim?.() || null,
         address,
 
-        capacity: toIntOrNull(body.capacity),
+        capacity: capacityNum,
 
         coordinatorName,
         coordinatorEmail,

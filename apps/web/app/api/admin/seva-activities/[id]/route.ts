@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionWithRole } from "@/lib/getRole";
+import { sendEmail } from "@/lib/email";
+import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function toIntOrNull(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -60,6 +71,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
     }
 
+    const oldCapacity = existing.capacity;
+
     const updated = await prisma.sevaActivity.update({
       where: { id },
       data: {
@@ -105,11 +118,117 @@ export async function PATCH(
       },
     });
 
+    // More capacity → approve PENDING signups in FIFO order (same helper as when a seat is freed)
+    const newCapacity = updated.capacity;
+    const capacityIncreased =
+      newCapacity != null &&
+      newCapacity > 0 &&
+      (oldCapacity == null || oldCapacity <= 0 || newCapacity > oldCapacity);
+    if (capacityIncreased) {
+      try {
+        await promotePendingSignupsForActivity(id);
+      } catch (promoErr) {
+        console.error(
+          "Admin seva-activities PATCH: promote pending after capacity increase failed",
+          promoErr
+        );
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (e: unknown) {
     console.error("Admin seva-activities PATCH [id] error:", e);
     return NextResponse.json(
       { error: "Failed to update activity", detail: (e as Error)?.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/admin/seva-activities/[id]
+ * Permanently deletes the activity (signups cascade). Before delete, emails
+ * PENDING/APPROVED volunteers that the activity was cancelled and includes coordinator contact.
+ * Admin or Seva Coordinator (only for activities in their cities).
+ */
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role === "VOLUNTEER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: "Activity ID required" }, { status: 400 });
+    }
+
+    const activity = await prisma.sevaActivity.findUnique({
+      where: { id },
+      include: {
+        signups: {
+          where: { status: { in: ["PENDING", "APPROVED"] } },
+          select: { email: true, volunteerName: true },
+        },
+      },
+    });
+
+    if (!activity) {
+      return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+    }
+
+    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
+      const allowed = session.coordinatorCities.some(
+        (c) => c.trim().toLowerCase() === (activity.city ?? "").toLowerCase()
+      );
+      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const title = activity.title ?? "Seva Activity";
+    const coordName = activity.coordinatorName?.trim() || "the coordinator";
+    const coordEmail = activity.coordinatorEmail?.trim();
+    const coordPhone = activity.coordinatorPhone?.trim();
+
+    const coordinatorBlock =
+      coordEmail || coordPhone
+        ? `<p><strong>Coordinator contact (for questions):</strong></p><ul>${coordName ? `<li>Name: ${escapeHtml(coordName)}</li>` : ""}${coordEmail ? `<li>Email: ${escapeHtml(coordEmail)}</li>` : ""}${coordPhone ? `<li>Phone: ${escapeHtml(coordPhone)}</li>` : ""}</ul>`
+        : `<p>For questions, please contact ${escapeHtml(coordName)}.</p>`;
+
+    const emailed = new Set<string>();
+    for (const s of activity.signups) {
+      const to = s.email?.trim();
+      if (!to || emailed.has(to.toLowerCase())) continue;
+      emailed.add(to.toLowerCase());
+      const name = s.volunteerName?.trim() || "Volunteer";
+      const result = await sendEmail({
+        to,
+        subject: `Cancelled: ${title}`,
+        html: `
+          <p>Dear ${escapeHtml(name)},</p>
+          <p>The seva activity <strong>${escapeHtml(title)}</strong> has been <strong>cancelled</strong> and removed from the schedule. Your sign-up for this activity is no longer active.</p>
+          <p>We apologize for any inconvenience.</p>
+          ${coordinatorBlock}
+          <p>Jai Sai Ram.</p>
+        `,
+      });
+      if (!result.ok) {
+        console.error("Activity delete: volunteer email failed", to, result.error ?? result.skipped);
+      }
+    }
+
+    await prisma.sevaActivity.delete({ where: { id } });
+
+    return NextResponse.json({
+      ok: true,
+      deleted: id,
+      emailsSent: emailed.size,
+    });
+  } catch (e: unknown) {
+    console.error("Admin seva-activities DELETE [id] error:", e);
+    return NextResponse.json(
+      { error: "Failed to delete activity", detail: (e as Error)?.message },
       { status: 500 }
     );
   }

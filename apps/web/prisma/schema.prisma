@@ -148,6 +148,7 @@ model SevaSignup {
   adultsCount   Int              @default(1) // adults including the primary volunteer
   kidsCount     Int              @default(0) // number of children
   status        SevaSignupStatus @default(PENDING)
+  comment       String?          // optional note from volunteer (e.g. from My Seva Dashboard)
   createdAt     DateTime        @default(now())
 
   @@index([activityId])

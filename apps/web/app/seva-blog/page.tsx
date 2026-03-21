@@ -356,7 +356,7 @@ export default function SevaBlogPage() {
             },
             {
               section: SECTIONS[2].id,
-              href: "/find-seva",
+              href: "/seva-blog#stories",
               bg: "bg-[#a8b5c4]",
               text: "text-[#2d323d]",
               title: "SSSE & Sai Youth Corner",
@@ -365,7 +365,7 @@ export default function SevaBlogPage() {
             },
             {
               section: SECTIONS[3].id,
-              href: "/find-seva",
+              href: "/seva-blog#stories",
               bg: "bg-[#a8d0d0]",
               text: "text-[#2d3d3d]",
               title: "Sai Inspires",

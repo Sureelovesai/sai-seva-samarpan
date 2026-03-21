@@ -12,7 +12,24 @@ type Activity = {
   description: string | null;
   isActive: boolean;
   status: string;
+  startDate: string | null;
+  endDate: string | null;
 };
+
+/** Last calendar day of the activity (UTC date key); same logic as public listings. */
+function isPastBySchedule(a: Pick<Activity, "startDate" | "endDate">): boolean {
+  const last = a.endDate ?? a.startDate;
+  if (!last) return false;
+  const lastKey = new Date(last).toISOString().slice(0, 10);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  return lastKey < todayKey;
+}
+
+/** Label for the list: date completion overrides the Active flag. */
+function scheduleStatusLabel(a: Activity): "Completed" | "Active" | "Inactive" {
+  if (isPastBySchedule(a)) return "Completed";
+  return a.isActive ? "Active" : "Inactive";
+}
 
 function uniqById<T extends { id: string }>(arr: T[]): T[] {
   const seen = new Set<string>();
@@ -29,6 +46,7 @@ export default function ManageSevaPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadActivities = useCallback(async () => {
     setError(null);
@@ -49,11 +67,39 @@ export default function ManageSevaPage() {
     loadActivities();
   }, [loadActivities]);
 
+  async function handleDeleteActivity(id: string, title: string) {
+    const msg =
+      `Delete "${title}"?\n\nThis cannot be undone. All volunteers who signed up (pending or approved) will receive an email that the activity was cancelled, with coordinator contact information.`;
+    if (!confirm(msg)) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/seva-activities/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.detail || "Delete failed");
+      }
+      await loadActivities();
+    } catch (e: unknown) {
+      setError((e as Error)?.message || "Delete failed.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const filtered = useMemo(() => {
     const text = q.trim().toLowerCase();
     return activities.filter((a) => {
+      const label = scheduleStatusLabel(a);
       const okStatus =
-        status === "All" ? true : status === "Active" ? a.isActive : !a.isActive;
+        status === "All"
+          ? true
+          : status === "Active"
+            ? label === "Active"
+            : label === "Inactive" || label === "Completed";
       const meta = [a.category, a.city, a.description].filter(Boolean).join(" ");
       const okText =
         !text ||
@@ -144,8 +190,8 @@ export default function ManageSevaPage() {
                 className="mt-3 w-full rounded-none border border-zinc-700 bg-white px-5 py-4 text-zinc-900 outline-none"
               >
                 <option value="All">All</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
+                <option value="Active">Active (scheduled, not ended)</option>
+                <option value="Inactive">Inactive or completed</option>
               </select>
             </div>
 
@@ -164,7 +210,9 @@ export default function ManageSevaPage() {
         </div>
 
         <div className="mt-10 space-y-8">
-          {filtered.map((a) => (
+          {filtered.map((a) => {
+            const listStatus = scheduleStatusLabel(a);
+            return (
             <div
               key={a.id}
               className="rounded-none bg-zinc-200/90 px-10 py-10 shadow-[0_10px_25px_rgba(0,0,0,0.18)]"
@@ -180,15 +228,33 @@ export default function ManageSevaPage() {
                 </div>
 
                 <div className="text-center md:text-left">
-                  <div className="text-lg font-bold text-emerald-800">
-                    {a.isActive ? "Active" : "Inactive"}
-                  </div>
-                  <Link
-                    href={`/admin/manage-seva/${a.id}`}
-                    className="mt-6 inline-block w-[170px] bg-blue-500 px-10 py-3 text-center text-white shadow hover:bg-blue-600"
+                  <div
+                    className={`text-lg font-bold ${
+                      listStatus === "Completed"
+                        ? "text-zinc-600"
+                        : listStatus === "Active"
+                          ? "text-emerald-800"
+                          : "text-amber-800"
+                    }`}
                   >
-                    Edit
-                  </Link>
+                    {listStatus}
+                  </div>
+                  <div className="mt-6 flex flex-col gap-3">
+                    <Link
+                      href={`/admin/manage-seva/${a.id}`}
+                      className="inline-block w-[170px] bg-blue-500 px-10 py-3 text-center text-white shadow hover:bg-blue-600"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={deletingId === a.id}
+                      onClick={() => handleDeleteActivity(a.id, a.title)}
+                      className="w-[170px] border-2 border-red-700 bg-white px-6 py-3 text-center text-sm font-semibold text-red-700 shadow hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deletingId === a.id ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-center gap-2 md:items-start">
@@ -204,7 +270,8 @@ export default function ManageSevaPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {!loading && !error && filtered.length === 0 && (
             <div className="rounded-none bg-white/80 p-8 text-center text-zinc-800 shadow">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
+import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
 
 /**
  * DELETE /api/admin/seva-signups/[id]
@@ -35,9 +36,20 @@ export async function DELETE(
       if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const activityId = signup.activityId;
+    const freedApprovedSeat = signup.status === "APPROVED";
+
     await prisma.sevaSignup.delete({
       where: { id },
     });
+
+    if (freedApprovedSeat) {
+      try {
+        await promotePendingSignupsForActivity(activityId);
+      } catch (promoErr) {
+        console.error("Admin seva-signups DELETE: promote pending failed", promoErr);
+      }
+    }
 
     return NextResponse.json({ ok: true, deleted: id });
   } catch (e: unknown) {
@@ -98,6 +110,17 @@ export async function PATCH(
       data: { status: status as "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" },
       include: { activity: { select: { id: true, title: true } } },
     });
+
+    // Promote waitlist only when an APPROVED seat is freed (moved off APPROVED)
+    const freedApprovedSeat =
+      existing.status === "APPROVED" && status !== "APPROVED";
+    if (freedApprovedSeat) {
+      try {
+        await promotePendingSignupsForActivity(existing.activityId);
+      } catch (promoErr) {
+        console.error("Admin seva-signups PATCH: promote pending failed", promoErr);
+      }
+    }
 
     return NextResponse.json(signup);
   } catch (e: unknown) {
