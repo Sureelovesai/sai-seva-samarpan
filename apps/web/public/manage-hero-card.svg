@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 170" width="360" height="170" role="img" aria-label="Manage Seva">
+  <defs>
+    <linearGradient id="mhCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:0.45"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="170" rx="12" fill="#fff"/>
+  <rect width="360" height="170" rx="12" fill="url(#mhCard)"/>
+  <text x="180" y="95" text-anchor="middle" fill="#312e81" font-family="system-ui,Segoe UI,sans-serif" font-size="22" font-weight="700">Manage Seva</text>
+</svg>

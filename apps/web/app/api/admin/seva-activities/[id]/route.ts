@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
+import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
 import { sendEmail } from "@/lib/email";
 import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
 
@@ -18,15 +19,41 @@ function toIntOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const contributionInclude = {
+  contributionItems: {
+    orderBy: { sortOrder: "asc" as const },
+    include: {
+      claims: {
+        where: { status: "CONFIRMED" as const },
+        orderBy: { createdAt: "asc" as const },
+        select: {
+          id: true,
+          quantity: true,
+          volunteerName: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+        },
+      },
+    },
+  },
+} as const;
+
 /**
  * GET /api/admin/seva-activities/[id]
- * Returns a single activity by id.
+ * Returns a single activity with contribution items + volunteer claims (coordinator dashboard).
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role === "VOLUNTEER" || session.role === "BLOG_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "Activity ID required" }, { status: 400 });
@@ -34,10 +61,18 @@ export async function GET(
 
     const activity = await prisma.sevaActivity.findUnique({
       where: { id },
+      include: contributionInclude,
     });
 
     if (!activity) {
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+    }
+
+    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
+      const allowed = session.coordinatorCities.some(
+        (c) => c.trim().toLowerCase() === (activity.city ?? "").toLowerCase()
+      );
+      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(activity);
@@ -59,6 +94,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role === "VOLUNTEER" || session.role === "BLOG_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "Activity ID required" }, { status: 400 });
@@ -69,6 +110,13 @@ export async function PATCH(
     const existing = await prisma.sevaActivity.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
+    }
+
+    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
+      const allowed = session.coordinatorCities.some(
+        (c) => c.trim().toLowerCase() === (existing.city ?? "").toLowerCase()
+      );
+      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const oldCapacity = existing.capacity;
@@ -135,7 +183,26 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json(updated);
+    if (Array.isArray(body.contributionItems)) {
+      try {
+        await syncSevaContributionItems(id, body.contributionItems);
+      } catch (syncErr: unknown) {
+        return NextResponse.json(
+          {
+            error: "Failed to update item list",
+            detail: syncErr instanceof Error ? syncErr.message : String(syncErr),
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const withItems = await prisma.sevaActivity.findUnique({
+      where: { id },
+      include: contributionInclude,
+    });
+
+    return NextResponse.json(withItems ?? updated);
   } catch (e: unknown) {
     console.error("Admin seva-activities PATCH [id] error:", e);
     return NextResponse.json(

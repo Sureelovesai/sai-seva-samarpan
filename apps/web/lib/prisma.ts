@@ -32,12 +32,54 @@ if (useNeonAdapter) {
 
 type PrismaClientInstance = InstanceType<typeof PrismaClient>;
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClientInstance };
+type GlobalPrisma = {
+  prisma?: PrismaClientInstance;
+  /** Dev only: avoid replacing the singleton in a loop when codegen truly has no contribution models */
+  __prismaStaleRebuildDone?: boolean;
+};
 
-export const prisma =
-  globalForPrisma.prisma ??
-  (adapter
+const globalForPrisma = globalThis as unknown as GlobalPrisma;
+
+function createPrismaClient(): PrismaClientInstance {
+  return adapter
     ? new PrismaClient({ adapter: adapter as never, log: ["error"] })
-    : new PrismaClient({ log: ["error"] }));
+    : new PrismaClient({ log: ["error"] });
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+/**
+ * After `npx prisma generate`, the dev singleton on `globalThis` can still be an OLD PrismaClient
+ * instance (missing new delegates like `sevaContributionItem`), which causes
+ * "Cannot read properties of undefined (reading 'findMany')". Replace it once in development.
+ */
+function getPrisma(): PrismaClientInstance {
+  let client = globalForPrisma.prisma;
+
+  if (!client) {
+    client = createPrismaClient();
+    // Always attach to globalThis (dev + prod). Omitting this in production can create multiple
+    // PrismaClient instances under Next.js/Turbopack and exhaust Neon’s connection limit (P2037).
+    globalForPrisma.prisma = client;
+    return client;
+  }
+
+  const delegate = (client as { sevaContributionItem?: { findMany?: unknown } }).sevaContributionItem;
+  const missingContributionApi = typeof delegate?.findMany !== "function";
+  const shouldRebuild =
+    process.env.NODE_ENV !== "production" &&
+    missingContributionApi &&
+    !globalForPrisma.__prismaStaleRebuildDone;
+
+  if (shouldRebuild) {
+    globalForPrisma.__prismaStaleRebuildDone = true;
+    console.warn(
+      "[prisma] Replacing cached dev client: it was created before the latest schema (e.g. item contributions). If errors continue, run: npx prisma generate && restart the dev server."
+    );
+    client.$disconnect().catch(() => {});
+    client = createPrismaClient();
+    globalForPrisma.prisma = client;
+  }
+
+  return client;
+}
+
+export const prisma = getPrisma();

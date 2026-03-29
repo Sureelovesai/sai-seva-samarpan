@@ -131,6 +131,23 @@ function SevaActivitiesContent() {
     lastName?: string | null;
   } | null>(null);
 
+  type ContribItem = {
+    id: string;
+    name: string;
+    category: string;
+    neededLabel: string;
+    maxQuantity: number;
+    filledQuantity: number;
+    remaining: number;
+  };
+  const [contribItems, setContribItems] = useState<ContribItem[]>([]);
+  const [contribEnded, setContribEnded] = useState(false);
+  const [contribLoading, setContribLoading] = useState(false);
+  const [contribError, setContribError] = useState<string | null>(null);
+  const [itemQty, setItemQty] = useState<Record<string, number>>({});
+  /** Optional: user checks "I'll bring this" — saved only when Join Seva succeeds. */
+  const [itemBringSelected, setItemBringSelected] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { user: null }))
@@ -166,6 +183,7 @@ function SevaActivitiesContent() {
         setAdultsCount(1);
         setKidsCount(0);
         setAgreedToTerms(false);
+        setItemBringSelected({});
       }
     }
   }, [selectedId]);
@@ -235,6 +253,45 @@ function SevaActivitiesContent() {
   const displayActivity = activities.length ? (selected ?? activities[0]) : defaultActivity;
   const activityIdToSubmit = activities.length ? (selected?.id ?? activities[0].id) : null;
 
+  useEffect(() => {
+    if (!activityIdToSubmit) return;
+    let cancelled = false;
+    setContribLoading(true);
+    setContribError(null);
+    setItemBringSelected({});
+    fetch(`/api/seva-activities/${activityIdToSubmit}/contributions`, { cache: "no-store" })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d?.error || "Failed to load items");
+        return d as { items?: ContribItem[]; ended?: boolean };
+      })
+      .then((d) => {
+        if (cancelled) return;
+        setContribEnded(Boolean(d.ended));
+        const list = Array.isArray(d.items) ? d.items : [];
+        setContribItems(list);
+        setItemQty((prev) => {
+          const next = { ...prev };
+          for (const it of list) {
+            if (next[it.id] == null) next[it.id] = 1;
+          }
+          return next;
+        });
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setContribError(e instanceof Error ? e.message : "Failed to load");
+          setContribItems([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setContribLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activityIdToSubmit]);
+
   const handleJoinSeva = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError(null);
@@ -245,6 +302,11 @@ function SevaActivitiesContent() {
     }
     if (isActivityEnded(displayActivity)) {
       setSignUpInfo("Sairam! The Seva Activity has already been completed. Thank You for your interest in this Seva Activity. Please feel free to explore other seva opportunities as well.");
+      return;
+    }
+    if (!agreedToTerms) {
+      setSignUpError("Please read and acknowledge the Terms and Policy before joining.");
+      document.getElementById("join-seva-confirm")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     const name = signUpName.trim();
@@ -284,8 +346,52 @@ function SevaActivitiesContent() {
       }
       setSignUpSubmitted(true);
       setSignUpPending(data?.status === "PENDING");
-    } catch (err: any) {
-      setSignUpError(err?.message || "Failed to sign up. Please try again.");
+
+      const claimTargets = contribItems.filter((it) => itemBringSelected[it.id] && it.remaining > 0);
+      if (claimTargets.length > 0) {
+        const claimErrors: string[] = [];
+        for (const it of claimTargets) {
+          const qty = Math.max(1, Math.min(Math.floor(itemQty[it.id] ?? 1), it.remaining));
+          try {
+            const cr = await fetch(`/api/seva-activities/${activityIdToSubmit}/contributions/claim`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                itemId: it.id,
+                quantity: qty,
+                volunteerName: name,
+                email,
+                phone,
+              }),
+            });
+            const cd = await cr.json().catch(() => ({}));
+            if (!cr.ok) {
+              claimErrors.push(`${it.name}: ${typeof cd?.error === "string" ? cd.error : "could not save"}`);
+            }
+          } catch {
+            claimErrors.push(`${it.name}: could not save`);
+          }
+        }
+        if (claimErrors.length > 0) {
+          setSignUpInfo(
+            `Your registration was saved. Some item sign-ups could not be saved: ${claimErrors.join(" ")}`
+          );
+        } else {
+          setSignUpInfo(
+            `Thank you — ${claimTargets.length} item contribution${claimTargets.length === 1 ? "" : "s"} ${claimTargets.length === 1 ? "was" : "were"} recorded with your name and contact details.`
+          );
+        }
+        try {
+          const ref = await fetch(`/api/seva-activities/${activityIdToSubmit}/contributions`, {
+            cache: "no-store",
+          }).then((r) => r.json());
+          if (ref?.items) setContribItems(ref.items);
+        } catch {
+          /* ignore refresh errors */
+        }
+      }
+    } catch (err: unknown) {
+      setSignUpError(err instanceof Error ? err.message : "Failed to sign up. Please try again.");
     } finally {
       setSignUpSubmitting(false);
     }
@@ -486,20 +592,23 @@ function SevaActivitiesContent() {
           Sign Up to Volunteer
         </h2>
 
-        {/* Form container - light green background */}
-        <div className="mx-auto mt-6 max-w-md rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
+        <div className="mx-auto mt-6 max-w-md">
           {!canJoinSeva ? (
-            <p className="text-center text-zinc-600">
-              No activities available to sign up yet. Add activities from the admin &quot;Add Seva Activity&quot; page, then return here to join.
-            </p>
+            <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
+              <p className="text-center text-zinc-600">
+                No activities available to sign up yet. Add activities from the admin &quot;Add Seva Activity&quot; page,
+                then return here to join.
+              </p>
+            </div>
           ) : signUpSubmitted ? (
-            <div className="space-y-3 text-center text-emerald-800">
+            <div className="space-y-3 rounded-lg bg-emerald-50/90 px-6 py-8 text-center text-emerald-800 shadow-sm">
               {signUpPending ? (
                 <>
                   <p className="font-medium">Sai Ram!</p>
                   <p>Your registration is pending.</p>
                   <p className="text-left text-sm leading-relaxed">
-                    We have informed the Seva coordinator. The Seva coordinator will inform you by email or phone if there is any availability.
+                    We have informed the Seva coordinator. The Seva coordinator will inform you by email or phone if
+                    there is any availability.
                   </p>
                 </>
               ) : (
@@ -510,129 +619,254 @@ function SevaActivitiesContent() {
                   <p>Please check your email for further details.</p>
                 </>
               )}
+              {signUpInfo ? (
+                <p className="border-t border-emerald-200/80 pt-4 text-left text-sm leading-relaxed text-emerald-900">
+                  {signUpInfo}
+                </p>
+              ) : null}
             </div>
           ) : (
-            <form onSubmit={handleJoinSeva} className="space-y-5">
+            <form onSubmit={handleJoinSeva} className="space-y-10">
               {signUpInfo && (
                 <p className="rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{signUpInfo}</p>
               )}
-              <div>
-                <label htmlFor="vol-name" className="block text-sm font-semibold text-emerald-800">
-                  Name <span className="text-red-600" aria-label="required">*</span>
-                </label>
-                <input
-                  id="vol-name"
-                  type="text"
-                  value={signUpName}
-                  onChange={(e) => setSignUpName(e.target.value)}
-                  placeholder="Full Name"
-                  required
-                  className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="vol-email" className="block text-sm font-semibold text-emerald-800">
-                  Email <span className="text-red-600" aria-label="required">*</span>
-                </label>
-                <input
-                  id="vol-email"
-                  type="email"
-                  value={signUpEmail}
-                  onChange={(e) => setSignUpEmail(e.target.value)}
-                  placeholder="Email"
-                  required
-                  className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label htmlFor="vol-phone" className="block text-sm font-semibold text-emerald-800">
-                  Phone number <span className="text-red-600" aria-label="required">*</span>
-                </label>
-                <input
-                  id="vol-phone"
-                  type="tel"
-                  value={signUpPhone}
-                  onChange={(e) => setSignUpPhone(e.target.value)}
-                  placeholder="Phone"
-                  required
-                  className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
 
-              {/* Family / group participants */}
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
-                <p className="text-sm font-semibold text-emerald-800">
-                  Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-4 sm:gap-6">
+              {/* Volunteer details */}
+              <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
+                <div className="space-y-5">
                   <div>
-                    <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
-                      Adults
+                    <label htmlFor="vol-name" className="block text-sm font-semibold text-emerald-800">
+                      Name <span className="text-red-600" aria-label="required">*</span>
                     </label>
                     <input
-                      id="adults-count"
-                      type="number"
-                      min={0}
-                      max={99}
-                      value={adultsCount}
-                      onChange={(e) => setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
-                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      id="vol-name"
+                      type="text"
+                      value={signUpName}
+                      onChange={(e) => setSignUpName(e.target.value)}
+                      placeholder="Full Name"
+                      required
+                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
-                      Kids
+                    <label htmlFor="vol-email" className="block text-sm font-semibold text-emerald-800">
+                      Email <span className="text-red-600" aria-label="required">*</span>
                     </label>
                     <input
-                      id="kids-count"
-                      type="number"
-                      min={0}
-                      max={99}
-                      value={kidsCount}
-                      onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
-                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      id="vol-email"
+                      type="email"
+                      value={signUpEmail}
+                      onChange={(e) => setSignUpEmail(e.target.value)}
+                      placeholder="Email"
+                      required
+                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
+                  </div>
+                  <div>
+                    <label htmlFor="vol-phone" className="block text-sm font-semibold text-emerald-800">
+                      Phone number <span className="text-red-600" aria-label="required">*</span>
+                    </label>
+                    <input
+                      id="vol-phone"
+                      type="tel"
+                      value={signUpPhone}
+                      onChange={(e) => setSignUpPhone(e.target.value)}
+                      placeholder="Phone"
+                      required
+                      className="mt-1 w-full rounded border border-indigo-200 bg-white px-4 py-3 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+                    <p className="text-sm font-semibold text-emerald-800">
+                      Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-4 sm:gap-6">
+                      <div>
+                        <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
+                          Adults
+                        </label>
+                        <input
+                          id="adults-count"
+                          type="number"
+                          min={0}
+                          max={99}
+                          value={adultsCount}
+                          onChange={(e) =>
+                            setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))
+                          }
+                          className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
+                          Kids
+                        </label>
+                        <input
+                          id="kids-count"
+                          type="number"
+                          min={0}
+                          max={99}
+                          value={kidsCount}
+                          onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
+                          className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
-                <input
-                  id="agree-terms"
-                  type="checkbox"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="mt-1 h-5 w-5 shrink-0 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
-                  aria-describedby="agree-terms-desc"
-                />
-                <label id="agree-terms-desc" htmlFor="agree-terms" className="text-sm font-medium text-zinc-800">
-                  By selecting this option, I confirm that I have read, understood, and agree to the{" "}
-                  <a
-                    href="/terms-and-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-indigo-600 underline hover:text-indigo-700"
+              {/* Items to bring (optional) — choices saved when you click Join Seva */}
+              {activityIdToSubmit && (contribLoading || contribItems.length > 0 || contribError) && (
+                <>
+                  <h2
+                    id="items-to-bring"
+                    className="scroll-mt-6 text-center text-2xl font-bold tracking-tight text-indigo-900"
                   >
-                    Terms and Policy
-                  </a>.
-                </label>
-              </div>
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={signUpSubmitting || !canJoinSeva || !agreedToTerms}
-                  className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
-                >
-                  {signUpSubmitting ? "Submitting…" : "Join Seva"}
-                </button>
-                {signUpError && (
-                  <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{signUpError}</p>
-                )}
-                {!agreedToTerms && (
-                  <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
-                    Please read and acknowledge the Terms and Policy above before you can join this Seva activity.
-                  </p>
-                )}
+                    Items to bring <span className="text-base font-semibold text-zinc-500">(optional)</span>
+                  </h2>
+                  <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
+                    <p className="text-center text-sm text-zinc-600">
+                      Optional — select what you can bring. Your choices are saved together with your volunteer sign-up
+                      when you click <strong>Join Seva</strong> below (same name, email, and phone).
+                    </p>
+                    {contribLoading && <p className="mt-4 text-center text-zinc-600">Loading list…</p>}
+                    {contribError && !contribLoading && (
+                      <p className="mt-4 text-center text-sm text-red-700">{contribError}</p>
+                    )}
+                    {!contribLoading && contribEnded && contribItems.length === 0 && (
+                      <p className="mt-4 text-center text-sm text-zinc-600">Item sign-up is closed (activity completed).</p>
+                    )}
+                    {!contribLoading && contribItems.length > 0 && (
+                      <ul className="mt-6 space-y-4">
+                        {contribItems.map((it) => {
+                          const pct =
+                            it.maxQuantity > 0 ? Math.min(100, (it.filledQuantity / it.maxQuantity) * 100) : 0;
+                          const full = it.remaining <= 0;
+                          return (
+                            <li
+                              key={it.id}
+                              className="rounded-lg border border-indigo-200 bg-white/80 px-4 py-4 shadow-sm"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-semibold text-zinc-900">{it.name}</div>
+                                  {it.category ? (
+                                    <span className="mt-1 inline-block text-xs font-medium text-indigo-800">
+                                      {it.category}
+                                    </span>
+                                  ) : null}
+                                  <div className="mt-1 text-sm text-zinc-700">
+                                    Needed:{" "}
+                                    <span className="font-medium">{it.neededLabel || `${it.maxQuantity} units`}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right text-sm">
+                                  <div className="font-semibold text-zinc-900">
+                                    {it.filledQuantity} / {it.maxQuantity}
+                                  </div>
+                                  <div className="mt-1 h-2 w-28 overflow-hidden rounded-full bg-zinc-200">
+                                    <div
+                                      className={`h-full rounded-full ${pct >= 100 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-400" : "bg-indigo-400"}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              {full ? (
+                                <p className="mt-2 text-sm font-medium text-emerald-800">Fully covered — thank you!</p>
+                              ) : (
+                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-800">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(itemBringSelected[it.id])}
+                                      onChange={(e) =>
+                                        setItemBringSelected((prev) => ({
+                                          ...prev,
+                                          [it.id]: e.target.checked,
+                                        }))
+                                      }
+                                      className="h-4 w-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    I&apos;ll bring this
+                                  </label>
+                                  {itemBringSelected[it.id] ? (
+                                    <label className="flex items-center gap-2 text-sm text-zinc-700">
+                                      Units
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={it.remaining}
+                                        value={itemQty[it.id] ?? 1}
+                                        onChange={(e) =>
+                                          setItemQty((q) => ({
+                                            ...q,
+                                            [it.id]: Math.max(
+                                              1,
+                                              Math.min(it.remaining, Math.floor(Number(e.target.value) || 1))
+                                            ),
+                                          }))
+                                        }
+                                        className="w-16 rounded border border-indigo-200 bg-white px-2 py-1 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                      />
+                                    </label>
+                                  ) : null}
+                                  <span className="text-xs text-zinc-500">{it.remaining} still needed</span>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Terms + Join Seva — applies to volunteer sign-up and optional items */}
+              <div id="join-seva-confirm" className="scroll-mt-6 rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
+                <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
+                  <input
+                    id="agree-terms"
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                    aria-describedby="agree-terms-desc"
+                  />
+                  <label id="agree-terms-desc" htmlFor="agree-terms" className="text-sm font-medium text-zinc-800">
+                    By selecting this option, I confirm that I have read, understood, and agree to the{" "}
+                    <a
+                      href="/terms-and-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-indigo-600 underline hover:text-indigo-700"
+                    >
+                      Terms and Policy
+                    </a>{" "}
+                    for joining this Seva activity and for any optional item contributions I selected above.
+                  </label>
+                </div>
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    disabled={signUpSubmitting || !canJoinSeva || !agreedToTerms}
+                    className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
+                  >
+                    {signUpSubmitting ? "Submitting…" : "Join Seva"}
+                  </button>
+                  {signUpError && (
+                    <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{signUpError}</p>
+                  )}
+                  {!agreedToTerms && (
+                    <p className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+                      Please read and acknowledge the Terms and Policy before you can join this Seva activity and save
+                      item selections.
+                    </p>
+                  )}
+                </div>
               </div>
             </form>
           )}

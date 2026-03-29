@@ -7,13 +7,14 @@
   },
   "scripts": {
     "dev": "next dev",
-    "postinstall": "prisma generate --schema=./prisma/schema.prisma",
+    "postinstall": "node scripts/ensure-db-url-and-generate.cjs --generate-only",
     "build": "node scripts/ensure-db-url-and-generate.cjs && next build",
     "vercel-build": "node scripts/ensure-db-url-and-generate.cjs && next build",
     "start": "next start",
     "lint": "eslint",
     "prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=./prisma/schema.prisma",
     "reset-seva-activities": "node scripts/reset-all-data.js"
   },
@@ -21,6 +22,7 @@
     "@prisma/adapter-neon": "^6.15.0",
     "@prisma/client": "^6.15.0",
     "@vercel/blob": "^0.25.1",
+    "jspdf": "^3.0.1",
     "next": "16.1.6",
     "prisma": "^6.15.0",
     "react": "19.2.3",

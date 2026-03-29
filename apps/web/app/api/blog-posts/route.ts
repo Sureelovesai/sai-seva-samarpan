@@ -1,6 +1,36 @@
+import type { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { getSessionFromCookie } from "@/lib/auth";
+import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
+import {
+  buildApprovedBlogWhereForScope,
+  parseScopeFromGenerateBody,
+  type ReportScopeInput,
+  type ScopeParseError,
+} from "@/lib/blogReportScope";
+import { getSessionWithRole } from "@/lib/getRole";
+import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
+
+function isScopeErr(x: ReportScopeInput | ScopeParseError): x is ScopeParseError {
+  return "error" in x && "status" in x;
+}
+
+function scopeFromBlogListQuery(searchParams: URLSearchParams): ReportScopeInput | null {
+  const dateFrom = searchParams.get("dateFrom")?.trim() ?? "";
+  const dateTo = searchParams.get("dateTo")?.trim() ?? "";
+  if (!dateFrom || !dateTo) return null;
+  const parsed = parseScopeFromGenerateBody({
+    dateFrom,
+    dateTo,
+    centerFilter: searchParams.get("center")?.trim() ?? "All",
+    regionFilter: searchParams.get("region")?.trim() ?? "All",
+    sevaCategoryFilter: searchParams.get("sevaCategory")?.trim() ?? "All",
+  });
+  if (isScopeErr(parsed)) return null;
+  return parsed;
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -21,20 +51,64 @@ function sanitizeHtmlForEmail(html: string): string {
     .trim();
 }
 
+export const dynamic = "force-dynamic";
+
+const MAX_SEARCH_LEN = 200;
+
 /**
- * GET /api/blog-posts?section=...
- * List blog posts, optionally by section. Returns reaction counts and no per-user reaction (use GET /api/blog-posts/[id] for current user's reaction).
+ * GET /api/blog-posts?section=...&q=...
+ * Optional report scope (all must be valid together): dateFrom, dateTo (YYYY-MM-DD), center, region,
+ * sevaCategory — narrows to approved posts (seva date in range, else createdAt in range) like blog reports.
+ * q: case-insensitive search across title, body (HTML), section, authorName, and linked user fields.
  */
 export async function GET(req: Request) {
   try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!canAccessSevaBlog(session)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const section = searchParams.get("section") || undefined;
+    const qRaw = (searchParams.get("q") || "").trim();
+    const q = qRaw.length > MAX_SEARCH_LEN ? qRaw.slice(0, MAX_SEARCH_LEN) : qRaw;
+
+    /** Each term must match somewhere (title, body, section, or author). Multi-word = AND of terms. */
+    const searchTerms = q
+      ? q
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .slice(0, 12)
+          .map((t) => (t.length > 80 ? t.slice(0, 80) : t))
+      : [];
+
+    const termMatches = (term: string) => ({
+      OR: [
+        { title: { contains: term, mode: "insensitive" as const } },
+        { content: { contains: term, mode: "insensitive" as const } },
+        { section: { contains: term, mode: "insensitive" as const } },
+        { authorName: { contains: term, mode: "insensitive" as const } },
+        { author: { name: { contains: term, mode: "insensitive" as const } } },
+        { author: { firstName: { contains: term, mode: "insensitive" as const } } },
+        { author: { lastName: { contains: term, mode: "insensitive" as const } } },
+        { author: { email: { contains: term, mode: "insensitive" as const } } },
+      ],
+    });
+
+    const reportScope = scopeFromBlogListQuery(searchParams);
+    const clauses: Prisma.BlogPostWhereInput[] = [
+      reportScope ? buildApprovedBlogWhereForScope(reportScope) : { status: "APPROVED" },
+    ];
+    if (section) {
+      clauses.push({ section });
+    }
+    if (searchTerms.length > 0) {
+      clauses.push({ AND: searchTerms.map((term) => termMatches(term)) });
+    }
 
     const posts = await prisma.blogPost.findMany({
-      where: {
-        status: "APPROVED",
-        ...(section ? { section } : {}),
-      },
+      where: { AND: clauses },
       orderBy: { createdAt: "desc" },
       include: {
         reactions: true,
@@ -58,6 +132,11 @@ export async function GET(req: Request) {
         content: p.content,
         imageUrl: p.imageUrl,
         section: p.section,
+        centerCity: p.centerCity,
+        sevaDate: p.sevaDate,
+        sevaCategory: p.sevaCategory,
+        posterEmail: p.posterEmail,
+        posterPhone: p.posterPhone,
         authorName:
           p.authorName ||
           (p.author
@@ -89,39 +168,31 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
+    const sessionGate = await getSessionWithRole(req.headers.get("cookie"));
+    if (!canAccessSevaBlog(sessionGate)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
+    const validated = validateBlogPostWriteBody(body);
+    if (!validated.ok) {
+      return NextResponse.json({ error: validated.error }, { status: 400 });
+    }
     const {
       title,
       content,
       imageUrl,
       section,
+      centerCity,
+      sevaDate,
+      sevaCategory,
       authorName,
-    }: {
-      title?: string;
-      content?: string;
-      imageUrl?: string;
-      section?: string;
-      authorName?: string;
-    } = body;
+      posterEmail,
+      posterPhone,
+    } = validated.data;
 
-    if (!title || typeof title !== "string" || !title.trim()) {
-      return NextResponse.json(
-        { error: "Title is required." },
-        { status: 400 }
-      );
-    }
-    if (!content || typeof content !== "string") {
-      return NextResponse.json(
-        { error: "Content is required." },
-        { status: 400 }
-      );
-    }
-    if (!section || typeof section !== "string" || !section.trim()) {
-      return NextResponse.json(
-        { error: "Section is required." },
-        { status: 400 }
-      );
-    }
+    const cookieHeader = req.headers.get("cookie");
+    const session = getSessionFromCookie(cookieHeader);
 
     if (typeof (prisma as { blogPost?: { create?: unknown } }).blogPost?.create !== "function") {
       console.error("Prisma client missing blogPost. Run from apps/web: npm run prisma:generate");
@@ -132,12 +203,17 @@ export async function POST(req: Request) {
     }
     const post = await prisma.blogPost.create({
       data: {
-        title: title.trim(),
-        content: content.trim(),
-        imageUrl: imageUrl && typeof imageUrl === "string" ? imageUrl : null,
-        section: section.trim(),
-        authorName:
-          authorName && typeof authorName === "string" ? authorName.trim() : null,
+        title,
+        content,
+        imageUrl,
+        section,
+        centerCity,
+        sevaDate,
+        sevaCategory,
+        posterEmail,
+        posterPhone,
+        authorId: session?.sub ?? null,
+        authorName,
         status: "PENDING_APPROVAL",
       },
     });
@@ -179,6 +255,11 @@ export async function POST(req: Request) {
           <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
           <p><strong>Section:</strong> ${escapeHtml(post.section)}</p>
           ${post.authorName ? `<p><strong>Author:</strong> ${escapeHtml(post.authorName)}</p>` : ""}
+          ${post.centerCity ? `<p><strong>Center:</strong> ${escapeHtml(post.centerCity)}</p>` : ""}
+          ${post.sevaDate ? `<p><strong>Seva / story date:</strong> ${escapeHtml(post.sevaDate.toISOString().slice(0, 10))}</p>` : ""}
+          ${post.sevaCategory ? `<p><strong>Seva category:</strong> ${escapeHtml(post.sevaCategory)}</p>` : ""}
+          ${post.posterEmail ? `<p><strong>Contact email:</strong> ${escapeHtml(post.posterEmail)}</p>` : ""}
+          ${post.posterPhone ? `<p><strong>Phone:</strong> ${escapeHtml(post.posterPhone)}</p>` : ""}
           ${imageBlock}
           <p><strong>Description / Content:</strong></p>
           <div style="margin:12px 0; padding:12px; background:#f5f5f5; border-radius:8px; border:1px solid #e0e0e0; max-height:400px; overflow-y:auto;">${safeContent || escapeHtml("(No content)")}</div>
@@ -198,12 +279,32 @@ export async function POST(req: Request) {
       content: post.content,
       imageUrl: post.imageUrl,
       section: post.section,
+      centerCity: post.centerCity,
+      sevaDate: post.sevaDate,
+      sevaCategory: post.sevaCategory,
+      posterEmail: post.posterEmail,
+      posterPhone: post.posterPhone,
       authorName: post.authorName,
       createdAt: post.createdAt,
       status: post.status,
       message: "Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!",
     });
   } catch (e: unknown) {
+    const code =
+      e && typeof e === "object" && "code" in e
+        ? String((e as { code: unknown }).code)
+        : "";
+    if (code === "P2037") {
+      console.error("Blog post create error: P2037 (too many DB connections)", e);
+      return NextResponse.json(
+        {
+          error: "Database is temporarily at its connection limit.",
+          detail:
+            "Use Neon’s pooled DATABASE_URL (-pooler host), restart the dev server after prisma generate, then retry. If this persists, check the Neon dashboard for open connections.",
+        },
+        { status: 503 }
+      );
+    }
     const message = (e as Error)?.message ?? String(e);
     console.error("Blog post create error:", e);
     const hint =

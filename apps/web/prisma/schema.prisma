@@ -20,6 +20,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
   blogPosts    BlogPost[]
+  blogAnalyticsReports BlogAnalyticsReport[]
 
   @@index([email])
 }
@@ -47,6 +48,14 @@ model BlogPost {
   content   String         @db.Text
   imageUrl  String?
   section   String         // e.g. "Seva in Action", "SSSE & Sai Youth Corner"
+  /// Sai center / group city (for regional blog analytics reports). Optional.
+  centerCity String?
+  /// Date of the seva / story (as entered by the poster).
+  sevaDate  DateTime?
+  /// Seva category (same list as Find Seva / activities).
+  sevaCategory String?
+  posterEmail String?
+  posterPhone String?
   authorId  String?
   author    User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
   authorName String?       // display name for guest or fallback
@@ -59,6 +68,33 @@ model BlogPost {
   @@index([section])
   @@index([createdAt])
   @@index([status])
+  @@index([centerCity])
+  @@index([sevaCategory])
+}
+
+/// AI-generated narrative report over a set of approved blog posts (filters + word target).
+model BlogAnalyticsReport {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdById      String?
+  createdBy        User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  dateFrom         DateTime
+  dateTo           DateTime
+  centerFilter     String?
+  regionFilter     String?
+  /// When set, blog posts (and activity list) were scoped to this seva category.
+  sevaCategoryFilter String?
+  targetWordCount  Int      @default(500)
+  userInstructions String?  @db.Text
+  generatedBody    String   @db.Text
+  editedBody       String?  @db.Text
+  /// JSON array of BlogPost ids included in this report
+  sourcePostIds    Json
+  reportTitle      String?
+
+  @@index([createdAt])
+  @@index([createdById])
 }
 
 model BlogPostComment {
@@ -136,6 +172,44 @@ model SevaActivity {
   reminderSentAt  DateTime?           // When the 24h-before reminder was sent (volunteers + coordinator)
   status           SevaActivityStatus @default(DRAFT)
   signups          SevaSignup[]
+  contributionItems SevaContributionItem[]
+}
+
+/// Items volunteers can sign up to bring (e.g. food drive, supplies).
+model SevaContributionItem {
+  id           String                   @id @default(cuid())
+  activityId   String
+  activity     SevaActivity             @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  name         String
+  category     String                   @default("")
+  neededLabel  String                   @default("") // display e.g. "10 lbs"
+  maxQuantity  Int                      @default(1) // total units / slots
+  sortOrder    Int                      @default(0)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  claims       SevaContributionClaim[]
+
+  @@index([activityId])
+}
+
+model SevaContributionClaim {
+  id            String                        @id @default(cuid())
+  itemId        String
+  item          SevaContributionItem          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  quantity      Int                           @default(1)
+  volunteerName String
+  email         String
+  phone         String?
+  status        SevaContributionClaimStatus   @default(CONFIRMED)
+  createdAt     DateTime                      @default(now())
+
+  @@index([itemId])
+  @@index([email])
+}
+
+enum SevaContributionClaimStatus {
+  CONFIRMED
+  CANCELLED
 }
 
 model SevaSignup {

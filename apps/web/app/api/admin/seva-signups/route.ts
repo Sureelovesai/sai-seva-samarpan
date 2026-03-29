@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
 
+/** Shape of contribution items + confirmed claims returned for admin sign-ups view */
+type ContributionClaimRow = {
+  id: string;
+  volunteerName: string;
+  email: string;
+  phone: string | null;
+  quantity: number;
+  createdAt: Date;
+};
+type ContributionItemWithClaims = {
+  id: string;
+  name: string;
+  category: string;
+  neededLabel: string;
+  maxQuantity: number;
+  claims: ContributionClaimRow[];
+};
+
 /**
  * GET /api/admin/seva-signups
  * List sign-ups with optional filters.
@@ -43,7 +61,94 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json(signups);
+    // Item contributions (things volunteers signed up to bring) — scoped to selected activity
+    type ItemContribRow = {
+      id: string;
+      volunteerName: string;
+      email: string;
+      phone: string | null;
+      quantity: number;
+      itemId: string;
+      itemName: string;
+      itemCategory: string;
+      neededLabel: string;
+      maxQuantity: number;
+      createdAt: string;
+    };
+
+    let itemContributions: ItemContribRow[] = [];
+    let itemContributionSummary: {
+      activityId: string;
+      totalClaimRows: number;
+      byItem: Array<{
+        itemId: string;
+        name: string;
+        category: string;
+        neededLabel: string;
+        maxQuantity: number;
+        filledQuantity: number;
+      }>;
+    } | null = null;
+
+    if (activityId) {
+      // Same city scope as signups: coordinators must not read another city's item claims
+      const activityScope: { id: string } & Record<string, unknown> = { id: activityId };
+      if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
+        Object.assign(activityScope, activityCityWhere(session.coordinatorCities));
+      }
+      const activityOk = await prisma.sevaActivity.findFirst({
+        where: activityScope,
+        select: { id: true },
+      });
+
+      if (activityOk) {
+        const items = (await prisma.sevaContributionItem.findMany({
+          where: { activityId },
+          orderBy: { sortOrder: "asc" },
+          include: {
+            claims: {
+              where: { status: "CONFIRMED" },
+              orderBy: { createdAt: "desc" },
+            },
+          },
+        })) as ContributionItemWithClaims[];
+
+        itemContributions = items.flatMap((item) =>
+          item.claims.map((c: ContributionClaimRow) => ({
+            id: c.id,
+            volunteerName: c.volunteerName,
+            email: c.email,
+            phone: c.phone,
+            quantity: c.quantity,
+            itemId: item.id,
+            itemName: item.name,
+            itemCategory: item.category,
+            neededLabel: item.neededLabel,
+            maxQuantity: item.maxQuantity,
+            createdAt: c.createdAt.toISOString(),
+          }))
+        );
+
+        itemContributionSummary = {
+          activityId,
+          totalClaimRows: itemContributions.length,
+          byItem: items.map((item) => ({
+            itemId: item.id,
+            name: item.name,
+            category: item.category,
+            neededLabel: item.neededLabel,
+            maxQuantity: item.maxQuantity,
+            filledQuantity: item.claims.reduce((s: number, c: ContributionClaimRow) => s + c.quantity, 0),
+          })),
+        };
+      }
+    }
+
+    return NextResponse.json({
+      signups,
+      itemContributions,
+      itemContributionSummary,
+    });
   } catch (e: any) {
     console.error("Admin seva-signups GET error:", e);
     return NextResponse.json(

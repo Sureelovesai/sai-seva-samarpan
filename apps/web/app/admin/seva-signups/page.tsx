@@ -15,6 +15,33 @@ type SignupItem = {
   activity: { id: string; title: string };
 };
 
+type ItemContributionRow = {
+  id: string;
+  volunteerName: string;
+  email: string;
+  phone: string | null;
+  quantity: number;
+  itemId: string;
+  itemName: string;
+  itemCategory: string;
+  neededLabel: string;
+  maxQuantity: number;
+  createdAt: string;
+};
+
+type ItemContributionSummary = {
+  activityId: string;
+  totalClaimRows: number;
+  byItem: Array<{
+    itemId: string;
+    name: string;
+    category: string;
+    neededLabel: string;
+    maxQuantity: number;
+    filledQuantity: number;
+  }>;
+};
+
 const PLACEHOLDER_CARDS_COUNT = 3;
 
 const STATUSES = ["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"];
@@ -30,6 +57,8 @@ function SevaSignUpsContent() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [signups, setSignups] = useState<SignupItem[]>([]);
+  const [itemContributions, setItemContributions] = useState<ItemContributionRow[]>([]);
+  const [itemContributionSummary, setItemContributionSummary] = useState<ItemContributionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bulkCancelling, setBulkCancelling] = useState(false);
@@ -42,7 +71,7 @@ function SevaSignUpsContent() {
     let cancelled = false;
     async function loadActivities() {
       try {
-        const res = await fetch("/api/admin/seva-activities", { cache: "no-store" });
+        const res = await fetch("/api/admin/seva-activities", { cache: "no-store", credentials: "include" });
         if (!res.ok) throw new Error("Failed to load activities");
         const data = await res.json();
         if (!cancelled) {
@@ -73,10 +102,25 @@ function SevaSignUpsContent() {
       if (status) params.set("status", status);
       if (fromDate) params.set("fromDate", fromDate);
       if (toDate) params.set("toDate", toDate);
-      const res = await fetch(`/api/admin/seva-signups?${params.toString()}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/seva-signups?${params.toString()}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to load sign-ups");
       const data = await res.json();
-      setSignups(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setSignups(data);
+        setItemContributions([]);
+        setItemContributionSummary(null);
+      } else {
+        setSignups(Array.isArray(data.signups) ? data.signups : []);
+        setItemContributions(Array.isArray(data.itemContributions) ? data.itemContributions : []);
+        setItemContributionSummary(
+          data.itemContributionSummary && typeof data.itemContributionSummary === "object"
+            ? data.itemContributionSummary
+            : null
+        );
+      }
     } catch (e: unknown) {
       setLoadError((e as Error)?.message || "Could not load signups.");
     } finally {
@@ -88,6 +132,7 @@ function SevaSignUpsContent() {
     try {
       const res = await fetch(`/api/admin/seva-signups/${signupId}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete sign-up");
       setSignups((prev) => prev.filter((s) => s.id !== signupId));
@@ -106,25 +151,46 @@ function SevaSignUpsContent() {
 
   function exportCsv() {
     const realSignups = signups.filter((s) => !s.id.startsWith("placeholder-"));
-    if (realSignups.length === 0) {
-      setLoadError("No sign-ups to export. Load sign-ups first.");
+    const activityTitle =
+      activities.find((a) => a.id === activityId)?.title ?? (realSignups[0]?.activity?.title ?? "");
+    if (realSignups.length === 0 && itemContributions.length === 0) {
+      setLoadError("Nothing to export. Load sign-ups first (select an activity for item contributions).");
       return;
     }
     setLoadError(null);
-    const headers = ["Seva Activity", "Name", "Email", "Phone", "Status", "Date"];
-    const rows = realSignups.map((s) => {
+    const headers = ["Type", "Seva Activity", "Name", "Email", "Phone", "Status / Item", "Qty", "Date"];
+    const joinRows = realSignups.map((s) => {
       const dateStr = s.createdAt
         ? new Date(s.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
         : "";
       return [
+        escapeCsvCell("Join Seva"),
         escapeCsvCell(s.activity?.title ?? ""),
         escapeCsvCell(s.volunteerName),
         escapeCsvCell(s.email),
         escapeCsvCell(s.phone ?? ""),
         escapeCsvCell(s.status),
+        escapeCsvCell(""),
         escapeCsvCell(dateStr),
       ].join(",");
     });
+    const itemRows = itemContributions.map((c) => {
+      const dateStr = c.createdAt
+        ? new Date(c.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+        : "";
+      const itemLabel = c.neededLabel ? `${c.itemName} (${c.neededLabel})` : c.itemName;
+      return [
+        escapeCsvCell("Item contribution"),
+        escapeCsvCell(activityTitle),
+        escapeCsvCell(c.volunteerName),
+        escapeCsvCell(c.email),
+        escapeCsvCell(c.phone ?? ""),
+        escapeCsvCell(itemLabel),
+        escapeCsvCell(String(c.quantity)),
+        escapeCsvCell(dateStr),
+      ].join(",");
+    });
+    const rows = [...joinRows, ...itemRows];
     const csv = [headers.join(","), ...rows].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -146,7 +212,7 @@ function SevaSignUpsContent() {
     try {
       const results = await Promise.allSettled(
         realSignups.map((s) =>
-          fetch(`/api/admin/seva-signups/${s.id}`, { method: "DELETE" })
+          fetch(`/api/admin/seva-signups/${s.id}`, { method: "DELETE", credentials: "include" })
         )
       );
       const failed = results.filter(
@@ -156,6 +222,7 @@ function SevaSignUpsContent() {
         setLoadError(`Bulk cancel: ${failed.length} sign-up(s) could not be deleted.`);
       }
       setSignups([]);
+      // Item contribution claims are not bulk-cancelled here (Join Seva only)
     } catch (e: unknown) {
       setLoadError((e as Error)?.message || "Bulk cancel failed.");
     } finally {
@@ -290,7 +357,11 @@ function SevaSignUpsContent() {
           <button
             type="button"
             onClick={exportCsv}
-            disabled={loading || signups.length === 0}
+            disabled={
+              loading ||
+              (signups.filter((s) => !s.id.startsWith("placeholder-")).length === 0 &&
+                itemContributions.length === 0)
+            }
             className="rounded-full bg-emerald-800 px-16 py-4 text-lg font-semibold tracking-[0.35em] text-white shadow hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Export CSV
@@ -307,14 +378,109 @@ function SevaSignUpsContent() {
         </div>
 
         {/* Status message (green per design) */}
-        {(loadError || (!loading && cards.length === 0 && activities.length > 0)) && (
+        {(loadError ||
+          (!loading && cards.length === 0 && itemContributions.length === 0 && activities.length > 0)) && (
           <div className="mt-10 text-center text-xl font-semibold text-emerald-700">
-            {loadError ?? "No sign-ups found. Click \"Load Signups\" to load, or add filters."}
+            {loadError ??
+              'No Join Seva sign-ups for these filters. Click "Load Signups" to refresh, or add filters.'}
           </div>
         )}
 
-        {/* Signup cards: always show 3 slots (real or placeholder) */}
-        <div className="mt-10 grid gap-8 md:grid-cols-3">
+        {!activityId && !loading && activities.length > 0 && (
+          <p className="mt-6 text-center text-base text-indigo-900/80">
+            Tip: Choose a <strong>specific activity</strong> (not &quot;All activities&quot;) to load{" "}
+            <strong>item contribution</strong> sign-ups and a fill summary.
+          </p>
+        )}
+
+        {itemContributionSummary && itemContributionSummary.byItem.length > 0 && (
+          <section className="mt-12 rounded-xl border border-indigo-200 bg-white/90 p-6 shadow-md">
+            <h2 className="text-xl font-bold text-indigo-900">Item contributions — summary</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Volunteers who signed up to bring supplies for this activity ({itemContributionSummary.totalClaimRows}{" "}
+              claim{itemContributionSummary.totalClaimRows === 1 ? "" : "s"}).
+            </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {itemContributionSummary.byItem.map((row) => {
+                const pct =
+                  row.maxQuantity > 0
+                    ? Math.min(100, Math.round((row.filledQuantity / row.maxQuantity) * 100))
+                    : 0;
+                return (
+                  <div
+                    key={row.itemId}
+                    className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-4 py-3"
+                  >
+                    <div className="font-semibold text-indigo-900">{row.name}</div>
+                    {row.category ? (
+                      <div className="text-xs text-zinc-500">{row.category}</div>
+                    ) : null}
+                    {row.neededLabel ? (
+                      <div className="mt-1 text-sm text-zinc-700">Needed: {row.neededLabel}</div>
+                    ) : null}
+                    <div className="mt-2 text-sm font-medium text-zinc-800">
+                      Filled: {row.filledQuantity} / {row.maxQuantity}
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200">
+                      <div
+                        className="h-full rounded-full bg-emerald-600 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {itemContributions.length > 0 && (
+          <section className="mt-10 rounded-xl border border-indigo-200 bg-white/90 p-6 shadow-md">
+            <h2 className="text-xl font-bold text-indigo-900">Item contributions — volunteers</h2>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-300 bg-zinc-100">
+                    <th className="px-3 py-2 font-semibold">Item</th>
+                    <th className="px-3 py-2 font-semibold">Qty</th>
+                    <th className="px-3 py-2 font-semibold">Name</th>
+                    <th className="px-3 py-2 font-semibold">Email</th>
+                    <th className="px-3 py-2 font-semibold">Phone</th>
+                    <th className="px-3 py-2 font-semibold">Signed up</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itemContributions.map((c) => (
+                    <tr key={c.id} className="border-b border-zinc-200">
+                      <td className="px-3 py-2">
+                        <span className="font-medium text-indigo-900">{c.itemName}</span>
+                        {c.neededLabel ? (
+                          <span className="text-zinc-600"> ({c.neededLabel})</span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2">{c.quantity}</td>
+                      <td className="px-3 py-2">{c.volunteerName}</td>
+                      <td className="px-3 py-2">{c.email}</td>
+                      <td className="px-3 py-2">{c.phone ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {c.createdAt
+                          ? new Date(c.createdAt).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        <h2 className="mb-4 mt-14 text-xl font-bold text-white drop-shadow">Join Seva sign-ups</h2>
+
+        <div className="mt-2 grid gap-8 md:grid-cols-3">
           {displayCards.map((c) => (
             <div key={c.id} className="rounded-lg border border-zinc-300 bg-zinc-200/90 px-6 py-8 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
               <div className="space-y-6">

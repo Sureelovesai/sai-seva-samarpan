@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
+import { USA_REGIONS_FOR_FILTER, isValidUsaRegion } from "@/lib/usaRegions";
+
+const ACTIVITY_STATUS_OPTIONS = ["All", "DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
 type SevaActivity = {
   id: string;
@@ -157,14 +161,44 @@ function formatWhenWhere(a: SevaActivity) {
   return [parts, city].filter(Boolean).join(" — ");
 }
 
-export default function FindSevaPage() {
-  const [category, setCategory] = useState("All");
-  const [center, setCenter] = useState("All");
-  const [q, setQ] = useState("");
+function initialActivityStatus(sp: ReturnType<typeof useSearchParams>) {
+  const st = sp.get("activityStatus");
+  if (st === "DRAFT" || st === "PUBLISHED" || st === "ARCHIVED") return st;
+  return "All";
+}
 
-  const [appliedCategory, setAppliedCategory] = useState("All");
-  const [appliedCenter, setAppliedCenter] = useState("All");
+function initialDate(sp: ReturnType<typeof useSearchParams>) {
+  const date = sp.get("date");
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
+}
+
+function initialUsaRegion(sp: ReturnType<typeof useSearchParams>) {
+  const r = sp.get("usaRegion") || "";
+  return r && isValidUsaRegion(r) ? r : "All";
+}
+
+/** Remount when query string changes so state matches deep links (e.g. admin calendar). */
+function FindSevaKeyed() {
+  const searchParams = useSearchParams();
+  return <FindSevaContent key={searchParams.toString()} />;
+}
+
+function FindSevaContent() {
+  const sp = useSearchParams();
+
+  const [category, setCategory] = useState(() => sp.get("category") || "All");
+  const [center, setCenter] = useState(() => sp.get("city") || "All");
+  const [usaRegion, setUsaRegion] = useState(() => initialUsaRegion(sp));
+  const [q, setQ] = useState("");
+  const [eventDate, setEventDate] = useState(() => initialDate(sp));
+  const [activityStatus, setActivityStatus] = useState(() => initialActivityStatus(sp));
+
+  const [appliedCategory, setAppliedCategory] = useState(() => sp.get("category") || "All");
+  const [appliedCenter, setAppliedCenter] = useState(() => sp.get("city") || "All");
+  const [appliedUsaRegion, setAppliedUsaRegion] = useState(() => initialUsaRegion(sp));
   const [appliedQ, setAppliedQ] = useState("");
+  const [appliedDate, setAppliedDate] = useState(() => initialDate(sp));
+  const [appliedActivityStatus, setAppliedActivityStatus] = useState(() => initialActivityStatus(sp));
 
   const [items, setItems] = useState<SevaActivity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,13 +216,19 @@ export default function FindSevaPage() {
         const params = new URLSearchParams();
         if (appliedCategory) params.set("category", appliedCategory);
         if (appliedCenter) params.set("city", appliedCenter);
-
-        // NOTE: We purposely do NOT send q here to keep DB filtering broad,
-        // and then apply fuzzy client-side. (You can enable q in API too if you want.)
-        // params.set("q", appliedQ);
+        if (appliedUsaRegion && appliedUsaRegion !== "All") {
+          params.set("usaRegion", appliedUsaRegion);
+        }
+        if (appliedDate && /^\d{4}-\d{2}-\d{2}$/.test(appliedDate)) {
+          params.set("date", appliedDate);
+        }
+        if (appliedActivityStatus && appliedActivityStatus !== "All") {
+          params.set("activityStatus", appliedActivityStatus);
+        }
 
         const res = await fetch(`/api/seva-activities?${params.toString()}`, {
           cache: "no-store",
+          credentials: "include",
         });
 
         if (!res.ok) {
@@ -198,10 +238,10 @@ export default function FindSevaPage() {
 
         const data = (await res.json()) as SevaActivity[];
         if (!cancelled) setItems(data || []);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!cancelled) {
           setItems([]);
-          setError(e?.message || "Failed to load activities");
+          setError(e instanceof Error ? e.message : "Failed to load activities");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -212,7 +252,7 @@ export default function FindSevaPage() {
     return () => {
       cancelled = true;
     };
-  }, [appliedCategory, appliedCenter]);
+  }, [appliedCategory, appliedCenter, appliedUsaRegion, appliedDate, appliedActivityStatus]);
 
   // Fuzzy search is applied client-side to whatever came from DB
   const filtered = useMemo(() => {
@@ -235,8 +275,8 @@ export default function FindSevaPage() {
   return (
     <div className="min-h-screen pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
       <div className="mx-auto max-w-6xl px-4 py-10">
-        {/* FILTERS ROW */}
-        <div className="grid gap-6 md:grid-cols-4 md:items-end">
+        {/* FILTERS */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
           <div>
             <label className="block text-sm font-semibold text-zinc-800">
               Find Seva (Service Category)
@@ -272,6 +312,52 @@ export default function FindSevaPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-semibold text-zinc-800">
+              USA Region
+            </label>
+            <select
+              value={usaRegion}
+              onChange={(e) => setUsaRegion(e.target.value)}
+              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+            >
+              {USA_REGIONS_FOR_FILTER.map((r) => (
+                <option key={r} value={r}>
+                  {r === "All" ? "All regions" : r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-zinc-800">
+              Event date (optional)
+            </label>
+            <input
+              type="date"
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-zinc-800">
+              Activity status
+            </label>
+            <select
+              value={activityStatus}
+              onChange={(e) => setActivityStatus(e.target.value)}
+              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+            >
+              {ACTIVITY_STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s === "All" ? "All (default)" : s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-semibold text-zinc-800">Search</label>
             <input
               value={q}
@@ -280,7 +366,10 @@ export default function FindSevaPage() {
                 if (e.key === "Enter") {
                   setAppliedCategory(category);
                   setAppliedCenter(center);
+                  setAppliedUsaRegion(usaRegion);
                   setAppliedQ(q);
+                  setAppliedDate(eventDate);
+                  setAppliedActivityStatus(activityStatus);
                 }
               }}
               placeholder="Search Seva"
@@ -290,10 +379,14 @@ export default function FindSevaPage() {
 
           <div className="md:pb-[2px]">
             <button
+              type="button"
               onClick={() => {
                 setAppliedCategory(category);
                 setAppliedCenter(center);
+                setAppliedUsaRegion(usaRegion);
                 setAppliedQ(q);
+                setAppliedDate(eventDate);
+                setAppliedActivityStatus(activityStatus);
               }}
               className="mt-6 w-full bg-emerald-800 px-6 py-3 text-lg font-semibold italic text-white shadow hover:bg-emerald-900 md:mt-0"
             >
@@ -303,7 +396,25 @@ export default function FindSevaPage() {
         </div>
 
         {/* STATUS LINE */}
-        <div className="mt-6 text-center text-sm font-semibold text-zinc-800">
+        <div className="mt-6 space-y-1 text-center text-sm font-semibold text-zinc-800">
+          {appliedUsaRegion !== "All" && (
+            <p className="text-indigo-800">
+              Filtered by region: <span className="font-semibold">{appliedUsaRegion}</span>
+              {appliedCenter !== "All" ? (
+                <>
+                  {" "}
+                  and center <span className="font-semibold">{appliedCenter}</span>
+                </>
+              ) : null}
+              .
+            </p>
+          )}
+          {appliedDate && (
+            <p className="text-indigo-800">
+              Showing activities that include{" "}
+              <span className="whitespace-nowrap">{appliedDate}</span> (past events included).
+            </p>
+          )}
           {loading && "Loading activities..."}
           {!loading && error && <span className="text-red-700">{error}</span>}
         </div>
@@ -378,5 +489,19 @@ export default function FindSevaPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FindSevaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))] text-lg font-semibold text-zinc-700">
+          Loading Find Seva…
+        </div>
+      }
+    >
+      <FindSevaKeyed />
+    </Suspense>
   );
 }

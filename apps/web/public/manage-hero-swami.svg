@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 320" width="460" height="320" role="img" aria-label="Seva">
+  <defs>
+    <linearGradient id="mhHero" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5f5aaa;stop-opacity:0.5"/>
+      <stop offset="60%" style="stop-color:#787888;stop-opacity:0.4"/>
+      <stop offset="100%" style="stop-color:#beb055;stop-opacity:0.45"/>
+    </linearGradient>
+  </defs>
+  <rect width="460" height="320" rx="16" fill="rgba(255,255,255,0.6)"/>
+  <rect width="460" height="320" rx="16" fill="url(#mhHero)"/>
+  <circle cx="230" cy="140" r="64" fill="rgba(255,255,255,0.55)" stroke="#5f5aaa" stroke-width="2"/>
+  <path d="M230 96c-20 0-36 16-36 36 0 16 10 29 26 34v20h20v-20c16-5 26-18 26-34 0-20-16-36-36-36z" fill="#4c1d95" opacity="0.28"/>
+</svg>

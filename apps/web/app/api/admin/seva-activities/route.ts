@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
 
 function toIntOrNull(v: any): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -159,6 +160,21 @@ export async function POST(req: Request) {
         status: body.status === "DRAFT" ? "DRAFT" : "PUBLISHED",
       },
     });
+
+    if (Array.isArray(body.contributionItems)) {
+      try {
+        await syncSevaContributionItems(created.id, body.contributionItems);
+      } catch (syncErr: unknown) {
+        await prisma.sevaActivity.delete({ where: { id: created.id } });
+        return NextResponse.json(
+          {
+            error: "Failed to save item list",
+            detail: syncErr instanceof Error ? syncErr.message : String(syncErr),
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     return NextResponse.json(created, { status: 201 });
   } catch (e: any) {

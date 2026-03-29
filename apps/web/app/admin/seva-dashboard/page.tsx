@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SEVA_CATEGORIES, SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
+import { SevaAdminCalendarSection } from "@/app/_components/SevaAdminCalendarSection";
 
 /** Dedupe by id so React never sees duplicate keys (first occurrence wins). */
 function uniqById<T extends { id: string }>(arr: T[]): T[] {
@@ -63,6 +64,11 @@ type PendingBlogPost = {
   title: string;
   section: string;
   authorName: string | null;
+  centerCity: string | null;
+  sevaDate: string | null;
+  sevaCategory: string | null;
+  posterEmail: string | null;
+  posterPhone: string | null;
   createdAt: string;
   status: string;
 };
@@ -74,6 +80,11 @@ type PendingPostFull = {
   imageUrl: string | null;
   section: string;
   authorName: string | null;
+  centerCity: string | null;
+  sevaDate: string | null;
+  sevaCategory: string | null;
+  posterEmail: string | null;
+  posterPhone: string | null;
   createdAt: string;
   status: string;
 };
@@ -373,6 +384,17 @@ export default function SevaAdminDashboardPage() {
               )}
             </div>
           </div>
+          {(role === "ADMIN" || role === "BLOG_ADMIN") && (
+            <p className="mt-4 text-center text-sm">
+              <Link
+                href="/admin/blog-reports"
+                className="font-semibold text-amber-950 underline decoration-amber-800/60 hover:no-underline"
+              >
+                Blog analytics reports
+              </Link>
+              <span className="text-amber-900/70"> — AI summaries by date, center, or USA region</span>
+            </p>
+          )}
         </section>
 
         {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
@@ -403,6 +425,18 @@ export default function SevaAdminDashboardPage() {
                       {post.authorName && (
                         <span className="ml-2 text-sm text-slate-500">by {post.authorName}</span>
                       )}
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                        {post.centerCity && <span>Center: {post.centerCity}</span>}
+                        {post.sevaDate && (
+                          <span>
+                            Seva date:{" "}
+                            {new Date(post.sevaDate).toLocaleDateString("en-US", {
+                              dateStyle: "medium",
+                            })}
+                          </span>
+                        )}
+                        {post.sevaCategory && <span>{post.sevaCategory}</span>}
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button
@@ -465,6 +499,9 @@ export default function SevaAdminDashboardPage() {
             />
           </div>
         </section>
+
+        {/* ================= ACTIVITY CALENDAR (ADMIN / SEVA COORDINATOR) ================= */}
+        <SevaAdminCalendarSection role={role} />
 
         {/* ================= ANALYTICS ================= */}
         <section className="mt-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-lg">
@@ -1029,9 +1066,53 @@ function PendingPostViewModal({
             <p className="mt-1 text-sm text-slate-600">
               {post.authorName && <span>{post.authorName}</span>}
               {post.authorName && createdAtStr && " · "}
-              {createdAtStr && <span>{createdAtStr}</span>}
+              {createdAtStr && <span>Submitted {createdAtStr}</span>}
             </p>
           )}
+          <dl className="mt-3 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+            {post.centerCity && (
+              <>
+                <dt className="font-medium text-slate-500">Center</dt>
+                <dd>{post.centerCity}</dd>
+              </>
+            )}
+            {post.sevaDate && (
+              <>
+                <dt className="font-medium text-slate-500">Seva / story date</dt>
+                <dd>
+                  {new Date(post.sevaDate).toLocaleDateString("en-US", {
+                    dateStyle: "long",
+                  })}
+                </dd>
+              </>
+            )}
+            {post.sevaCategory && (
+              <>
+                <dt className="font-medium text-slate-500">Category</dt>
+                <dd>{post.sevaCategory}</dd>
+              </>
+            )}
+            {post.posterEmail && (
+              <>
+                <dt className="font-medium text-slate-500">Email</dt>
+                <dd>
+                  <a href={`mailto:${post.posterEmail}`} className="text-amber-800 underline">
+                    {post.posterEmail}
+                  </a>
+                </dd>
+              </>
+            )}
+            {post.posterPhone && (
+              <>
+                <dt className="font-medium text-slate-500">Phone</dt>
+                <dd>
+                  <a href={`tel:${post.posterPhone.replace(/\s/g, "")}`} className="text-amber-800 underline">
+                    {post.posterPhone}
+                  </a>
+                </dd>
+              </>
+            )}
+          </dl>
           <div className="mt-4 border-t border-amber-100 pt-4">
             <p className="mb-2 text-sm font-semibold text-slate-700">Content / Description</p>
             {safeContent.trimStart().startsWith("<") ? (

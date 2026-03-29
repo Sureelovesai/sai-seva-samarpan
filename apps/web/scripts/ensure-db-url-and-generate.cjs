@@ -1,18 +1,52 @@
 /**
  * Sets DATABASE_URL to a dummy value if missing (for Vercel/build environments)
- * then runs prisma generate. Runtime still needs a real DATABASE_URL in env.
+ * then runs prisma migrate deploy (when a real URL is provided), then prisma generate.
+ * Runtime still needs a real DATABASE_URL in env.
+ *
+ * Neon + Prisma Migrate: if DIRECT_URL is unset, copy DATABASE_URL so generate/CLI
+ * match prisma.config.ts. For migrations against a *pooled* URL, set DIRECT_URL in
+ * .env to Neon's "Direct" connection string (see .env.example).
+ *
+ * Set SKIP_PRISMA_MIGRATE_ON_BUILD=1 to skip migrate deploy during build (manual only).
  */
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
-if (!process.env.DATABASE_URL) {
+const hadDatabaseUrl = Boolean(
+  process.env.DATABASE_URL && String(process.env.DATABASE_URL).trim()
+);
+if (!hadDatabaseUrl) {
   process.env.DATABASE_URL = "postgresql://localhost:5432/dummy?schema=public";
+}
+
+if (!process.env.DIRECT_URL || !String(process.env.DIRECT_URL).trim()) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL;
 }
 
 const cwd = path.join(__dirname, "..");
 const schemaPath = path.join(cwd, "prisma", "schema.prisma");
 const normalizedPath = path.normalize(schemaPath);
+
+/** postinstall uses --generate-only so we do not run migrate on every npm install (or twice on Vercel). */
+const generateOnly = process.argv.includes("--generate-only");
+
+function runMigrateDeploy() {
+  if (generateOnly) return;
+  if (!hadDatabaseUrl) return;
+  if (process.env.SKIP_PRISMA_MIGRATE_ON_BUILD) {
+    console.log(
+      "[ensure-db-url-and-generate] SKIP_PRISMA_MIGRATE_ON_BUILD set; skipping prisma migrate deploy.\n"
+    );
+    return;
+  }
+  console.log("[ensure-db-url-and-generate] prisma migrate deploy …\n");
+  execSync(`npx prisma migrate deploy --schema="${normalizedPath}"`, {
+    stdio: "inherit",
+    env: process.env,
+    cwd,
+  });
+}
 const generatedDir = path.join(cwd, "generated", "prisma");
 const clientExists =
   fs.existsSync(path.join(generatedDir, "index.js")) ||
@@ -27,6 +61,7 @@ function runGenerate() {
 }
 
 try {
+  runMigrateDeploy();
   runGenerate();
 } catch (err) {
   const msg = err?.message || String(err);

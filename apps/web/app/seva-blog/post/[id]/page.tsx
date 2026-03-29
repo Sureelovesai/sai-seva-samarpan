@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { BlogPostFormModal } from "@/app/seva-blog/BlogPostFormModal";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop";
@@ -47,12 +48,14 @@ export default function BlogPostPage({
   const [loading, setLoading] = useState(true);
   const [id, setId] = useState<string | null>(null);
   const [reacting, setReacting] = useState(false);
+  const [canEditBlog, setCanEditBlog] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     params.then((p) => setId(p.id));
   }, [params]);
 
-  useEffect(() => {
+  const loadPost = useCallback(() => {
     if (!id) return;
     fetch(`/api/blog-posts/${id}`, { credentials: "include" })
       .then((res) => {
@@ -63,6 +66,22 @@ export default function BlogPostPage({
       .catch(() => setPost(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    loadPost();
+  }, [id, loadPost]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => {
+        const roles: string[] = Array.isArray(data?.user?.roles) ? data.user.roles : [];
+        setCanEditBlog(roles.includes("ADMIN") || roles.includes("BLOG_ADMIN"));
+      })
+      .catch(() => setCanEditBlog(false));
+  }, []);
 
   async function setReaction(type: string, emojiCode?: string) {
     if (!id || reacting) return;
@@ -116,12 +135,31 @@ export default function BlogPostPage({
   return (
     <div className="min-h-screen bg-[#fefaf8]">
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <nav className="mb-6 text-sm text-[#7a6b65]">
-          <Link href="/seva-blog" className="hover:text-[#8b6b5c] hover:underline">
-            Seva Blog
-          </Link>
-          <span className="mx-2">/</span>
-          <span className="text-[#6b5344]">{post.title}</span>
+        <nav className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm text-[#7a6b65]">
+          <div>
+            <Link href="/seva-blog" className="hover:text-[#8b6b5c] hover:underline">
+              Seva Blog
+            </Link>
+            <span className="mx-2">/</span>
+            <span className="text-[#6b5344]">{post.title}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {canEditBlog && id ? (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="shrink-0 rounded-lg border border-[#8b6b5c] bg-white px-4 py-2 text-sm font-semibold text-[#6b5344] shadow-sm hover:bg-[#fdf2f0]"
+              >
+                Edit post
+              </button>
+            ) : null}
+            <Link
+              href="/admin/blog-reports"
+              className="shrink-0 rounded-lg border border-[#e8b4a0] bg-white px-4 py-2 text-sm font-semibold text-[#6b5344] shadow-sm hover:bg-[#fdf2f0]"
+            >
+              Generate report
+            </Link>
+          </div>
         </nav>
 
         <article className="overflow-hidden rounded-2xl bg-white shadow-lg">
@@ -182,15 +220,30 @@ export default function BlogPostPage({
 
             <div className="mt-8 flex gap-4">
               <Link
-                href="/seva-blog"
+                href="/seva-blog#stories"
                 className="inline-flex items-center rounded-lg border-2 border-[#8b6b5c] bg-transparent px-5 py-2.5 text-sm font-semibold text-[#8b6b5c] hover:bg-[#fdf2f0]"
               >
-                ← Back to Seva Blog
+                ← Back to Stories
               </Link>
             </div>
           </div>
         </article>
       </div>
+
+      {canEditBlog && id && editOpen ? (
+        <BlogPostFormModal
+          mode="edit"
+          postId={id}
+          onClose={() => setEditOpen(false)}
+          onSuccess={(opts) => {
+            if (opts?.saved) {
+              setEditOpen(false);
+              setLoading(true);
+              loadPost();
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

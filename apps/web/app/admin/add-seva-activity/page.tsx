@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
+import {
+  ContributionItemsEditor,
+  type ContributionRow,
+} from "@/app/_components/ContributionItemsEditor";
 
 type Status = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
@@ -34,6 +38,8 @@ export default function AddSevaActivityPage() {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const [contributionItems, setContributionItems] = useState<ContributionRow[]>([]);
 
   // UX state
   const [saving, setSaving] = useState(false);
@@ -159,11 +165,20 @@ export default function AddSevaActivityPage() {
         isActive: active,
         isFeatured: featured,
         status,
+        contributionItems: contributionItems
+          .filter((r) => r.name.trim())
+          .map((r) => ({
+            name: r.name.trim(),
+            category: r.category.trim(),
+            neededLabel: r.neededLabel.trim(),
+            maxQuantity: r.maxQuantity,
+          })),
       };
 
       const res = await fetch("/api/admin/seva-activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -194,6 +209,7 @@ export default function AddSevaActivityPage() {
         setImageUrl("");
         setActive(true);
         setFeatured(false);
+        setContributionItems([]);
       }
     } catch (e: any) {
       setMsg({ kind: "err", text: e?.message || "Internal error." });
@@ -616,6 +632,15 @@ export default function AddSevaActivityPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Item contributions (optional) */}
+        <section className="mt-10 overflow-hidden rounded-none bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.22)] md:p-8">
+          <ContributionItemsEditor
+            items={contributionItems}
+            onChange={setContributionItems}
+            disabled={saving}
+          />
         </section>
 
         {/* bottom spacer so footer never feels stuck */}

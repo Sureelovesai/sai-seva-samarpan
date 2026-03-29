@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
 
@@ -26,6 +27,11 @@ export async function GET(
         imageUrl: true,
         section: true,
         authorName: true,
+        centerCity: true,
+        sevaDate: true,
+        sevaCategory: true,
+        posterEmail: true,
+        posterPhone: true,
         createdAt: true,
         status: true,
       },
@@ -47,8 +53,13 @@ export async function GET(
 
 /**
  * PATCH /api/admin/blog-posts/[id]
- * Update a blog post (e.g. clear image to use default). Admin or Blog Admin.
- * Body: { imageUrl?: string | null } – set to null to use the default placeholder image on the site.
+ * Admin or Blog Admin.
+ *
+ * Full update (edit published or pending posts): body must pass the same validation as public POST
+ * — title, content, section, centerCity, sevaDate, sevaCategory, authorName, posterEmail;
+ * optional posterPhone, imageUrl (null clears image).
+ *
+ * Image-only update: body `{ imageUrl: string | null }` only (legacy).
  */
 export async function PATCH(
   req: Request,
@@ -68,18 +79,44 @@ export async function PATCH(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    const updates: { imageUrl?: string | null } = {};
-    if (Object.prototype.hasOwnProperty.call(body, "imageUrl")) {
-      updates.imageUrl = body.imageUrl == null || body.imageUrl === "" ? null : String(body.imageUrl).trim() || null;
+    const keys = Object.keys(body as object);
+    const imageOnly =
+      keys.length === 1 &&
+      Object.prototype.hasOwnProperty.call(body, "imageUrl");
+
+    if (imageOnly) {
+      const imageUrl =
+        (body as { imageUrl?: unknown }).imageUrl == null ||
+        (body as { imageUrl?: unknown }).imageUrl === ""
+          ? null
+          : String((body as { imageUrl: unknown }).imageUrl).trim() || null;
+      const updated = await prisma.blogPost.update({
+        where: { id },
+        data: { imageUrl },
+      });
+      return NextResponse.json(updated);
     }
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json(post);
+    const validated = validateBlogPostWriteBody(body);
+    if (!validated.ok) {
+      return NextResponse.json({ error: validated.error }, { status: 400 });
     }
+    const d = validated.data;
 
     const updated = await prisma.blogPost.update({
       where: { id },
-      data: updates,
+      data: {
+        title: d.title,
+        content: d.content,
+        imageUrl: d.imageUrl,
+        section: d.section,
+        centerCity: d.centerCity,
+        sevaDate: d.sevaDate,
+        sevaCategory: d.sevaCategory,
+        authorName: d.authorName,
+        posterEmail: d.posterEmail,
+        posterPhone: d.posterPhone,
+      },
     });
 
     return NextResponse.json(updated);

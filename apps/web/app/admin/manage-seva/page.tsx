@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -47,12 +46,14 @@ export default function ManageSevaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [heroLeftSrc, setHeroLeftSrc] = useState("/manage-card.jpg");
+  const [heroRightSrc, setHeroRightSrc] = useState("/swami-manage.jpg");
 
   const loadActivities = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/seva-activities", { cache: "no-store" });
+      const res = await fetch("/api/admin/seva-activities", { cache: "no-store", credentials: "include" });
       if (!res.ok) throw new Error("Failed to load activities");
       const data = await res.json();
       setActivities(uniqById(Array.isArray(data) ? data : []));
@@ -69,7 +70,7 @@ export default function ManageSevaPage() {
 
   async function handleDeleteActivity(id: string, title: string) {
     const msg =
-      `Delete "${title}"?\n\nThis cannot be undone. All volunteers who signed up (pending or approved) will receive an email that the activity was cancelled, with coordinator contact information.`;
+      `Delete "${title}"?\n\nAll volunteers who signed up (pending or approved) will receive an email that the activity was cancelled, with coordinator contact information.`;
     if (!confirm(msg)) return;
     setDeletingId(id);
     setError(null);
@@ -129,12 +130,20 @@ export default function ManageSevaPage() {
 
                 <div className="mt-6 flex w-full max-w-[360px] justify-start">
                   <div className="relative h-[170px] w-full min-w-0 bg-white shadow-[0_10px_25px_rgba(0,0,0,0.25)]">
-                    <Image
-                      src="/manage-card.jpg"
+                    {/* JPG in / public when present; SVG fallback if missing (dev / incomplete deploy) */}
+                    <img
+                      src={heroLeftSrc}
                       alt="Manage card"
-                      fill
-                      className="object-contain"
-                      priority
+                      className="absolute inset-0 h-full w-full object-contain"
+                      width={360}
+                      height={170}
+                      decoding="async"
+                      fetchPriority="high"
+                      onError={() =>
+                        setHeroLeftSrc((s) =>
+                          s.endsWith("/manage-hero-card.svg") ? s : "/manage-hero-card.svg"
+                        )
+                      }
                     />
                   </div>
                 </div>
@@ -143,12 +152,19 @@ export default function ManageSevaPage() {
               {/* Right — responsive so image never cuts on small screens */}
               <div className="flex min-w-0 justify-center md:justify-end">
                 <div className="relative h-[260px] w-full max-w-[460px] min-w-0 bg-white/40 shadow-[0_10px_25px_rgba(0,0,0,0.25)] md:h-[320px]">
-                  <Image
-                    src="/swami-manage.jpg"
+                  <img
+                    src={heroRightSrc}
                     alt="Swami"
-                    fill
-                    className="object-contain"
-                    priority
+                    className="absolute inset-0 h-full w-full object-contain"
+                    width={460}
+                    height={320}
+                    decoding="async"
+                    fetchPriority="high"
+                    onError={() =>
+                      setHeroRightSrc((s) =>
+                        s.endsWith("/manage-hero-swami.svg") ? s : "/manage-hero-swami.svg"
+                      )
+                    }
                   />
                 </div>
               </div>
@@ -217,7 +233,7 @@ export default function ManageSevaPage() {
               key={a.id}
               className="rounded-none bg-zinc-200/90 px-10 py-10 shadow-[0_10px_25px_rgba(0,0,0,0.18)]"
             >
-              <div className="grid gap-6 md:grid-cols-[1fr_220px_280px] md:items-center">
+              <div className="grid gap-6 md:grid-cols-[1fr_minmax(0,420px)_minmax(0,280px)] md:items-center">
                 <div>
                   <div className="text-3xl font-extrabold text-zinc-800">
                     {a.title}
@@ -239,18 +255,37 @@ export default function ManageSevaPage() {
                   >
                     {listStatus}
                   </div>
-                  <div className="mt-6 flex flex-col gap-3">
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 md:mt-3">
+                    Actions
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                    {listStatus === "Completed" ? (
+                      <span
+                        className="inline-flex min-h-[44px] min-w-[5.5rem] flex-1 cursor-not-allowed items-center justify-center bg-zinc-400 px-5 py-3 text-center text-sm font-semibold text-white/90 shadow-inner sm:flex-none sm:px-6"
+                        aria-disabled="true"
+                        title="Completed activities cannot be edited"
+                      >
+                        Edit
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/admin/manage-seva/${a.id}`}
+                        className="inline-flex min-h-[44px] min-w-[5.5rem] flex-1 items-center justify-center bg-blue-500 px-5 py-3 text-center text-sm font-semibold text-white shadow hover:bg-blue-600 sm:flex-none sm:px-6"
+                      >
+                        Edit
+                      </Link>
+                    )}
                     <Link
-                      href={`/admin/manage-seva/${a.id}`}
-                      className="inline-block w-[170px] bg-blue-500 px-10 py-3 text-center text-white shadow hover:bg-blue-600"
+                      href={`/admin/manage-seva/${a.id}?mode=clone`}
+                      className="inline-flex min-h-[44px] min-w-[5.5rem] flex-1 items-center justify-center border-2 border-indigo-600 bg-white px-5 py-3 text-center text-sm font-semibold text-indigo-800 shadow hover:bg-indigo-50 sm:flex-none sm:px-6"
                     >
-                      Edit
+                      Clone
                     </Link>
                     <button
                       type="button"
                       disabled={deletingId === a.id}
                       onClick={() => handleDeleteActivity(a.id, a.title)}
-                      className="w-[170px] border-2 border-red-700 bg-white px-6 py-3 text-center text-sm font-semibold text-red-700 shadow hover:bg-red-50 disabled:opacity-50"
+                      className="inline-flex min-h-[44px] min-w-[5.5rem] flex-1 items-center justify-center border-2 border-red-700 bg-white px-5 py-3 text-center text-sm font-semibold text-red-700 shadow hover:bg-red-50 disabled:opacity-50 sm:flex-none sm:px-6"
                     >
                       {deletingId === a.id ? "Deleting…" : "Delete"}
                     </button>
@@ -280,6 +315,7 @@ export default function ManageSevaPage() {
           )}
         </div>
       </div>
+
     </div>
   );
 }
