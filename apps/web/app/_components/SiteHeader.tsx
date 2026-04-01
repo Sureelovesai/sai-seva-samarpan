@@ -16,11 +16,12 @@ type AuthUser = {
   coordinatorCities?: string[] | null;
 } | null;
 
-// Main nav: Home, Find Seva, My Seva Dashboard, Seva Blog (My Seva Dashboard visible to all; non-logged-in users see message on click)
+// Main nav order (desktop: one row; mobile: hamburger)
 const topLinksAll = [
   { href: "/", label: "Home" },
   { href: "/find-seva", label: "Find Seva" },
   { href: "/dashboard", label: "My Seva Dashboard" },
+  { href: "/community-outreach", label: "Community Outreach" },
   { href: "/seva-blog", label: "Seva Blog" },
 ];
 
@@ -117,13 +118,13 @@ export function SiteHeader() {
           </Link>
 
           <div className="min-w-0 flex-1 hidden md:block landscape-desktop:block">
-            <nav className="flex flex-wrap items-center gap-x-8 gap-y-1 text-sm sm:text-base">
+            <nav className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-0.5 text-sm sm:gap-x-5 sm:text-base [scrollbar-width:thin]">
               {topLinks.map((l) => (
-                <Link key={l.href} href={l.href} className={linkClass(l.href)}>
+                <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
                   {l.label}
                 </Link>
               ))}
-              <div className="relative" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={(e: React.MouseEvent) => {
@@ -131,13 +132,13 @@ export function SiteHeader() {
                     setResourcesOpen(false);
                     setAboutOpen((o) => !o);
                   }}
-                  className={`inline-flex items-center gap-0.5 transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
+                  className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
                 >
                   About Us
                   <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
                 </button>
                 {aboutOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
                     {ABOUT_LINKS.map((item) =>
                       item.openInNewTab ? (
                         <a
@@ -164,7 +165,7 @@ export function SiteHeader() {
                   </div>
                 )}
               </div>
-              <div className="relative" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={(e: React.MouseEvent) => {
@@ -172,13 +173,13 @@ export function SiteHeader() {
                     setAboutOpen(false);
                     setResourcesOpen((o) => !o);
                   }}
-                  className={`inline-flex items-center gap-0.5 transition-colors ${resourcesOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
+                  className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${resourcesOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
                 >
                   Resources
                   <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
                 </button>
                 {resourcesOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 min-w-[240px] rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[240px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
                     {RESOURCES_LINKS.map((item) =>
                       item.openInNewTab ? (
                         <a

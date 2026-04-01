@@ -89,6 +89,23 @@ type PendingPostFull = {
   status: string;
 };
 
+type PendingOutreachProfileRow = {
+  id: string;
+  organizationName: string;
+  description: string | null;
+  city: string;
+  contactPhone: string | null;
+  website: string | null;
+  status: string;
+  submittedAt: string;
+  user: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    name: string | null;
+  };
+};
+
 export default function SevaAdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -118,6 +135,14 @@ export default function SevaAdminDashboardPage() {
   const [viewingPostLoading, setViewingPostLoading] = useState(false);
   const [viewingPostId, setViewingPostId] = useState<string | null>(null);
 
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [pendingOutreachProfiles, setPendingOutreachProfiles] = useState<PendingOutreachProfileRow[]>([]);
+  const [pendingOutreachLoading, setPendingOutreachLoading] = useState(false);
+  const [outreachActingId, setOutreachActingId] = useState<string | null>(null);
+  const [viewingOutreachProfile, setViewingOutreachProfile] = useState<PendingOutreachProfileRow | null>(null);
+
+  const canDeleteOutreachProfiles = userRoles.includes("ADMIN");
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/me", { credentials: "include" })
@@ -126,8 +151,14 @@ export default function SevaAdminDashboardPage() {
         if (cancelled) return;
         const r = data?.user?.role ?? "VOLUNTEER";
         setRole(r);
+        setUserRoles(Array.isArray(data?.user?.roles) ? data.user.roles : []);
       })
-      .catch(() => { if (!cancelled) setRole("VOLUNTEER"); });
+      .catch(() => {
+        if (!cancelled) {
+          setRole("VOLUNTEER");
+          setUserRoles([]);
+        }
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -162,6 +193,92 @@ export default function SevaAdminDashboardPage() {
     if (role !== "ADMIN" && role !== "BLOG_ADMIN") return;
     fetchPendingBlogPosts();
   }, [role, fetchPendingBlogPosts]);
+
+  const fetchPendingOutreachProfiles = useCallback(() => {
+    if (role !== "ADMIN" && role !== "SEVA_COORDINATOR") return;
+    setPendingOutreachLoading(true);
+    fetch("/api/admin/community-outreach/profiles?status=PENDING", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: PendingOutreachProfileRow[]) =>
+        setPendingOutreachProfiles(Array.isArray(list) ? list : [])
+      )
+      .catch(() => setPendingOutreachProfiles([]))
+      .finally(() => setPendingOutreachLoading(false));
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== "ADMIN" && role !== "SEVA_COORDINATOR") return;
+    fetchPendingOutreachProfiles();
+  }, [role, fetchPendingOutreachProfiles]);
+
+  async function approveOutreachProfile(id: string) {
+    if (outreachActingId) return;
+    setOutreachActingId(id);
+    try {
+      const res = await fetch(`/api/admin/community-outreach/profiles/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      if (res.ok) {
+        setViewingOutreachProfile(null);
+        fetchPendingOutreachProfiles();
+      }
+    } finally {
+      setOutreachActingId(null);
+    }
+  }
+
+  async function rejectOutreachProfile(id: string) {
+    const note =
+      window.prompt("Optional note to include in the email to the submitter:") ?? "";
+    if (note === null) return;
+    if (outreachActingId) return;
+    setOutreachActingId(id);
+    try {
+      const res = await fetch(`/api/admin/community-outreach/profiles/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", reviewerNote: note }),
+      });
+      if (res.ok) {
+        setViewingOutreachProfile(null);
+        fetchPendingOutreachProfiles();
+      }
+    } finally {
+      setOutreachActingId(null);
+    }
+  }
+
+  async function deleteOutreachProfile(id: string) {
+    if (!canDeleteOutreachProfiles) return;
+    if (!window.confirm("Remove this pending organization profile from the queue? The submitter can submit again later.")) {
+      return;
+    }
+    if (outreachActingId) return;
+    setOutreachActingId(id);
+    try {
+      const res = await fetch(`/api/admin/community-outreach/profiles/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setViewingOutreachProfile(null);
+        fetchPendingOutreachProfiles();
+      }
+    } finally {
+      setOutreachActingId(null);
+    }
+  }
+
+  function displayOutreachSubmitterName(u: PendingOutreachProfileRow["user"]): string {
+    const a = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+    if (a) return a;
+    if (u.name?.trim()) return u.name.trim();
+    return u.email;
+  }
 
   async function approveBlogPost(postId: string) {
     if (approvingId) return;
@@ -204,6 +321,17 @@ export default function SevaAdminDashboardPage() {
     if ((role !== "ADMIN" && role !== "BLOG_ADMIN") || typeof window === "undefined") return;
     if (window.location.hash !== "#pending-blog-posts") return;
     const el = document.getElementById("pending-blog-posts");
+    if (el) {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+      return () => clearTimeout(t);
+    }
+  }, [role]);
+
+  // Scroll to pending Community Outreach profiles (e.g. from reviewer email link)
+  useEffect(() => {
+    if ((role !== "ADMIN" && role !== "SEVA_COORDINATOR") || typeof window === "undefined") return;
+    if (window.location.hash !== "#pending-community-outreach") return;
+    const el = document.getElementById("pending-community-outreach");
     if (el) {
       const t = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
       return () => clearTimeout(t);
@@ -395,6 +523,23 @@ export default function SevaAdminDashboardPage() {
               <span className="text-amber-900/70"> — AI summaries by date, center, or USA region</span>
             </p>
           )}
+          {(role === "ADMIN" || role === "SEVA_COORDINATOR") && (
+            <p className="mt-3 text-center text-sm">
+              <Link
+                href="/admin/seva-dashboard#pending-community-outreach"
+                className="font-semibold text-indigo-900 underline decoration-indigo-700/50 hover:no-underline"
+              >
+                Community outreach — pending profiles (below on this page)
+              </Link>
+              {" · "}
+              <Link
+                href="/admin/community-outreach"
+                className="font-semibold text-indigo-800/90 underline decoration-indigo-600/50 hover:no-underline"
+              >
+                Full-page list
+              </Link>
+            </p>
+          )}
         </section>
 
         {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
@@ -463,6 +608,95 @@ export default function SevaAdminDashboardPage() {
           </section>
         )}
 
+        {/* ================= PENDING COMMUNITY OUTREACH PROFILES (ADMIN + SEVA COORDINATORS) ================= */}
+        {(role === "ADMIN" || role === "SEVA_COORDINATOR") && (
+          <section
+            id="pending-community-outreach"
+            className="mt-8 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/90 px-6 py-6 shadow-md"
+          >
+            <div className="flex items-center justify-center gap-4 border-b border-indigo-200 pb-4">
+              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-indigo-700" aria-hidden />
+              <h2 className="text-xl font-extrabold tracking-wide text-indigo-900 sm:text-2xl">
+                Pending organization profiles
+              </h2>
+              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-indigo-700" aria-hidden />
+            </div>
+            <p className="mt-2 text-center text-sm text-indigo-900/90">
+              Community Outreach submissions for your centers (coordinators see their cities only; admins see all).
+              Approve or reject to email the submitter. Admins can also remove a pending entry from the queue.
+            </p>
+            {pendingOutreachLoading ? (
+              <p className="mt-4 text-center text-indigo-800">Loading…</p>
+            ) : pendingOutreachProfiles.length === 0 ? (
+              <p className="mt-4 text-center text-indigo-800/80">No organization profiles pending review.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {uniqById(pendingOutreachProfiles).map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-white px-4 py-3 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold text-slate-800">{row.organizationName}</span>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                        <span>Center: {row.city}</span>
+                        <span>
+                          Submitted{" "}
+                          {row.submittedAt
+                            ? new Date(row.submittedAt).toLocaleString("en-US", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "—"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {displayOutreachSubmitterName(row.user)} · {row.user.email}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewingOutreachProfile(row)}
+                        disabled={!!outreachActingId}
+                        className="rounded-lg border border-indigo-600 bg-white px-4 py-2 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-60"
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => approveOutreachProfile(row.id)}
+                        disabled={outreachActingId === row.id}
+                        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60"
+                      >
+                        {outreachActingId === row.id ? "Working…" : "Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rejectOutreachProfile(row.id)}
+                        disabled={outreachActingId === row.id}
+                        className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Reject
+                      </button>
+                      {canDeleteOutreachProfiles && (
+                        <button
+                          type="button"
+                          onClick={() => deleteOutreachProfile(row.id)}
+                          disabled={outreachActingId === row.id}
+                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
         {/* Modal: View full pending post (image, content, then Approve) */}
         {(role === "ADMIN" || role === "BLOG_ADMIN") && viewingPostFull && (
           <PendingPostViewModal
@@ -470,6 +704,19 @@ export default function SevaAdminDashboardPage() {
             onClose={() => setViewingPostFull(null)}
             onApprove={() => approveBlogPost(viewingPostFull.id)}
             approving={approvingId === viewingPostFull.id}
+          />
+        )}
+
+        {(role === "ADMIN" || role === "SEVA_COORDINATOR") && viewingOutreachProfile && (
+          <PendingOutreachProfileModal
+            profile={viewingOutreachProfile}
+            submitterDisplayName={displayOutreachSubmitterName(viewingOutreachProfile.user)}
+            onClose={() => setViewingOutreachProfile(null)}
+            onApprove={() => approveOutreachProfile(viewingOutreachProfile.id)}
+            onReject={() => rejectOutreachProfile(viewingOutreachProfile.id)}
+            onDelete={canDeleteOutreachProfiles ? () => deleteOutreachProfile(viewingOutreachProfile.id) : undefined}
+            acting={outreachActingId === viewingOutreachProfile.id}
+            canDelete={canDeleteOutreachProfiles}
           />
         )}
 
@@ -1016,6 +1263,136 @@ function sanitizeHtml(html: string): string {
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
     .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
     .trim();
+}
+
+function PendingOutreachProfileModal({
+  profile,
+  submitterDisplayName,
+  onClose,
+  onApprove,
+  onReject,
+  onDelete,
+  acting,
+  canDelete,
+}: {
+  profile: PendingOutreachProfileRow;
+  submitterDisplayName: string;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onDelete?: () => void;
+  acting: boolean;
+  canDelete: boolean;
+}) {
+  const submittedStr = profile.submittedAt
+    ? new Date(profile.submittedAt).toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-indigo-200 bg-white shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-indigo-200 bg-indigo-50/95 px-4 py-3">
+          <h3 className="font-semibold text-indigo-900">Organization profile (pending)</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-2 text-indigo-800 hover:bg-indigo-200"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-4">
+          <h2 className="text-xl font-bold text-slate-800">{profile.organizationName}</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {submitterDisplayName} ·{" "}
+            <a href={`mailto:${profile.user.email}`} className="text-indigo-800 underline">
+              {profile.user.email}
+            </a>
+            {submittedStr && (
+              <>
+                {" "}
+                · Submitted {submittedStr}
+              </>
+            )}
+          </p>
+          <dl className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+            <dt className="font-medium text-slate-500">City / center</dt>
+            <dd>{profile.city}</dd>
+            {profile.contactPhone && (
+              <>
+                <dt className="font-medium text-slate-500">Contact phone</dt>
+                <dd>
+                  <a href={`tel:${profile.contactPhone.replace(/\s/g, "")}`} className="text-indigo-800 underline">
+                    {profile.contactPhone}
+                  </a>
+                </dd>
+              </>
+            )}
+            {profile.website && (
+              <>
+                <dt className="font-medium text-slate-500">Website</dt>
+                <dd>
+                  <a
+                    href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
+                    className="text-indigo-800 underline break-all"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {profile.website}
+                  </a>
+                </dd>
+              </>
+            )}
+          </dl>
+          <div className="mt-4 border-t border-indigo-100 pt-4">
+            <p className="mb-2 text-sm font-semibold text-slate-700">About the organization</p>
+            <div className="whitespace-pre-wrap text-slate-700">
+              {profile.description?.trim() || "(No description provided)"}
+            </div>
+          </div>
+        </div>
+        <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-indigo-200 bg-white px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-900 hover:bg-indigo-50"
+          >
+            Close
+          </button>
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={acting}
+              className="rounded-lg border border-slate-400 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {acting ? "Working…" : "Delete from queue"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={acting}
+            className="rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+          >
+            Reject…
+          </button>
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={acting}
+            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+          >
+            {acting ? "Working…" : "Approve profile"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function PendingPostViewModal({

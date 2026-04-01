@@ -16,6 +16,7 @@ type SevaActivity = {
   category: string;
   description: string | null;
   city: string;
+  organizationName: string | null;
   startDate: string | null; // ISO string
   endDate: string | null;
   startTime: string | null;
@@ -265,6 +266,7 @@ function FindSevaContent() {
         a.category,
         a.description || "",
         a.city,
+        a.organizationName || "",
         a.locationName || "",
         a.address || "",
       ].join(" ");
@@ -468,6 +470,12 @@ function FindSevaContent() {
                 <div className="mt-2 text-sm font-semibold text-zinc-700">
                   {item.category}
                 </div>
+
+                {item.organizationName && (
+                  <div className="mt-2 text-base font-semibold text-indigo-900">
+                    {item.organizationName}
+                  </div>
+                )}
 
                 <div className="mt-8">
                   <Link

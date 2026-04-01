@@ -32,6 +32,7 @@ const activityPublicSelect = {
   endTime: true,
   durationHours: true,
   locationName: true,
+  organizationName: true,
   address: true,
   capacity: true,
   coordinatorName: true,

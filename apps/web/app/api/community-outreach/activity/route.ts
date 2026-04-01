@@ -1,62 +1,44 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole } from "@/lib/getRole";
 import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
 
-function toIntOrNull(v: any): number | null {
+export const dynamic = "force-dynamic";
+
+function toIntOrNull(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-export async function GET(req: Request) {
-  const session = await getSessionWithRole(req.headers.get("cookie"));
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.role === "VOLUNTEER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") || "").trim();
-  const status = searchParams.get("status"); // DRAFT | PUBLISHED
-  const active = searchParams.get("active"); // true | false
-
-  const where: any = {};
-
-  if (session.role === "SEVA_COORDINATOR") {
-    const cities = session.coordinatorCities?.length
-      ? session.coordinatorCities
-      : [];
-    where.AND = [activityCityWhere(cities)];
-  }
-  if (status && (status === "DRAFT" || status === "PUBLISHED")) where.status = status;
-  if (active === "true") where.isActive = true;
-  if (active === "false") where.isActive = false;
-
-  if (q) {
-    const textClause = {
-      OR: [
-        { title: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
-        { category: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-        { locationName: { contains: q, mode: "insensitive" } },
-      ],
-    };
-    where.AND = where.AND ? [...where.AND, textClause] : [textClause];
-  }
-
-  const items = await prisma.sevaActivity.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json(items);
+function cityMatches(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
+/**
+ * POST /api/community-outreach/activity
+ * Creates a published seva activity with organizationName from an APPROVED community profile.
+ * Activity city must match the profile city.
+ */
 export async function POST(req: Request) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role === "VOLUNTEER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session) {
+      return NextResponse.json({ error: "Sign in to post a service activity." }, { status: 401 });
+    }
+
+    const profile = await prisma.communityOutreachProfile.findUnique({
+      where: { userId: session.sub },
+    });
+    if (!profile || profile.status !== "APPROVED") {
+      return NextResponse.json(
+        {
+          error:
+            "Your organization profile must be approved before you can post activities. Complete step 2 and wait for review.",
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json();
 
@@ -64,14 +46,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
-    const category = body.category?.trim?.();
+    const category = typeof body.category === "string" ? body.category.trim() : "";
     if (!category) {
       return NextResponse.json({ error: "Category is required" }, { status: 400 });
     }
 
-    const city = body.city?.trim?.();
+    const city = typeof body.city === "string" ? body.city.trim() : "";
     if (!city) {
       return NextResponse.json({ error: "City is required" }, { status: 400 });
+    }
+    if (!cityMatches(city, profile.city)) {
+      return NextResponse.json(
+        {
+          error: `Activities must be listed for your organization’s city: ${profile.city}.`,
+        },
+        { status: 400 }
+      );
     }
 
     if (!body.startDate || !String(body.startDate).trim()) {
@@ -86,56 +76,44 @@ export async function POST(req: Request) {
     if (!body.endTime || !String(body.endTime).trim()) {
       return NextResponse.json({ error: "End time is required" }, { status: 400 });
     }
-    const durationHours = typeof body.durationHours === "number" ? body.durationHours : parseFloat(body.durationHours);
+    const durationHours =
+      typeof body.durationHours === "number" ? body.durationHours : parseFloat(String(body.durationHours));
     if (!Number.isFinite(durationHours) || durationHours <= 0) {
-      return NextResponse.json({ error: "Duration (hours) is required and must be greater than 0" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Duration (hours) is required and must be greater than 0" },
+        { status: 400 }
+      );
     }
-    const address = body.address?.trim?.();
+    const address = typeof body.address === "string" ? body.address.trim() : "";
     if (!address) {
       return NextResponse.json({ error: "Address is required" }, { status: 400 });
     }
-    const coordinatorName = body.coordinatorName?.trim?.();
+    const coordinatorName = typeof body.coordinatorName === "string" ? body.coordinatorName.trim() : "";
     if (!coordinatorName) {
       return NextResponse.json({ error: "Coordinator name is required" }, { status: 400 });
     }
-    const coordinatorEmail = body.coordinatorEmail?.trim?.();
+    const coordinatorEmail = typeof body.coordinatorEmail === "string" ? body.coordinatorEmail.trim() : "";
     if (!coordinatorEmail) {
       return NextResponse.json({ error: "Coordinator email is required" }, { status: 400 });
     }
-    const coordinatorPhone = body.coordinatorPhone?.trim?.();
+    const coordinatorPhone = typeof body.coordinatorPhone === "string" ? body.coordinatorPhone.trim() : "";
     if (!coordinatorPhone) {
       return NextResponse.json({ error: "Coordinator phone number is required" }, { status: 400 });
     }
 
     const capacityNum = toIntOrNull(body.capacity);
-    if (
-      capacityNum === null ||
-      !Number.isInteger(capacityNum) ||
-      capacityNum < 1
-    ) {
+    if (capacityNum === null || !Number.isInteger(capacityNum) || capacityNum < 1) {
       return NextResponse.json(
         { error: "Capacity is required and must be a whole number of at least 1" },
         { status: 400 }
       );
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === city.toLowerCase()
-      );
-      if (!allowed) {
-        return NextResponse.json(
-          { error: "You can only add activities for your registered location(s)" },
-          { status: 403 }
-        );
-      }
-    }
-
     const created = await prisma.sevaActivity.create({
       data: {
         title: body.title.trim(),
         category,
-        description: body.description?.trim?.() || null,
+        description: typeof body.description === "string" ? body.description.trim() || null : null,
 
         startDate: new Date(body.startDate),
         endDate: new Date(body.endDate),
@@ -144,8 +122,9 @@ export async function POST(req: Request) {
         durationHours,
 
         city,
-        organizationName: body.organizationName?.trim?.() || null,
-        locationName: body.locationName?.trim?.() || null,
+        organizationName: profile.organizationName,
+        locationName:
+          typeof body.locationName === "string" ? body.locationName.trim() || null : null,
         address,
 
         capacity: capacityNum,
@@ -154,11 +133,11 @@ export async function POST(req: Request) {
         coordinatorEmail,
         coordinatorPhone,
 
-        imageUrl: body.imageUrl?.trim?.() || null,
+        imageUrl: typeof body.imageUrl === "string" ? body.imageUrl.trim() || null : null,
 
         isActive: body.isActive === false ? false : true,
-        isFeatured: Boolean(body.isFeatured),
-        status: body.status === "DRAFT" ? "DRAFT" : "PUBLISHED",
+        isFeatured: false,
+        status: "PUBLISHED",
       },
     });
 
@@ -178,9 +157,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(created, { status: 201 });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error("community-outreach activity POST:", e);
     return NextResponse.json(
-      { error: "Failed to create activity", detail: e?.message },
+      { error: "Failed to create activity", detail: (e as Error)?.message },
       { status: 500 }
     );
   }

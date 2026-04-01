@@ -11,6 +11,7 @@ type SevaActivity = {
   category: string;
   description: string | null;
   city: string;
+  organizationName: string | null;
   startDate: string | null;
   endDate: string | null;
   startTime: string | null;
@@ -32,6 +33,7 @@ const defaultActivity: SevaActivity = {
   category: "Educare",
   description: "Collect and donate books to Promising Pages",
   city: "Charlotte",
+  organizationName: null,
   startDate: null,
   endDate: null,
   startTime: null,
@@ -500,6 +502,11 @@ function SevaActivitiesContent() {
             <h2 className="text-2xl font-bold text-indigo-900">
               {displayActivity.title}
             </h2>
+            {displayActivity.organizationName && (
+              <p className="mt-2 text-lg font-semibold text-indigo-800">
+                {displayActivity.organizationName}
+              </p>
+            )}
             <div className="mt-4 grid grid-cols-1 items-start gap-6 md:grid-cols-[1fr_280px] lg:grid-cols-[1fr_320px]">
               {/* Left: description (priority) + meta grid */}
               <div className="min-w-0 space-y-4 md:order-1">

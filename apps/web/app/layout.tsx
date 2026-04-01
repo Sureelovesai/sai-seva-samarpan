@@ -1,6 +1,7 @@
 import "./globals.css";
 import { SiteHeader } from "./_components/SiteHeader";
 import { SiteFooter } from "./_components/SiteFooter";
+import { SiteChatbot } from "./_components/SiteChatbot";
 
 export default function RootLayout({
   children,
@@ -21,6 +22,8 @@ export default function RootLayout({
         <div className="print:hidden">
           <SiteFooter />
         </div>
+
+        <SiteChatbot />
       </body>
     </html>
   );

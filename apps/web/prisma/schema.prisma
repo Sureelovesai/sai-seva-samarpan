@@ -21,8 +21,35 @@ model User {
   updatedAt    DateTime @default(now()) @updatedAt
   blogPosts    BlogPost[]
   blogAnalyticsReports BlogAnalyticsReport[]
+  communityOutreachProfile CommunityOutreachProfile?
 
   @@index([email])
+}
+
+enum CommunityOutreachStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Organization profile for Community Outreach (reviewed by admins / regional coordinators).
+model CommunityOutreachProfile {
+  id               String                   @id @default(cuid())
+  userId           String                   @unique
+  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName String
+  description      String?                  @db.Text
+  city             String
+  contactPhone     String?
+  website          String?
+  status           CommunityOutreachStatus  @default(PENDING)
+  submittedAt      DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  reviewedAt       DateTime?
+  reviewerNote     String?                  @db.VarChar(500)
+
+  @@index([status])
+  @@index([city])
 }
 
 model PasswordResetToken {
@@ -152,6 +179,8 @@ model SevaActivity {
   title            String
   category         String
   city             String
+  /// Partner / org name (Community Outreach); shown on Find Seva with the activity.
+  organizationName String?
   isActive         Boolean            @default(true)
   isFeatured       Boolean            @default(false)
   createdAt        DateTime           @default(now())

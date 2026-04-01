@@ -140,6 +140,8 @@ export async function PATCH(
             : undefined,
 
         city: body.city != null ? String(body.city).trim() : undefined,
+        organizationName:
+          body.organizationName != null ? String(body.organizationName).trim() || undefined : undefined,
         locationName: body.locationName != null ? String(body.locationName).trim() || undefined : undefined,
         address: body.address != null ? String(body.address).trim() || undefined : undefined,
 
