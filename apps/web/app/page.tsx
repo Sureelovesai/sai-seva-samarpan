@@ -339,6 +339,48 @@ function OurImpactSection() {
   );
 }
 
+/** Hero paths: add `public/banner_newest.png` (preferred) or `public/banner_newest.PNG` to the repo for prod — Linux/Vercel is case-sensitive. */
+const HERO_BANNER_SRCS = ["/banner_newest.png", "/banner_newest.PNG"] as const;
+
+function HomeHeroBanner() {
+  const [srcIndex, setSrcIndex] = useState(0);
+  const [useSvgFallback, setUseSvgFallback] = useState(false);
+
+  if (useSvgFallback) {
+    return (
+      <img
+        src="/manage-hero-swami.svg"
+        alt="Seva Wheel"
+        className="absolute inset-0 h-full w-full object-contain object-top"
+        width={1200}
+        height={800}
+        decoding="async"
+      />
+    );
+  }
+
+  const src = HERO_BANNER_SRCS[srcIndex] ?? HERO_BANNER_SRCS[0];
+
+  return (
+    <Image
+      key={src}
+      src={src}
+      alt="Seva Wheel"
+      fill
+      priority
+      className="object-contain object-top"
+      sizes="100vw"
+      onError={() => {
+        if (srcIndex + 1 < HERO_BANNER_SRCS.length) {
+          setSrcIndex((i) => i + 1);
+        } else {
+          setUseSvgFallback(true);
+        }
+      }}
+    />
+  );
+}
+
 export default function HomePage() {
   return (
     <div className="min-h-screen">
@@ -352,14 +394,7 @@ export default function HomePage() {
         <div className="w-full px-0 py-0">
           <div className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px]">
             <div className="relative h-full w-full min-h-0">
-              <Image
-                src="/banner_newest.PNG"
-                alt="Seva Wheel"
-                fill
-                priority
-                className="object-contain object-top"
-                sizes="100vw"
-              />
+              <HomeHeroBanner />
             </div>
           </div>
         </div>
