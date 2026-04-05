@@ -36,6 +36,7 @@ type GlobalPrisma = {
   prisma?: PrismaClientInstance;
   /** Dev only: avoid replacing the singleton in a loop when codegen truly has no contribution models */
   __prismaStaleRebuildDone?: boolean;
+  __prismaListedAsCommunityOutreachWarned?: boolean;
 };
 
 const globalForPrisma = globalThis as unknown as GlobalPrisma;
@@ -44,6 +45,17 @@ function createPrismaClient(): PrismaClientInstance {
   return adapter
     ? new PrismaClient({ adapter: adapter as never, log: ["error"] })
     : new PrismaClient({ log: ["error"] });
+}
+
+/** True when generated client matches schema (SevaActivity.listedAsCommunityOutreach). */
+function sevaActivityHasListedAsCommunityOutreachField(client: PrismaClientInstance): boolean {
+  const fields = (
+    client as unknown as {
+      _runtimeDataModel?: { models?: Record<string, { fields?: { name: string }[] }> };
+    }
+  )._runtimeDataModel?.models?.SevaActivity?.fields;
+  if (!fields?.length) return true;
+  return fields.some((f) => f.name === "listedAsCommunityOutreach");
 }
 
 /**
@@ -77,6 +89,21 @@ function getPrisma(): PrismaClientInstance {
     client.$disconnect().catch(() => {});
     client = createPrismaClient();
     globalForPrisma.prisma = client;
+  }
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    !globalForPrisma.__prismaListedAsCommunityOutreachWarned &&
+    !sevaActivityHasListedAsCommunityOutreachField(client)
+  ) {
+    globalForPrisma.__prismaListedAsCommunityOutreachWarned = true;
+    console.error(
+      "[prisma] Generated client is out of date: SevaActivity.listedAsCommunityOutreach is missing.\n" +
+        "  `prisma migrate deploy` only updates the database. Regenerate the client:\n" +
+        "  1. Stop the dev server (it locks query_engine-windows.dll.node on Windows).\n" +
+        "  2. From apps/web: npx prisma generate\n" +
+        "  3. Start the dev server again."
+    );
   }
 
   return client;

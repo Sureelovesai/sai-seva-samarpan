@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 /**
  * GET /api/blog-posts/[id]
@@ -77,7 +86,8 @@ export async function GET(
 
 /**
  * PATCH /api/blog-posts/[id]
- * Update post (e.g. approve). Only ADMIN can set status to APPROVED.
+ * Moderation: status APPROVED or REJECTED (pending posts only). ADMIN and BLOG_ADMIN.
+ * Reject: optional reviewerNote (emailed to poster when posterEmail or author email exists).
  */
 export async function PATCH(
   req: Request,
@@ -93,27 +103,78 @@ export async function PATCH(
     const body = await req.json().catch(() => ({}));
     const status = body?.status;
 
-    if (status !== "APPROVED") {
+    if (status !== "APPROVED" && status !== "REJECTED") {
       return NextResponse.json(
-        { error: "Only status APPROVED is allowed for approval." },
+        { error: 'Body must include status: "APPROVED" or "REJECTED".' },
         { status: 400 }
       );
     }
 
-    const post = await prisma.blogPost.findUnique({ where: { id } });
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      include: { author: { select: { email: true } } },
+    });
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
-    if (post.status === "APPROVED") {
-      return NextResponse.json({ message: "Already approved", id: post.id });
+
+    if (status === "APPROVED") {
+      if (post.status === "APPROVED") {
+        return NextResponse.json({ message: "Already approved", id: post.id });
+      }
+      if (post.status !== "PENDING_APPROVAL") {
+        return NextResponse.json(
+          { error: "Only pending posts can be approved." },
+          { status: 400 }
+        );
+      }
+      await prisma.blogPost.update({
+        where: { id },
+        data: { status: "APPROVED" },
+      });
+      return NextResponse.json({ id, status: "APPROVED", message: "Post approved." });
     }
+
+    // REJECTED
+    if (post.status !== "PENDING_APPROVAL") {
+      return NextResponse.json(
+        { error: "Only pending posts can be rejected." },
+        { status: 400 }
+      );
+    }
+    const reviewerNote =
+      typeof body?.reviewerNote === "string" ? body.reviewerNote.trim().slice(0, 500) : "";
 
     await prisma.blogPost.update({
       where: { id },
-      data: { status: "APPROVED" },
+      data: { status: "REJECTED" },
     });
 
-    return NextResponse.json({ id, status: "APPROVED", message: "Post approved." });
+    const to =
+      (post.posterEmail && post.posterEmail.trim()) ||
+      (post.author?.email && post.author.email.trim()) ||
+      "";
+    if (to) {
+      const noteBlock = reviewerNote
+        ? `<p><strong>Note from reviewer:</strong></p><p style="padding:12px;background:#f5f5f5;border-radius:8px;">${escapeHtml(reviewerNote)}</p>`
+        : "";
+      const result = await sendEmail({
+        to,
+        subject: `[Seva Blog] Post not approved: ${post.title}`,
+        html: `
+          <p>Your blog post submission was not approved and will not appear on the Seva Blog.</p>
+          <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
+          ${noteBlock}
+          <p>You are welcome to revise and submit a new post when ready.</p>
+          <p>Jai Sai Ram.</p>
+        `,
+      });
+      if (!result.ok) {
+        console.error("Blog post reject: email failed for", to, result.error ?? result.skipped);
+      }
+    }
+
+    return NextResponse.json({ id, status: "REJECTED", message: "Post rejected." });
   } catch (e: unknown) {
     console.error("Blog post PATCH error:", e);
     return NextResponse.json(

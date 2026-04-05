@@ -32,13 +32,46 @@ export function fallbackReply(userText: string): ChatReply {
     };
   }
 
+  if (
+    (q.includes("difference") || q.includes("join seva") || q.includes("items to bring")) &&
+    (q.includes("join") || q.includes("register") || q.includes("item"))
+  ) {
+    return {
+      message:
+        "On **Seva Details** (from **Find Seva** → **View details**), **Join Seva** and **Register** are **independent**:\n\n" +
+        "**Join Seva** — on-site volunteer; confirmation emails to **you and the coordinator**; **~24h** reminder if **approved**.\n\n" +
+        "**Register** — supplies only; **separate** confirmation emails; **~24h** **item** reminder if you did **not** also join (same email won’t get two reminders).\n\n" +
+        "Waitlist join sign-ups don’t get the 24h reminder until approved.",
+      links: [{ label: "Find Seva", href: "/find-seva" }, { label: "My Seva Dashboard", href: "/dashboard" }],
+    };
+  }
+
   if (q.includes("join") && (q.includes("seva") || q.includes("sign up") || q.includes("signup"))) {
     return {
       message:
-        "1) **Log in** or create an account.\n2) Open **Find Seva**, choose your center and an activity.\n3) Complete the sign-up on the activity page.\n\nYour commitments appear under **My Seva Dashboard → Upcoming Seva Activities**.",
+        "On the **Seva Details** page (open an activity from **Find Seva** → **View details**), **Join Seva** and **Register** (items to bring) are **two separate things**:\n\n" +
+        "• **Join Seva** — you are signing up to take part **on site**. You and the **seva coordinator** get confirmation emails (when mail is configured). **Approved** volunteers get a reminder about **24 hours before** the start (automated cron).\n\n" +
+        "• **Register** — you are only signing up to **bring listed supplies**. Same idea: **you and the coordinator** get **item-specific** confirmation emails. If you did **not** also **Join Seva**, you still get a **~24 hour** reminder about **what you offered to bring** (not duplicated if that email is already an approved on-site signup).\n\n" +
+        "**My Seva Dashboard** lists **Join Seva** sign-ups for withdrawing; item-only Register is separate from that roster.",
       links: [
         { label: "Find Seva", href: "/find-seva" },
         { label: "Login / Sign up", href: "/login" },
+        { label: "My Seva Dashboard", href: "/dashboard" },
+      ],
+    };
+  }
+
+  if (
+    q.includes("email") &&
+    (q.includes("seva") || q.includes("coordinator") || q.includes("volunteer") || q.includes("reminder") || q.includes("register"))
+  ) {
+    return {
+      message:
+        "**Join Seva:** volunteer + coordinator receive **join** confirmation emails; **approved** volunteers get a **~24h-before** reminder.\n\n" +
+        "**Register** (items): contributor + coordinator receive **item registration** emails; **item-only** people get a **~24h-before** **supplies** reminder (no duplicate if they are already an approved on-site signup for that activity).\n\n" +
+        "Waitlist (**PENDING**) join sign-ups do **not** get the 24h reminder until **approved**.",
+      links: [
+        { label: "Find Seva", href: "/find-seva" },
         { label: "My Seva Dashboard", href: "/dashboard" },
       ],
     };
@@ -59,6 +92,26 @@ export function fallbackReply(userText: string): ChatReply {
       links: [
         { label: "Seva Admin Dashboard", href: "/admin/seva-dashboard" },
         { label: "Add Seva Activity", href: "/admin/add-seva-activity" },
+      ],
+    };
+  }
+
+  if (
+    (q.includes("bulk") || q.includes("excel") || q.includes("spreadsheet") || q.includes(".xlsx")) &&
+    (q.includes("import") || q.includes("upload") || q.includes("volunteer") || q.includes("signup") || q.includes("sign up") || q.includes("seva"))
+  ) {
+    return {
+      message:
+        "**Bulk import (Excel)** is for **Admins** and **Seva coordinators**:\n\n" +
+        "1. Open **Add Seva Activity** and **save** the activity (**Save & Draft** or **Save & Publish**).\n" +
+        "2. Scroll to **Download Excel template & bulk import** → **Download Excel template**. **Add Seva Activity** row 2 (with date pickers on Start/End date) updates the saved activity on upload; then **Contribution items** and **Join Seva Activity** rows. **Upload filled Excel** (needs a **published** activity).\n" +
+        "3. Errors show **row by row** in a grid. Upcoming activities: volunteers get **join** emails + coordinator **summary**; ended activities: import **without** email.\n\n" +
+        "After editing contribution items in **Manage Seva → Edit**, open **Add Seva Activity** again (same browser) and download a **fresh** template. View sign-ups under **Seva Sign Ups**.",
+      links: [
+        { label: "Add Seva Activity", href: "/admin/add-seva-activity" },
+        { label: "Manage Seva", href: "/admin/manage-seva" },
+        { label: "Seva Sign Ups", href: "/admin/seva-signups" },
+        { label: "Seva Admin Dashboard", href: "/admin/seva-dashboard" },
       ],
     };
   }
@@ -117,12 +170,13 @@ export function fallbackReply(userText: string): ChatReply {
 
   return {
     message:
-      "I can help with **Find Seva**, **joining or withdrawing** from activities, **My Seva Dashboard**, **Log Hours / certificate**, **Community Outreach**, and **coordinator/admin** features.\n\n" +
-      "Try asking: “How do I find seva in Charlotte?”, “How do I withdraw?”, or “I can’t see Add Seva.”\n\n" +
+      "I can help with **Find Seva**, **joining or withdrawing** from activities, **My Seva Dashboard**, **Log Hours / certificate**, **Community Outreach**, and **coordinator/admin** features (including **bulk Excel import** on **Add Seva Activity** after you save an activity).\n\n" +
+      "Try asking: “How do I find seva in Charlotte?”, “How do I withdraw?”, “How do I bulk import volunteers?”, or “I can’t see Add Seva.”\n\n" +
       "(For richer answers, your administrator can set **OPENAI_API_KEY** on the server.)",
     links: [
       { label: "Find Seva", href: "/find-seva" },
       { label: "My Seva Dashboard", href: "/dashboard" },
+      { label: "Add Seva Activity", href: "/admin/add-seva-activity" },
       { label: "Login", href: "/login" },
     ],
   };

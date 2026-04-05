@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
 import { activitySpansDateKey, eachDateKeyInMonth } from "@/lib/sevaActivityDates";
-import { isValidUsaRegion, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
+import { parseUsaRegionParam, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
 
 /**
  * GET /api/admin/seva-calendar
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const center = searchParams.get("center")?.trim() || "All";
     const usaRegionRaw = (searchParams.get("usaRegion") || "").trim();
     const usaRegion =
-      usaRegionRaw && usaRegionRaw !== "All" && isValidUsaRegion(usaRegionRaw) ? usaRegionRaw : null;
+      usaRegionRaw && usaRegionRaw !== "All" ? parseUsaRegionParam(usaRegionRaw) : null;
     const status = searchParams.get("status")?.trim() || "All";
 
     if (!Number.isFinite(year) || year < 1970 || year > 2100) {

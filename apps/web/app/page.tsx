@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { SevaPublicCalendarSection } from "./_components/SevaPublicCalendarSection";
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Animal Care": "bg-amber-700",
@@ -352,19 +353,11 @@ export default function HomePage() {
           <div className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px]">
             <div className="relative h-full w-full min-h-0">
               <Image
-                src="/banner_newest.png"
+                src="/banner_newest.PNG"
                 alt="Seva Wheel"
                 fill
                 priority
-                className="object-contain object-top hidden landscape-desktop:block md:block"
-                sizes="100vw"
-              />
-              <Image
-                src="/mobile_copy_newest.png"
-                alt="Seva Wheel"
-                fill
-                priority
-                className="object-contain object-top md:hidden landscape-desktop:hidden"
+                className="object-contain object-top"
                 sizes="100vw"
               />
             </div>
@@ -391,6 +384,14 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* Public seva calendar — visible to everyone, no login */}
+      <section
+        className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-4"
+        aria-label="Seva activity calendar"
+      >
+        <SevaPublicCalendarSection />
       </section>
 
       {/* OUR IMPACT */}

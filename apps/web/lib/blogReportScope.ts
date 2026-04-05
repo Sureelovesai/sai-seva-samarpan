@@ -2,8 +2,7 @@ import type { Prisma } from "@/generated/prisma";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import {
-  type UsaRegionLabel,
-  isValidUsaRegion,
+  parseUsaRegionParam,
   prismaCenterCityInUsaRegionOr,
   prismaCityInUsaRegionOr,
 } from "@/lib/usaRegions";
@@ -69,7 +68,8 @@ export function buildApprovedBlogWhereForScope(
       centerCity: { equals: scope.centerFilter, mode: "insensitive" },
     });
   } else if (scope.regionFilter) {
-    parts.push(prismaCenterCityInUsaRegionOr(scope.regionFilter as UsaRegionLabel));
+    const regionCanon = parseUsaRegionParam(scope.regionFilter);
+    if (regionCanon) parts.push(prismaCenterCityInUsaRegionOr(regionCanon));
   }
 
   if (scope.sevaCategoryFilter) {
@@ -121,7 +121,8 @@ export function buildPublishedActivityWhereForScope(
   if (scope.centerFilter) {
     parts.push({ city: { equals: scope.centerFilter, mode: "insensitive" } });
   } else if (scope.regionFilter) {
-    parts.push(prismaCityInUsaRegionOr(scope.regionFilter as UsaRegionLabel));
+    const regionCanon = parseUsaRegionParam(scope.regionFilter);
+    if (regionCanon) parts.push(prismaCityInUsaRegionOr(regionCanon));
   }
 
   if (scope.sevaCategoryFilter) {
@@ -169,7 +170,9 @@ export function parseScopeFromGenerateBody(body: {
   if (centerRaw !== "All" && !(CENTERS_FOR_FILTER as readonly string[]).includes(centerRaw)) {
     return { error: "Invalid center filter.", status: 400 };
   }
-  if (regionRaw !== "All" && !isValidUsaRegion(regionRaw)) {
+  const regionCanonForStore =
+    regionRaw === "All" ? null : parseUsaRegionParam(regionRaw);
+  if (regionRaw !== "All" && !regionCanonForStore) {
     return { error: "Invalid USA region filter.", status: 400 };
   }
   if (
@@ -183,7 +186,7 @@ export function parseScopeFromGenerateBody(body: {
     dateFrom: fromStart,
     dateTo: toEnd,
     centerFilter: centerRaw === "All" ? null : centerRaw,
-    regionFilter: regionRaw === "All" ? null : regionRaw,
+    regionFilter: regionCanonForStore,
     sevaCategoryFilter: sevaRaw === "All" ? null : sevaRaw,
   };
 }

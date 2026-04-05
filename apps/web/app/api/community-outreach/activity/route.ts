@@ -138,6 +138,7 @@ export async function POST(req: Request) {
         isActive: body.isActive === false ? false : true,
         isFeatured: false,
         status: "PUBLISHED",
+        listedAsCommunityOutreach: true,
       },
     });
 

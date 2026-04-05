@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
 import { activitySpansDateKey, dateKeyUTC } from "@/lib/sevaActivityDates";
-import { isValidUsaRegion, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
+import { parseUsaRegionParam, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
 
 /**
  * Public listings (Find Seva, featured on Home, Join page): hide activities whose last day has passed.
@@ -53,7 +53,7 @@ type ActivityPublicRow = Prisma.SevaActivityGetPayload<{ select: typeof activity
  * Returns seva activities for Find Seva and public listings.
  * Optional query params:
  *   - category, city, q, featured (true)
- *   - usaRegion — Sri Sathya Sai USA region (Reg 1 … Reg 10); limits to cities in lib/data/sai-centers-city-usa-region.json
+ *   - usaRegion — Sri Sathya Sai USA region (Region 1 … Region 10, Region 7/8); limits to cities in lib/data/sai-centers-city-usa-region.json. Legacy "Reg N (...)" values still accepted.
  *   - date=YYYY-MM-DD — only activities spanning that calendar day (includes past dates)
  *   - activityStatus — only for logged-in ADMIN / SEVA_COORDINATOR (ignored otherwise).
  *     DRAFT / ARCHIVED may include inactive activities; PUBLISHED keeps isActive true.
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     const city = searchParams.get("city") || "All";
     const usaRegionRaw = (searchParams.get("usaRegion") || "").trim();
     const usaRegion =
-      usaRegionRaw && usaRegionRaw !== "All" && isValidUsaRegion(usaRegionRaw) ? usaRegionRaw : null;
+      usaRegionRaw && usaRegionRaw !== "All" ? parseUsaRegionParam(usaRegionRaw) : null;
     const q = (searchParams.get("q") || "").trim();
     const featuredOnly = searchParams.get("featured") === "true";
     const dateDay = (searchParams.get("date") || "").trim();
@@ -86,7 +86,9 @@ export async function GET(req: Request) {
         ? activityStatusRaw
         : null;
 
-    const base: Record<string, unknown> = {};
+    const base: Record<string, unknown> = {
+      listedAsCommunityOutreach: false,
+    };
     if (statusFilter === "PUBLISHED") {
       base.isActive = true;
       base.status = "PUBLISHED";

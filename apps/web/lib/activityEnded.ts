@@ -86,3 +86,22 @@ export function isSignupCounted(
   }
   return u !== CANCELLED && u !== REJECTED; // before end, don't count cancelled or rejected
 }
+
+/**
+ * Whether a signup contributes to aggregate **hours** and **volunteer headcount** on the home impact
+ * block, analytics (including per-location filters), and admin dashboard stats.
+ * - **Activity not finished yet:** only **APPROVED** signups count (includes bulk import when under capacity).
+ * - **Activity finished:** same as {@link isSignupCounted}(status, true) — everyone except **REJECTED**.
+ *
+ * Does **not** affect {@link LoggedHours} / Log Hours page.
+ */
+export function signupCountsTowardImpactTotals(
+  status: string | null | undefined,
+  activity: ActivityDateFields
+): boolean {
+  if (isActivityEnded(activity)) {
+    return isSignupCounted(status, true);
+  }
+  const u = (status ?? "").toUpperCase();
+  return u === "APPROVED";
+}

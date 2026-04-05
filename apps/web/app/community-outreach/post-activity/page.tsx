@@ -178,7 +178,7 @@ export default function CommunityOutreachPostActivityPage() {
       if (!res.ok) throw new Error(data?.error || data?.detail || "Save failed");
       setMsg({
         kind: "ok",
-        text: `Published: ${data.title}. It will appear on Find Seva with your organization name.`,
+        text: `Published: ${data.title}. It will appear on Find Community Activity with your organization name.`,
       });
       setTitle("");
       setCategory("");
@@ -261,7 +261,7 @@ export default function CommunityOutreachPostActivityPage() {
     <div className="min-h-screen bg-[radial-gradient(circle_at_35%_15%,rgba(255,255,255,0.72),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(110,140,230,0.85),rgba(240,220,140,0.75),rgba(160,150,120,0.75))] py-8">
       <div className="mx-auto max-w-4xl px-4">
         <div className="rounded-xl border border-indigo-200 bg-white/95 p-6 shadow-md">
-          <p className="text-sm font-semibold text-indigo-800">Organization (shown on Find Seva)</p>
+          <p className="text-sm font-semibold text-indigo-800">Organization (shown on Find Community Activity)</p>
           <p className="mt-1 text-xl font-bold text-zinc-900">{orgName}</p>
           <p className="text-sm text-zinc-600">Activities must be listed for: {profileCity}</p>
         </div>
@@ -270,7 +270,8 @@ export default function CommunityOutreachPostActivityPage() {
           Post a service activity
         </h1>
         <p className="mt-2 text-center text-sm text-zinc-700">
-          Same information as the admin “Add Seva Activity” flow. Your listing is published to Find Seva.
+          Same information as the admin “Add Seva Activity” flow. Your listing appears on{" "}
+          <strong>Find Community Activity</strong>, not on Find Seva.
         </p>
 
         <div className="mt-8 grid gap-8 md:grid-cols-2">
@@ -462,10 +463,13 @@ export default function CommunityOutreachPostActivityPage() {
             onClick={save}
             className="rounded-full bg-blue-600 px-10 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "Publishing…" : "Publish to Find Seva"}
+            {saving ? "Publishing…" : "Publish listing"}
           </button>
-          <Link href="/find-seva" className="rounded-full border border-zinc-400 px-6 py-3 font-semibold text-zinc-800">
-            View Find Seva
+          <Link
+            href="/find-community-activity"
+            className="rounded-full border border-zinc-400 px-6 py-3 font-semibold text-zinc-800"
+          >
+            View Find Community Activity
           </Link>
         </div>
       </div>

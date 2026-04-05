@@ -5,6 +5,25 @@ import { notifyReviewersProfileSubmitted } from "@/lib/communityOutreachNotify";
 
 export const dynamic = "force-dynamic";
 
+/** Optional HTTPS/HTTP URL or site-relative path (e.g. /uploads/...). */
+function parseLogoUrl(raw: unknown): string | null {
+  if (raw == null || raw === "") return null;
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  if (s.length > 2048) return null;
+  if (s.startsWith("/") && !s.startsWith("//")) {
+    return s;
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
+
 function displayName(u: {
   firstName: string | null;
   lastName: string | null;
@@ -37,6 +56,13 @@ export async function POST(req: Request) {
     const contactPhone =
       typeof body.contactPhone === "string" ? body.contactPhone.trim().slice(0, 40) : "";
     const website = typeof body.website === "string" ? body.website.trim().slice(0, 500) : "";
+    const logoUrl = parseLogoUrl(body.logoUrl);
+    if (body.logoUrl != null && body.logoUrl !== "" && logoUrl === null) {
+      return NextResponse.json(
+        { error: "Invalid organization image URL. Use https://… or a path starting with /." },
+        { status: 400 }
+      );
+    }
 
     if (!organizationName) {
       return NextResponse.json({ error: "Organization name is required." }, { status: 400 });
@@ -71,6 +97,7 @@ export async function POST(req: Request) {
       create: {
         userId: session.sub,
         organizationName,
+        logoUrl,
         description: description || null,
         city,
         contactPhone: contactPhone || null,
@@ -79,6 +106,7 @@ export async function POST(req: Request) {
       },
       update: {
         organizationName,
+        logoUrl,
         description: description || null,
         city,
         contactPhone: contactPhone || null,

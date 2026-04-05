@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
@@ -7,6 +8,10 @@ import {
   ContributionItemsEditor,
   type ContributionRow,
 } from "@/app/_components/ContributionItemsEditor";
+
+const SS_BULK_ID = "sevaBulkActivityId";
+const SS_BULK_TITLE = "sevaBulkActivityTitle";
+const SS_BULK_PUBLISHED = "sevaBulkImportAllowed";
 
 type Status = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
@@ -41,6 +46,14 @@ export default function AddSevaActivityPage() {
 
   const [contributionItems, setContributionItems] = useState<ContributionRow[]>([]);
 
+  /** After a successful save, bulk Excel import uses this activity (template + upload APIs). */
+  const [bulkActivityId, setBulkActivityId] = useState<string | null>(null);
+  const [bulkActivityTitle, setBulkActivityTitle] = useState<string | null>(null);
+  const [bulkImportAllowed, setBulkImportAllowed] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState<{ row: number; column: string; message: string }[] | null>(null);
+  const [bulkOk, setBulkOk] = useState<string | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+
   // UX state
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
@@ -49,6 +62,35 @@ export default function AddSevaActivityPage() {
 
   // Seva Coordinator: restrict city to registered locations
   const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    try {
+      const sid = sessionStorage.getItem(SS_BULK_ID);
+      if (!sid) return;
+      setBulkActivityId(sid);
+      const t = sessionStorage.getItem(SS_BULK_TITLE);
+      if (t) setBulkActivityTitle(t);
+      setBulkImportAllowed(sessionStorage.getItem(SS_BULK_PUBLISHED) === "1");
+
+      fetch(`/api/admin/seva-activities/${sid}`, { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((a: { status?: string; title?: string } | null) => {
+          if (!a) return;
+          if (a.title) setBulkActivityTitle(a.title);
+          if (a.status === "PUBLISHED") {
+            setBulkImportAllowed(true);
+            try {
+              sessionStorage.setItem(SS_BULK_PUBLISHED, "1");
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+        .catch(() => {});
+    } catch {
+      /* private mode */
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -126,6 +168,146 @@ export default function AddSevaActivityPage() {
     }
   }
 
+  async function downloadBulkTemplate() {
+    if (saving) return;
+    setBulkErrors(null);
+    setBulkOk(null);
+    const urlPath = bulkActivityId
+      ? `/api/admin/seva-activities/${bulkActivityId}/bulk-signups/template`
+      : "/api/admin/seva-activities/excel-template";
+    const fallbackName = bulkActivityId
+      ? `seva-activity-workbook-${bulkActivityId.slice(0, 8)}.xlsx`
+      : "seva-activity-template-blank.xlsx";
+    try {
+      const r = await fetch(urlPath, {
+        credentials: "include",
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setBulkErrors([
+          {
+            row: 1,
+            column: "—",
+            message: typeof d?.error === "string" ? d.error : "Could not download template.",
+          },
+        ]);
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fallbackName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setBulkErrors([{ row: 1, column: "—", message: (e as Error)?.message ?? "Download failed." }]);
+    }
+  }
+
+  async function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+
+    setBulkErrors(null);
+    setBulkOk(null);
+
+    const importIntoSavedPublished =
+      Boolean(bulkActivityId) && bulkImportAllowed;
+    if (bulkActivityId && !bulkImportAllowed) {
+      setBulkErrors([
+        {
+          row: 1,
+          column: "—",
+          message:
+            "This browser has a **draft** activity saved from this page. Use **Save & Publish** to upload into that activity, or open Add Seva in another window without saving a draft if you only want to create from Excel.",
+        },
+      ]);
+      return;
+    }
+
+    setBulkUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const url = importIntoSavedPublished
+        ? `/api/admin/seva-activities/${bulkActivityId}/bulk-signups/import`
+        : "/api/admin/seva-activities/bulk-workbook-import";
+      const r = await fetch(url, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (Array.isArray(d.errors)) {
+          const grid = d.errors as { row: number; column: string; message: string }[];
+          if (d.partial && typeof d.detail === "string") {
+            setBulkErrors([{ row: 1, column: "—", message: d.detail }, ...grid]);
+          } else {
+            setBulkErrors(grid);
+          }
+        } else {
+          setBulkErrors([
+            {
+              row: 1,
+              column: "—",
+              message:
+                typeof d?.error === "string"
+                  ? d.error
+                  : typeof d?.detail === "string"
+                    ? d.detail
+                    : "Import failed.",
+            },
+          ]);
+        }
+        if (typeof d?.activityId === "string" && d?.partial) {
+          setBulkActivityId(d.activityId);
+          try {
+            sessionStorage.setItem(SS_BULK_ID, d.activityId);
+            sessionStorage.setItem(SS_BULK_PUBLISHED, "1");
+          } catch {
+            /* ignore */
+          }
+          fetch(`/api/admin/seva-activities/${d.activityId}`, { credentials: "include", cache: "no-store" })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((a: { title?: string } | null) => {
+              if (a?.title) {
+                setBulkActivityTitle(a.title);
+                try {
+                  sessionStorage.setItem(SS_BULK_TITLE, a.title);
+                } catch {
+                  /* ignore */
+                }
+              }
+            })
+            .catch(() => {});
+          setBulkImportAllowed(true);
+        }
+        return;
+      }
+      setBulkOk(typeof d.message === "string" ? d.message : `Imported ${d.imported ?? 0} row(s).`);
+      if (typeof d.activityId === "string") {
+        setBulkActivityId(d.activityId);
+        setBulkImportAllowed(true);
+        const t = typeof d.title === "string" ? d.title : null;
+        if (t) setBulkActivityTitle(t);
+        try {
+          sessionStorage.setItem(SS_BULK_ID, d.activityId);
+          if (t) sessionStorage.setItem(SS_BULK_TITLE, t);
+          sessionStorage.setItem(SS_BULK_PUBLISHED, "1");
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (err: unknown) {
+      setBulkErrors([{ row: 1, column: "—", message: (err as Error)?.message ?? "Import failed." }]);
+    } finally {
+      setBulkUploading(false);
+    }
+  }
+
   async function save(status: Status) {
     setMsg(null);
 
@@ -185,6 +367,23 @@ export default function AddSevaActivityPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.detail || data?.error || "Save failed.");
+      }
+
+      const createdId = typeof data.id === "string" ? data.id : null;
+      if (createdId) {
+        const t = typeof data.title === "string" ? data.title : title.trim();
+        setBulkActivityId(createdId);
+        setBulkActivityTitle(t);
+        setBulkImportAllowed(status === "PUBLISHED");
+        setBulkErrors(null);
+        setBulkOk(null);
+        try {
+          sessionStorage.setItem(SS_BULK_ID, createdId);
+          sessionStorage.setItem(SS_BULK_TITLE, t);
+          sessionStorage.setItem(SS_BULK_PUBLISHED, status === "PUBLISHED" ? "1" : "0");
+        } catch {
+          /* ignore */
+        }
       }
 
       setMsg({ kind: "ok", text: `Saved: ${data.title} (${data.status})` });
@@ -642,6 +841,135 @@ export default function AddSevaActivityPage() {
             disabled={saving}
           />
         </section>
+
+        <section className="mt-10 overflow-hidden rounded-none border-2 border-indigo-200/90 bg-gradient-to-br from-white to-indigo-50/50 p-6 shadow-[0_14px_30px_rgba(79,70,160,0.15)] md:p-8">
+            <h2 className="text-xl font-black tracking-tight text-indigo-900 md:text-2xl">
+              Download Excel template &amp; bulk import
+            </h2>
+            {bulkActivityId && bulkActivityTitle && (
+              <p className="mt-2 text-sm font-semibold text-indigo-800">
+                Last activity saved from this page:{" "}
+                <span className="text-zinc-900">{bulkActivityTitle}</span>
+              </p>
+            )}
+            <p className="mt-3 text-sm leading-relaxed text-zinc-700">
+              The workbook has four tabs (plus a hidden <code className="rounded bg-indigo-100/90 px-1">_Lists</code> sheet for dropdowns):{" "}
+              <strong>Instructions</strong>, <strong>Add Seva Activity</strong> (activity fields + summary),{" "}
+              <strong>Contribution items</strong> (full item list for the activity — max, names, new rows without Item ID; if any row has an Item ID, the sheet replaces the ordered list like Manage Seva), and{" "}
+              <strong>Join Seva Activity</strong> (fourth tab: one row per person; each <code className="rounded bg-indigo-100/90 px-1">item__…</code> column maps a contribution item to
+              that individual with a quantity — many items on the same row, no repeated name/email).
+            </p>
+            {bulkActivityId ? (
+              <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+                <strong>Download</strong> fills <strong>Add Seva Activity</strong>, <strong>Contribution items</strong> (with claimed totals), and every registered member on{" "}
+                <strong>Join Seva Activity</strong> with item quantities. Re-download after editing the activity or items in <strong>Manage Seva → Edit</strong>. This browser remembers the last activity
+                you saved from this page until you save another one here.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm leading-relaxed text-zinc-700">
+                <strong>Download</strong> now for a <strong>blank</strong> template (Add Seva Activity headers + sample Join Seva Activity row; no{" "}
+                <code className="rounded bg-indigo-100/90 px-1">item__</code> columns until you save an activity here). After saving, download again to get contribution-item
+                columns and all current sign-ups.
+              </p>
+            )}
+            {!bulkActivityId && (
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                <strong>Upload filled Excel</strong> without saving the form first will <strong>create a new published seva activity</strong> from <strong>Add Seva Activity</strong> row 2, then sync{" "}
+                <strong>Contribution items</strong> (if any) and import <strong>Join Seva Activity</strong> rows. The activity appears in <strong>Manage Seva</strong> and public <strong>View details</strong> like any other published activity.
+              </p>
+            )}
+            {bulkActivityId && bulkImportAllowed && (
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                <strong>Upload filled Excel</strong> updates the <strong>last published activity</strong> saved from this page: applies <strong>Add Seva Activity</strong> row 2, syncs{" "}
+                <strong>Contribution items</strong> (append-only when every Item ID is blank), then imports <strong>Join Seva Activity</strong> rows. Volunteer confirmation emails and Manage Seva listings match the website.
+              </p>
+            )}
+            {bulkActivityId && !bulkImportAllowed && (
+              <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                <strong>Upload</strong> on this page is set to update your <strong>saved draft</strong> after you <strong>Save &amp; Publish</strong>. To create everything from Excel only, use{" "}
+                <strong>Upload</strong> from Add Seva in a session where you have <strong>not</strong> saved a draft here, or publish this draft first.
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={downloadBulkTemplate}
+                disabled={saving}
+                className="rounded-lg border-2 border-indigo-400 bg-white px-5 py-3 text-sm font-bold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+              >
+                Download Excel template
+              </button>
+              {/*
+                Overlay the file input on the control so the OS file picker opens from a direct
+                user click (reliable across browsers). Programmatic input.click() is often blocked.
+              */}
+              <label
+                className={`relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-lg px-5 py-3 text-sm font-bold text-white shadow ${
+                  (!bulkActivityId || bulkImportAllowed) && !bulkUploading && !saving
+                    ? "bg-indigo-800 hover:bg-indigo-900"
+                    : "bg-zinc-500 hover:bg-zinc-600"
+                } ${bulkUploading || saving ? "pointer-events-none cursor-not-allowed opacity-60" : ""}`}
+              >
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  className="absolute inset-0 z-10 h-full min-h-[44px] w-full cursor-pointer opacity-0"
+                  disabled={bulkUploading || saving}
+                  onChange={handleBulkUpload}
+                  aria-label="Choose Excel file to upload"
+                />
+                <span className="pointer-events-none relative z-0 select-none">
+                  {bulkUploading ? "Uploading…" : "Upload filled Excel"}
+                </span>
+              </label>
+              {bulkActivityId ? (
+                <>
+                  <Link
+                    href={`/admin/seva-signups?activityId=${encodeURIComponent(bulkActivityId)}`}
+                    className="text-sm font-bold text-indigo-800 underline hover:text-indigo-950"
+                  >
+                    View sign-ups →
+                  </Link>
+                  <Link
+                    href={`/admin/manage-seva/${bulkActivityId}`}
+                    className="text-sm font-bold text-indigo-800 underline hover:text-indigo-950"
+                  >
+                    Edit activity →
+                  </Link>
+                </>
+              ) : null}
+            </div>
+            {bulkOk && (
+              <p className="mt-5 rounded-md border border-emerald-400 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
+                {bulkOk}
+              </p>
+            )}
+            {bulkErrors && bulkErrors.length > 0 && (
+              <div className="mt-5 overflow-x-auto rounded-md border-2 border-red-300 bg-red-50/95">
+                <p className="border-b border-red-200 px-4 py-2 text-sm font-bold text-red-950">
+                  Fix the issues below (row = Excel row number).
+                </p>
+                <table className="min-w-full text-left text-sm text-red-950">
+                  <thead>
+                    <tr className="border-b border-red-200 bg-red-100/90">
+                      <th className="px-4 py-2 font-bold">Row</th>
+                      <th className="px-4 py-2 font-bold">Column</th>
+                      <th className="px-4 py-2 font-bold">Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkErrors.map((err, i) => (
+                      <tr key={i} className="border-b border-red-100">
+                        <td className="whitespace-nowrap px-4 py-2 font-mono">{err.row}</td>
+                        <td className="whitespace-nowrap px-4 py-2 font-mono">{err.column}</td>
+                        <td className="px-4 py-2">{err.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
         {/* bottom spacer so footer never feels stuck */}
         <div className="mt-10 h-6" />

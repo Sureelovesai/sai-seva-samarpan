@@ -3,6 +3,8 @@ import { resolveCityFromText } from "./resolveCity";
 const ALLOWED_PATHNAMES = new Set([
   "/",
   "/find-seva",
+  "/find-community-activity",
+  "/partner-organizations",
   "/dashboard",
   "/login",
   "/log-hours",

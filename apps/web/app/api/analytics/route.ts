@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isActivityEnded, isSignupCounted, getActivityEndMoment } from "@/lib/activityEnded";
+import {
+  isActivityEnded,
+  getActivityEndMoment,
+  signupCountsTowardImpactTotals,
+} from "@/lib/activityEnded";
 
 /**
  * GET /api/analytics
  * Returns aggregate stats, category/city counts, and recent activities.
- * Hours and volunteer counts from Seva Activities only (Join Seva Activity, after activity ended). No Logged Hours.
- * Optional query params: center, category, from, to, search (filter by city, category, date range, title search).
+ * Hours and volunteer counts from Seva Activities (Join Seva + bulk import): APPROVED while upcoming/in progress;
+ * after the activity ends, everyone except REJECTED. Optional `center` filters by activity city (location).
+ * Logged Hours are added only to the combined totalHours figure (unchanged); bulk import never writes LoggedHours.
  */
 export async function GET(request: Request) {
   try {
@@ -96,8 +101,7 @@ export async function GET(request: Request) {
     let totalVolunteers = 0;
     let totalHours = 0;
     for (const s of signupsWithActivity) {
-      if (!s.activity || !isActivityEnded(s.activity)) continue;
-      if (!isSignupCounted(s.status, true)) continue; // activity ended: only exclude REJECTED
+      if (!s.activity || !signupCountsTowardImpactTotals(s.status, s.activity)) continue;
       const participants = (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
       totalVolunteers += participants;
       const h = s.activity.durationHours;
@@ -138,7 +142,7 @@ export async function GET(request: Request) {
       },
     });
 
-    // Monthly Seva hours (last 12 months): signup hours only (activities that ended in that month). No Logged Hours.
+    // Monthly Seva hours (last 12 months): signup hours only. Ended activities bucket by end month; upcoming APPROVED by start month.
     const monthlySevaHours: { month: string; hours: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -150,12 +154,24 @@ export async function GET(request: Request) {
 
       let hours = 0;
       for (const s of signupsWithActivity) {
-        if (!s.activity || !isActivityEnded(s.activity)) continue;
-        if (!isSignupCounted(s.status, true)) continue;
-        const endMoment = getActivityEndMoment(s.activity);
-        if (!endMoment || endMoment < monthStart || endMoment > monthEnd) continue;
-        const h = s.activity.durationHours;
-        if (typeof h === "number" && h > 0) hours += h;
+        if (!s.activity || !signupCountsTowardImpactTotals(s.status, s.activity)) continue;
+        const participants = (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
+        const dur = s.activity.durationHours;
+        if (typeof dur !== "number" || dur <= 0) continue;
+
+        const ended = isActivityEnded(s.activity);
+        let inThisMonth = false;
+        if (ended) {
+          const endMoment = getActivityEndMoment(s.activity);
+          if (endMoment && endMoment >= monthStart && endMoment <= monthEnd) inThisMonth = true;
+        } else if (s.activity.startDate) {
+          const sd = new Date(s.activity.startDate);
+          if (!Number.isNaN(sd.getTime()) && sd.getFullYear() === y && sd.getMonth() === m) {
+            inThisMonth = true;
+          }
+        }
+        if (!inThisMonth) continue;
+        hours += participants * dur;
       }
       monthlySevaHours.push({ month: monthKey, hours: Math.round(hours * 10) / 10 });
     }

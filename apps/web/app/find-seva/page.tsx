@@ -6,7 +6,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
-import { USA_REGIONS_FOR_FILTER, isValidUsaRegion } from "@/lib/usaRegions";
+import { USA_REGIONS_FOR_FILTER, parseUsaRegionParam } from "@/lib/usaRegions";
 
 const ACTIVITY_STATUS_OPTIONS = ["All", "DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
@@ -175,7 +175,8 @@ function initialDate(sp: ReturnType<typeof useSearchParams>) {
 
 function initialUsaRegion(sp: ReturnType<typeof useSearchParams>) {
   const r = sp.get("usaRegion") || "";
-  return r && isValidUsaRegion(r) ? r : "All";
+  const canon = parseUsaRegionParam(r);
+  return canon ?? "All";
 }
 
 /** Remount when query string changes so state matches deep links (e.g. admin calendar). */

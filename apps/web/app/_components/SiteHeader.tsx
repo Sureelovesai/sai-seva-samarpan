@@ -16,14 +16,19 @@ type AuthUser = {
   coordinatorCities?: string[] | null;
 } | null;
 
-// Main nav order (desktop: one row; mobile: hamburger)
+// Main nav (Community Network is a dropdown below)
 const topLinksAll = [
   { href: "/", label: "Home" },
   { href: "/find-seva", label: "Find Seva" },
   { href: "/dashboard", label: "My Seva Dashboard" },
-  { href: "/community-outreach", label: "Community Outreach" },
   { href: "/seva-blog", label: "Seva Blog" },
 ];
+
+const COMMUNITY_OUTREACH_LINKS = [
+  { label: "Community Network", href: "/community-outreach" },
+  { label: "Find Community Activity", href: "/find-community-activity" },
+  { label: "Partner Organizations", href: "/partner-organizations" },
+] as const;
 
 // Add Seva Activity, Seva Sign Ups, Manage Seva: reach from inside Seva Admin Dashboard
 const adminLinks = [
@@ -51,6 +56,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
   const [user, setUser] = useState<AuthUser>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -65,14 +71,15 @@ export function SiteHeader() {
   }, [pathname]);
 
   useEffect(() => {
-    if (!aboutOpen && !resourcesOpen) return;
+    if (!aboutOpen && !resourcesOpen && !communityOpen) return;
     function close() {
       setAboutOpen(false);
       setResourcesOpen(false);
+      setCommunityOpen(false);
     }
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, [aboutOpen, resourcesOpen]);
+  }, [aboutOpen, resourcesOpen, communityOpen]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -83,6 +90,14 @@ export function SiteHeader() {
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+
+  const communitySectionActive =
+    pathname === "/community-outreach" ||
+    pathname.startsWith("/community-outreach/") ||
+    pathname === "/find-community-activity" ||
+    pathname.startsWith("/find-community-activity/") ||
+    pathname === "/partner-organizations" ||
+    pathname.startsWith("/partner-organizations/");
 
   const linkClass = (href: string) =>
     `transition-colors ${
@@ -117,19 +132,52 @@ export function SiteHeader() {
             />
           </Link>
 
-          <div className="min-w-0 flex-1 hidden md:block landscape-desktop:block">
-            <nav className="flex flex-nowrap items-center gap-x-4 overflow-x-auto pb-0.5 text-sm sm:gap-x-5 sm:text-base [scrollbar-width:thin]">
-              {topLinks.map((l) => (
-                <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
-                  {l.label}
-                </Link>
-              ))}
+          <div className="min-w-0 flex-1 pl-[15px] hidden md:block landscape-desktop:block">
+            {/* Same pl-[15px] on this column aligns row 1 (main nav), row 2 (admin), row 3 (login). */}
+            <nav className="flex flex-nowrap items-center gap-x-4 overflow-visible pb-0.5 text-sm sm:gap-x-5 sm:text-base">
+              <div className="flex min-w-0 flex-nowrap items-center gap-x-4 overflow-x-auto sm:gap-x-5 [scrollbar-width:thin]">
+                {topLinks.map((l) => (
+                  <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    setAboutOpen(false);
+                    setResourcesOpen(false);
+                    setCommunityOpen((o) => !o);
+                  }}
+                  className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${communityOpen || communitySectionActive ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
+                >
+                  Community Network
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                </button>
+                {communityOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
+                    {COMMUNITY_OUTREACH_LINKS.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setCommunityOpen(false)}
+                        className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
                     setResourcesOpen(false);
+                    setCommunityOpen(false);
                     setAboutOpen((o) => !o);
                   }}
                   className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
@@ -171,6 +219,7 @@ export function SiteHeader() {
                   onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
                     setAboutOpen(false);
+                    setCommunityOpen(false);
                     setResourcesOpen((o) => !o);
                   }}
                   className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${resourcesOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
@@ -261,6 +310,17 @@ export function SiteHeader() {
             {topLinks.map((l) => (
               <Link key={l.href} href={l.href} className={`block py-2 text-sm ${linkClass(l.href)}`} onClick={() => setMenuOpen(false)}>
                 {l.label}
+              </Link>
+            ))}
+            <span className="mt-2 block py-1 text-xs font-semibold text-zinc-500">Community Network</span>
+            {COMMUNITY_OUTREACH_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block py-1.5 pl-3 text-sm text-zinc-800 hover:text-blue-700"
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
               </Link>
             ))}
             <span className="mt-2 block py-1 text-xs font-semibold text-zinc-500">About Us</span>

@@ -99,7 +99,7 @@ export default function CommunityOutreachPage() {
             </h2>
             <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
               Once approved, you are ready to post a service activity. Your organization name appears
-              on Find Seva with each listing so volunteers recognize your group.
+              on <strong>Find Community Activity</strong> with each listing so volunteers recognize your group.
             </p>
           </div>
         </div>

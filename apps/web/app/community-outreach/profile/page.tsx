@@ -1,8 +1,59 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CITIES } from "@/lib/cities";
+
+function OrganizationLogoPreview({
+  logoUrl,
+  organizationName,
+}: {
+  logoUrl: string;
+  organizationName: string;
+}) {
+  const src = logoUrl.trim();
+  return (
+    <div className="flex h-full min-h-[140px] w-full shrink-0 items-center justify-center overflow-hidden bg-zinc-200 md:w-[180px]">
+      <div className="relative aspect-[9/8] w-full max-w-[180px] overflow-hidden">
+        {src ? (
+          (() => {
+            const isRelativeOrBlob =
+              src.startsWith("/") || src.includes("blob.vercel-storage.com");
+            if (isRelativeOrBlob) {
+              return (
+                <Image
+                  src={src}
+                  alt={organizationName || "Organization logo"}
+                  fill
+                  className="object-contain object-center"
+                  sizes="180px"
+                />
+              );
+            }
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt={organizationName || "Organization logo"}
+                className="absolute inset-0 h-full w-full object-contain object-center"
+              />
+            );
+          })()
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-200 px-3 text-center">
+            <span className="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              Company image
+            </span>
+            <span className="text-[11px] leading-snug text-zinc-400">
+              Optional — upload or paste URL. Shown like Find Seva, on the right when listed.
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function CommunityOutreachProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -12,6 +63,8 @@ export default function CommunityOutreachProfilePage() {
   const [description, setDescription] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [website, setWebsite] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
@@ -40,12 +93,14 @@ export default function CommunityOutreachProfilePage() {
           setProfileStatus("APPROVED");
           setOrganizationName(p.organizationName || "");
           setCity(p.city || "");
+          setLogoUrl(typeof p.logoUrl === "string" ? p.logoUrl : "");
         } else if (p) {
           setOrganizationName(p.organizationName || "");
           setCity(p.city || "");
           setDescription(p.description || "");
           setContactPhone(p.contactPhone || "");
           setWebsite(p.website || "");
+          setLogoUrl(typeof p.logoUrl === "string" ? p.logoUrl : "");
           setProfileStatus(p.status);
         }
         setLoading(false);
@@ -55,6 +110,34 @@ export default function CommunityOutreachProfilePage() {
         setLoading(false);
       });
   }, []);
+
+  async function handleLogoFile(file: File | null) {
+    if (!file) return;
+    setMsg(null);
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/community-outreach/upload-logo", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === "string"
+            ? `${data.error || "Upload failed"}: ${data.detail}`
+            : data.error || "Upload failed"
+        );
+      }
+      if (typeof data.url === "string") setLogoUrl(data.url);
+    } catch (err: unknown) {
+      setMsg({ kind: "err", text: err instanceof Error ? err.message : "Upload failed" });
+    } finally {
+      setLogoUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,6 +154,7 @@ export default function CommunityOutreachProfilePage() {
           description,
           contactPhone,
           website,
+          logoUrl: logoUrl.trim() || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -157,85 +241,133 @@ export default function CommunityOutreachProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 py-10">
-      <div className="mx-auto max-w-xl px-4">
+      <div className="mx-auto max-w-3xl px-4">
         <h1 className="text-2xl font-bold text-zinc-900">Organization profile</h1>
         <p className="mt-2 text-sm text-zinc-600">
           Our review team will review your submission. Admins and the seva coordinator for your
           center (if any) will be notified by email.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">Organization name *</label>
-            <input
-              required
-              value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">City / Sai center *</label>
-            <select
-              required
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-            >
-              <option value="">Select center city</option>
-              {CITIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">About your organization</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-              placeholder="Mission, activities, or other context for reviewers…"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">Contact phone</label>
-            <input
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">Website</label>
-            <input
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-              placeholder="https://…"
-            />
-          </div>
+        <div className="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] md:items-stretch">
+            <form onSubmit={handleSubmit} className="space-y-5 p-6">
+              <div>
+                <label className="block text-sm font-semibold text-zinc-800">Organization name *</label>
+                <input
+                  required
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-zinc-800">City / Sai center *</label>
+                <select
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                >
+                  <option value="">Select center city</option>
+                  {CITIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-zinc-800">About your organization</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                  placeholder="Mission, activities, or other context for reviewers…"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-zinc-800">Contact phone</label>
+                <input
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-zinc-800">Website</label>
+                <input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                  placeholder="https://…"
+                />
+              </div>
 
-          {msg && (
-            <p
-              className={
-                msg.kind === "ok" ? "text-sm text-emerald-800" : "text-sm text-red-700"
-              }
-            >
-              {msg.text}
-            </p>
-          )}
+              <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50/80 p-4">
+                <label className="block text-sm font-semibold text-zinc-800">
+                  Company / organization image (optional)
+                </label>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Appears on Partner Organizations to the right of your details (same balance as images on Find Seva).
+                </p>
+                <input
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="mt-2 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                  placeholder="https://… or leave blank and upload below"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center rounded-md border border-zinc-400 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      disabled={logoUploading || saving}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        e.target.value = "";
+                        void handleLogoFile(f);
+                      }}
+                    />
+                    {logoUploading ? "Uploading…" : "Upload image"}
+                  </label>
+                  {logoUrl.trim() ? (
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-red-700 underline"
+                      onClick={() => setLogoUrl("")}
+                    >
+                      Clear image
+                    </button>
+                  ) : null}
+                </div>
+              </div>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full rounded-full bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {saving ? "Submitting…" : "Submit for review"}
-          </button>
-        </form>
+              {msg && (
+                <p
+                  className={
+                    msg.kind === "ok" ? "text-sm text-emerald-800" : "text-sm text-red-700"
+                  }
+                >
+                  {msg.text}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={saving || logoUploading}
+                className="w-full rounded-full bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {saving ? "Submitting…" : "Submit for review"}
+              </button>
+            </form>
+
+            <div className="border-t border-zinc-200 md:border-l md:border-t-0">
+              <OrganizationLogoPreview logoUrl={logoUrl} organizationName={organizationName} />
+            </div>
+          </div>
+        </div>
 
         <p className="mt-6 text-center text-sm">
           <Link href="/community-outreach" className="text-blue-700 underline">

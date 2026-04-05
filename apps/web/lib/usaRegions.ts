@@ -5,20 +5,33 @@ import saiCenterRows from "./data/sai-centers-city-usa-region.json";
  * Stored data: lib/data/sai-centers-city-usa-region.json
  */
 export const USA_REGION_LABELS = [
-  "Reg 1 (Northeast USA)",
-  "Reg 2 (Mid-Atlantic USA)",
-  "Reg 3 (Southeast USA)",
-  "Reg 4 (Mid Central USA)",
-  "Reg 5 (North Central USA)",
-  "Reg 6 (Pacific USA)",
-  "Reg 7/8 (Pacific USA)",
-  "Reg 9 (Southwest USA)",
-  "Reg 10 (Southcentral USA)",
+  "Region 1",
+  "Region 2",
+  "Region 3",
+  "Region 4",
+  "Region 5",
+  "Region 6",
+  "Region 7/8",
+  "Region 9",
+  "Region 10",
 ] as const;
 
 export type UsaRegionLabel = (typeof USA_REGION_LABELS)[number];
 
 export const USA_REGIONS_FOR_FILTER = ["All", ...USA_REGION_LABELS] as const;
+
+/** Prior labels (URLs, bookmarks, BlogReport.regionFilter) map to current canonical labels. */
+const LEGACY_USA_REGION_TO_CANONICAL: Record<string, UsaRegionLabel> = {
+  "Reg 1 (Northeast USA)": "Region 1",
+  "Reg 2 (Mid-Atlantic USA)": "Region 2",
+  "Reg 3 (Southeast USA)": "Region 3",
+  "Reg 4 (Mid Central USA)": "Region 4",
+  "Reg 5 (North Central USA)": "Region 5",
+  "Reg 6 (Pacific USA)": "Region 6",
+  "Reg 7/8 (Pacific USA)": "Region 7/8",
+  "Reg 9 (Southwest USA)": "Region 9",
+  "Reg 10 (Southcentral USA)": "Region 10",
+};
 
 type Row = { city: string; usaRegion: string };
 
@@ -35,6 +48,19 @@ for (const { city, usaRegion } of rows) {
 
 export function isValidUsaRegion(value: string): value is UsaRegionLabel {
   return (USA_REGION_LABELS as readonly string[]).includes(value);
+}
+
+/**
+ * Resolve query params, bookmarks, or stored filters to a canonical region label.
+ * Accepts current labels and legacy "Reg N (...)" strings.
+ */
+export function parseUsaRegionParam(raw: string): UsaRegionLabel | null {
+  const trimmed = raw?.trim();
+  if (!trimmed || trimmed === "All") return null;
+  if ((USA_REGION_LABELS as readonly string[]).includes(trimmed)) {
+    return trimmed as UsaRegionLabel;
+  }
+  return LEGACY_USA_REGION_TO_CANONICAL[trimmed] ?? null;
 }
 
 /** Canonical city names in the given region (for DB `in` / OR filters). */

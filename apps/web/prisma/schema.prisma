@@ -38,6 +38,8 @@ model CommunityOutreachProfile {
   userId           String                   @unique
   user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   organizationName String
+  /// Optional logo / company image (URL or uploaded path); shown on Partner Organizations.
+  logoUrl          String?
   description      String?                  @db.Text
   city             String
   contactPhone     String?
@@ -67,6 +69,7 @@ model PasswordResetToken {
 enum BlogPostStatus {
   PENDING_APPROVAL
   APPROVED
+  REJECTED
 }
 
 model BlogPost {
@@ -179,8 +182,10 @@ model SevaActivity {
   title            String
   category         String
   city             String
-  /// Partner / org name (Community Outreach); shown on Find Seva with the activity.
+  /// Partner / org name (Community Outreach); shown on Find Community Activity.
   organizationName String?
+  /// When true, activity is listed only on Find Community Activity, not on Find Seva / home featured / public calendar.
+  listedAsCommunityOutreach Boolean @default(false)
   isActive         Boolean            @default(true)
   isFeatured       Boolean            @default(false)
   createdAt        DateTime           @default(now())
@@ -202,6 +207,8 @@ model SevaActivity {
   status           SevaActivityStatus @default(DRAFT)
   signups          SevaSignup[]
   contributionItems SevaContributionItem[]
+
+  @@index([listedAsCommunityOutreach])
 }
 
 /// Items volunteers can sign up to bring (e.g. food drive, supplies).

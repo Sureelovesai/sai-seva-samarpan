@@ -92,6 +92,7 @@ type PendingPostFull = {
 type PendingOutreachProfileRow = {
   id: string;
   organizationName: string;
+  logoUrl?: string | null;
   description: string | null;
   city: string;
   contactPhone: string | null;
@@ -130,7 +131,7 @@ export default function SevaAdminDashboardPage() {
 
   const [pendingBlogPosts, setPendingBlogPosts] = useState<PendingBlogPost[]>([]);
   const [pendingBlogLoading, setPendingBlogLoading] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [blogPostActingId, setBlogPostActingId] = useState<string | null>(null);
   const [viewingPostFull, setViewingPostFull] = useState<PendingPostFull | null>(null);
   const [viewingPostLoading, setViewingPostLoading] = useState(false);
   const [viewingPostId, setViewingPostId] = useState<string | null>(null);
@@ -142,6 +143,7 @@ export default function SevaAdminDashboardPage() {
   const [viewingOutreachProfile, setViewingOutreachProfile] = useState<PendingOutreachProfileRow | null>(null);
 
   const canDeleteOutreachProfiles = userRoles.includes("ADMIN");
+  const canDeleteBlogPosts = userRoles.includes("ADMIN");
 
   useEffect(() => {
     let cancelled = false;
@@ -281,8 +283,8 @@ export default function SevaAdminDashboardPage() {
   }
 
   async function approveBlogPost(postId: string) {
-    if (approvingId) return;
-    setApprovingId(postId);
+    if (blogPostActingId) return;
+    setBlogPostActingId(postId);
     try {
       const res = await fetch(`/api/blog-posts/${postId}`, {
         method: "PATCH",
@@ -295,7 +297,54 @@ export default function SevaAdminDashboardPage() {
         fetchPendingBlogPosts();
       }
     } finally {
-      setApprovingId(null);
+      setBlogPostActingId(null);
+    }
+  }
+
+  async function rejectBlogPost(postId: string) {
+    const note =
+      window.prompt("Optional note to include in the email to the submitter:") ?? "";
+    if (note === null) return;
+    if (blogPostActingId) return;
+    setBlogPostActingId(postId);
+    try {
+      const res = await fetch(`/api/blog-posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "REJECTED", reviewerNote: note }),
+      });
+      if (res.ok) {
+        setViewingPostFull(null);
+        fetchPendingBlogPosts();
+      }
+    } finally {
+      setBlogPostActingId(null);
+    }
+  }
+
+  async function deleteBlogPost(postId: string) {
+    if (!canDeleteBlogPosts) return;
+    if (
+      !window.confirm(
+        "Delete this blog post permanently? This cannot be undone. The submitter can create a new post later."
+      )
+    ) {
+      return;
+    }
+    if (blogPostActingId) return;
+    setBlogPostActingId(postId);
+    try {
+      const res = await fetch(`/api/admin/blog-posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setViewingPostFull(null);
+        fetchPendingBlogPosts();
+      }
+    } finally {
+      setBlogPostActingId(null);
     }
   }
 
@@ -551,7 +600,8 @@ export default function SevaAdminDashboardPage() {
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-amber-700" aria-hidden />
             </div>
             <p className="mt-2 text-center text-sm text-amber-800/90">
-              New posts are sent for verification. Approve a post to make it visible on the Seva Blog.
+              New posts are sent for verification. Approve to publish, reject to notify the submitter (optional note), or
+              delete to remove the entry from the queue. Only Admins can delete.
             </p>
             {pendingBlogLoading ? (
               <p className="mt-4 text-center text-amber-800">Loading…</p>
@@ -583,11 +633,11 @@ export default function SevaAdminDashboardPage() {
                         {post.sevaCategory && <span>{post.sevaCategory}</span>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => openViewPendingPost(post.id)}
-                        disabled={viewingPostLoading}
+                        disabled={!!blogPostActingId || viewingPostLoading}
                         className="rounded-lg border border-amber-600 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:opacity-60"
                       >
                         {viewingPostLoading && viewingPostId === post.id ? "Loading…" : "View"}
@@ -595,11 +645,29 @@ export default function SevaAdminDashboardPage() {
                       <button
                         type="button"
                         onClick={() => approveBlogPost(post.id)}
-                        disabled={approvingId === post.id}
-                        className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-amber-800 disabled:opacity-60"
+                        disabled={blogPostActingId === post.id}
+                        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60"
                       >
-                        {approvingId === post.id ? "Approving…" : "Approve"}
+                        {blogPostActingId === post.id ? "Working…" : "Approve"}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => rejectBlogPost(post.id)}
+                        disabled={blogPostActingId === post.id}
+                        className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Reject
+                      </button>
+                      {canDeleteBlogPosts && (
+                        <button
+                          type="button"
+                          onClick={() => deleteBlogPost(post.id)}
+                          disabled={blogPostActingId === post.id}
+                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -703,7 +771,10 @@ export default function SevaAdminDashboardPage() {
             post={viewingPostFull}
             onClose={() => setViewingPostFull(null)}
             onApprove={() => approveBlogPost(viewingPostFull.id)}
-            approving={approvingId === viewingPostFull.id}
+            onReject={() => rejectBlogPost(viewingPostFull.id)}
+            onDelete={canDeleteBlogPosts ? () => deleteBlogPost(viewingPostFull.id) : undefined}
+            acting={blogPostActingId === viewingPostFull.id}
+            canDelete={canDeleteBlogPosts}
           />
         )}
 
@@ -1265,6 +1336,52 @@ function sanitizeHtml(html: string): string {
     .trim();
 }
 
+function OutreachProfileLogoPane({
+  logoUrl,
+  alt,
+}: {
+  logoUrl: string | null | undefined;
+  alt: string;
+}) {
+  const src = logoUrl?.trim();
+  return (
+    <div className="flex h-full min-h-[140px] w-full shrink-0 items-center justify-center overflow-hidden bg-zinc-200 md:w-[180px]">
+      <div className="relative aspect-[9/8] w-full max-w-[180px] overflow-hidden">
+        {src ? (
+          (() => {
+            const isRelativeOrBlob =
+              src.startsWith("/") || src.includes("blob.vercel-storage.com");
+            if (isRelativeOrBlob) {
+              return (
+                <Image
+                  src={src}
+                  alt={alt}
+                  fill
+                  className="object-contain object-center"
+                  sizes="180px"
+                />
+              );
+            }
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt={alt}
+                className="absolute inset-0 h-full w-full object-contain object-center"
+              />
+            );
+          })()
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-zinc-200 px-2 text-center">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Logo</span>
+            <span className="text-[11px] leading-tight text-zinc-400">None provided</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PendingOutreachProfileModal({
   profile,
   submitterDisplayName,
@@ -1305,54 +1422,59 @@ function PendingOutreachProfileModal({
             ✕
           </button>
         </div>
-        <div className="p-4">
-          <h2 className="text-xl font-bold text-slate-800">{profile.organizationName}</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {submitterDisplayName} ·{" "}
-            <a href={`mailto:${profile.user.email}`} className="text-indigo-800 underline">
-              {profile.user.email}
-            </a>
-            {submittedStr && (
-              <>
-                {" "}
-                · Submitted {submittedStr}
-              </>
-            )}
-          </p>
-          <dl className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-            <dt className="font-medium text-slate-500">City / center</dt>
-            <dd>{profile.city}</dd>
-            {profile.contactPhone && (
-              <>
-                <dt className="font-medium text-slate-500">Contact phone</dt>
-                <dd>
-                  <a href={`tel:${profile.contactPhone.replace(/\s/g, "")}`} className="text-indigo-800 underline">
-                    {profile.contactPhone}
-                  </a>
-                </dd>
-              </>
-            )}
-            {profile.website && (
-              <>
-                <dt className="font-medium text-slate-500">Website</dt>
-                <dd>
-                  <a
-                    href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
-                    className="text-indigo-800 underline break-all"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {profile.website}
-                  </a>
-                </dd>
-              </>
-            )}
-          </dl>
-          <div className="mt-4 border-t border-indigo-100 pt-4">
-            <p className="mb-2 text-sm font-semibold text-slate-700">About the organization</p>
-            <div className="whitespace-pre-wrap text-slate-700">
-              {profile.description?.trim() || "(No description provided)"}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] md:items-stretch">
+          <div className="min-w-0 p-4">
+            <h2 className="text-xl font-bold text-slate-800">{profile.organizationName}</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {submitterDisplayName} ·{" "}
+              <a href={`mailto:${profile.user.email}`} className="text-indigo-800 underline">
+                {profile.user.email}
+              </a>
+              {submittedStr && (
+                <>
+                  {" "}
+                  · Submitted {submittedStr}
+                </>
+              )}
+            </p>
+            <dl className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+              <dt className="font-medium text-slate-500">City / center</dt>
+              <dd>{profile.city}</dd>
+              {profile.contactPhone && (
+                <>
+                  <dt className="font-medium text-slate-500">Contact phone</dt>
+                  <dd>
+                    <a href={`tel:${profile.contactPhone.replace(/\s/g, "")}`} className="text-indigo-800 underline">
+                      {profile.contactPhone}
+                    </a>
+                  </dd>
+                </>
+              )}
+              {profile.website && (
+                <>
+                  <dt className="font-medium text-slate-500">Website</dt>
+                  <dd>
+                    <a
+                      href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
+                      className="break-all text-indigo-800 underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {profile.website}
+                    </a>
+                  </dd>
+                </>
+              )}
+            </dl>
+            <div className="mt-4 border-t border-indigo-100 pt-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">About the organization</p>
+              <div className="whitespace-pre-wrap text-slate-700">
+                {profile.description?.trim() || "(No description provided)"}
+              </div>
             </div>
+          </div>
+          <div className="border-t border-indigo-200 md:border-l md:border-t-0">
+            <OutreachProfileLogoPane logoUrl={profile.logoUrl} alt={profile.organizationName} />
           </div>
         </div>
         <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-indigo-200 bg-white px-4 py-3">
@@ -1399,12 +1521,18 @@ function PendingPostViewModal({
   post,
   onClose,
   onApprove,
-  approving,
+  onReject,
+  onDelete,
+  acting,
+  canDelete,
 }: {
   post: PendingPostFull;
   onClose: () => void;
   onApprove: () => void;
-  approving: boolean;
+  onReject: () => void;
+  onDelete?: () => void;
+  acting: boolean;
+  canDelete: boolean;
 }) {
   const imageUrl = post.imageUrl || null;
   const safeContent = sanitizeHtml(post.content);
@@ -1502,7 +1630,7 @@ function PendingPostViewModal({
             )}
           </div>
         </div>
-        <div className="sticky bottom-0 flex justify-end gap-3 border-t border-amber-200 bg-white px-4 py-3">
+        <div className="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-amber-200 bg-white px-4 py-3">
           <button
             type="button"
             onClick={onClose}
@@ -1510,13 +1638,31 @@ function PendingPostViewModal({
           >
             Close
           </button>
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={acting}
+              className="rounded-lg border border-slate-400 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              {acting ? "Working…" : "Delete from queue"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={acting}
+            className="rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+          >
+            Reject…
+          </button>
           <button
             type="button"
             onClick={onApprove}
-            disabled={approving}
-            className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-60"
+            disabled={acting}
+            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
           >
-            {approving ? "Approving…" : "Approve post"}
+            {acting ? "Working…" : "Approve post"}
           </button>
         </div>
       </div>

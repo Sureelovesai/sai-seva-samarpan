@@ -14,8 +14,10 @@ type ChatTurn = {
 const QUICK_PROMPTS = [
   "How do I find seva in Charlotte?",
   "How do I join a seva activity?",
+  "What is the difference between Join Seva and Register for items?",
   "How do I withdraw from a signup?",
   "How does a seva coordinator add an activity?",
+  "How do I bulk import volunteers from Excel?",
   "I can't see Seva Admin Dashboard or Add Seva",
   "How do I get my volunteer certificate?",
 ];

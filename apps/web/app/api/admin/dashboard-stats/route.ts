@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole, activityCityWhere } from "@/lib/getRole";
-import { isActivityEnded, isSignupCounted } from "@/lib/activityEnded";
+import { signupCountsTowardImpactTotals } from "@/lib/activityEnded";
 
 /**
  * GET /api/admin/dashboard-stats
- * Total hours, total volunteers, active activities, total activities from Seva Activities only (Join Seva Activity).
+ * Total hours, total volunteers, active activities, total activities from Seva Activities (Join Seva + bulk import).
  * Does NOT include Logged Hours from the Log Hours page.
  * For Seva Coordinator, all counts are restricted to their cities (unchanged).
  * Admin, Blog Admin, and Seva Coordinator can access.
@@ -59,8 +59,7 @@ export async function GET(req: Request) {
     let totalHours = 0;
     let totalVolunteers = 0;
     for (const s of signupsWithActivity) {
-      if (!s.activity || !isActivityEnded(s.activity)) continue;
-      if (!isSignupCounted(s.status, true)) continue; // activity ended: only exclude REJECTED, keep CANCELLED so we don't lose hours
+      if (!s.activity || !signupCountsTowardImpactTotals(s.status, s.activity)) continue;
       const participants = (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
       totalVolunteers += participants;
       const h = s.activity.durationHours;

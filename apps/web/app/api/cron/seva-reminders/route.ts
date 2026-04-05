@@ -13,9 +13,11 @@ function escapeHtml(s: string): string {
 
 /**
  * GET/POST /api/cron/seva-reminders
- * Call this from a cron job (e.g. every hour). Sends reminder emails 24 hours before each activity starts:
- * - One email per volunteer (reminder that activity is tomorrow)
- * - One email per activity to the coordinator with the list of volunteers (only one coordinator email per seva)
+ * Call this from a cron job (e.g. every hour). Sends reminder emails ~24 hours before each activity starts:
+ * - **Join Seva (APPROVED)** volunteers: reminder about attending.
+ * - **Item-only** contributors (Register): reminder about supplies — only if their email is not already an APPROVED on-site signup (avoids duplicate emails).
+ * - **Coordinator**: one email per activity with approved participants and/or all item contributions listed.
+ * PENDING (waitlist) sign-ups do not receive the 24h reminder until approved.
  * Optional: set CRON_SECRET in env and pass ?secret=... or Authorization: Bearer <secret> to protect the endpoint.
  */
 export async function GET(req: Request) {
@@ -53,12 +55,25 @@ async function runReminders(req: Request) {
       },
       include: {
         signups: {
-          where: { status: { not: "CANCELLED" } },
+          where: { status: "APPROVED" },
+        },
+        contributionItems: {
+          include: {
+            claims: {
+              where: { status: "CONFIRMED" },
+            },
+          },
         },
       },
     });
 
-    const results: { activityId: string; title: string; volunteerEmails: number; coordinatorSent: boolean }[] = [];
+    const results: {
+      activityId: string;
+      title: string;
+      onsiteVolunteerEmails: number;
+      itemOnlyEmails: number;
+      coordinatorSent: boolean;
+    }[] = [];
 
     for (const activity of activities) {
       const title = activity.title ?? "Seva Activity";
@@ -67,10 +82,14 @@ async function runReminders(req: Request) {
         activity.startTime,
         activity.endTime
       );
-      let volunteerCount = 0;
-      let coordinatorSent = false;
 
-      for (const signup of activity.signups) {
+      const approvedSignups = activity.signups;
+      const signupEmailSet = new Set(
+        approvedSignups.map((s: (typeof approvedSignups)[number]) => s.email.trim().toLowerCase())
+      );
+
+      let onsiteVolunteerEmails = 0;
+      for (const signup of approvedSignups) {
         const ok = await sendEmail({
           to: signup.email,
           subject: `Reminder: ${title} starts in 24 hours`,
@@ -83,33 +102,99 @@ async function runReminders(req: Request) {
             <p>Jai Sai Ram.</p>
           `,
         });
-        if (ok.ok) volunteerCount++;
+        if (ok.ok) onsiteVolunteerEmails++;
       }
 
-      if (activity.coordinatorEmail?.trim() && activity.signups.length > 0) {
-        const totalParticipants = activity.signups.reduce(
-          (sum: number, s: (typeof activity.signups)[number]) =>
-            sum + ((s as { adultsCount?: number; kidsCount?: number }).adultsCount ?? 1) + ((s as { adultsCount?: number; kidsCount?: number }).kidsCount ?? 0),
-          0
-        );
-        const list = activity.signups
+      type ItemLine = { volunteerName: string; email: string; phone: string | null; itemName: string; quantity: number };
+      const allClaimRows: ItemLine[] = [];
+      for (const row of activity.contributionItems) {
+        for (const c of row.claims) {
+          allClaimRows.push({
+            volunteerName: c.volunteerName,
+            email: c.email,
+            phone: c.phone,
+            itemName: row.name,
+            quantity: c.quantity,
+          });
+        }
+      }
+
+      const itemReminderByEmail = new Map<
+        string,
+        { volunteerName: string; lines: { itemName: string; quantity: number }[] }
+      >();
+      for (const r of allClaimRows) {
+        const em = r.email.trim().toLowerCase();
+        if (signupEmailSet.has(em)) continue;
+        const cur = itemReminderByEmail.get(em) ?? { volunteerName: r.volunteerName, lines: [] };
+        cur.lines.push({ itemName: r.itemName, quantity: r.quantity });
+        itemReminderByEmail.set(em, cur);
+      }
+
+      let itemOnlyEmails = 0;
+      for (const [toEmail, data] of itemReminderByEmail) {
+        const linesHtml = data.lines
           .map(
-            (s: (typeof activity.signups)[number]) => {
-              const a = (s as { adultsCount?: number; kidsCount?: number }).adultsCount ?? 1;
-              const k = (s as { adultsCount?: number; kidsCount?: number }).kidsCount ?? 0;
-              const part = a + k > 1 ? ` — ${a} adult(s), ${k} child(ren)` : "";
-              return `<li>${escapeHtml(s.volunteerName)} — ${escapeHtml(s.email)}${s.phone ? ` — ${escapeHtml(s.phone)}` : ""}${part}</li>`;
-            }
+            (l) =>
+              `<li><strong>${escapeHtml(l.itemName)}</strong> — ${l.quantity} unit${l.quantity === 1 ? "" : "s"}</li>`
           )
           .join("");
+        const ok = await sendEmail({
+          to: toEmail,
+          subject: `Reminder: supplies for ${title} (24 hours)`,
+          html: `
+            <p>Dear ${escapeHtml(data.volunteerName)},</p>
+            <p>This is a reminder that <strong>${escapeHtml(title)}</strong> is scheduled to start in about 24 hours.</p>
+            <p>You registered to bring:</p>
+            <ul>${linesHtml}</ul>
+            <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
+            ${activity.locationName ? `<p><strong>Location / drop-off:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
+            ${activity.coordinatorEmail ? `<p>If you have questions, contact the coordinator at ${escapeHtml(activity.coordinatorEmail)}.</p>` : ""}
+            <p>Jai Sai Ram.</p>
+          `,
+        });
+        if (ok.ok) itemOnlyEmails++;
+      }
+
+      let coordinatorSent = false;
+      const coord = activity.coordinatorEmail?.trim();
+      if (coord && (approvedSignups.length > 0 || allClaimRows.length > 0)) {
+        const totalParticipants = approvedSignups.reduce(
+          (sum: number, s: (typeof approvedSignups)[number]) =>
+            sum + (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
+          0
+        );
+        const signupList =
+          approvedSignups.length > 0
+            ? `<p><strong>On-site volunteers (APPROVED) — ${totalParticipants} participant(s):</strong></p><ul>${approvedSignups
+                .map((s: (typeof approvedSignups)[number]) => {
+                  const a = s.adultsCount ?? 1;
+                  const k = s.kidsCount ?? 0;
+                  const part = a + k > 1 ? ` — ${a} adult(s), ${k} child(ren)` : "";
+                  return `<li>${escapeHtml(s.volunteerName)} — ${escapeHtml(s.email)}${s.phone ? ` — ${escapeHtml(s.phone)}` : ""}${part}</li>`;
+                })
+                .join("")}</ul>`
+            : "<p><strong>On-site volunteers:</strong> none approved yet.</p>";
+
+        const claimsList =
+          allClaimRows.length > 0
+            ? `<p><strong>Item contributions (Register):</strong></p><ul>${allClaimRows
+                .map(
+                  (r) =>
+                    `<li>${escapeHtml(r.volunteerName)} — ${escapeHtml(r.email)}${r.phone ? ` — ${escapeHtml(r.phone)}` : ""}: ${r.quantity} × ${escapeHtml(r.itemName)}</li>`
+                )
+                .join("")}</ul>`
+            : "";
+
         const coordOk = await sendEmail({
-          to: activity.coordinatorEmail.trim(),
-          subject: `Reminder: ${title} starts in 24 hours – ${totalParticipants} participant(s)`,
+          to: coord,
+          subject: `Reminder: ${title} starts in 24 hours`,
           html: `
             <p>Your seva activity <strong>${escapeHtml(title)}</strong> is scheduled to start in about 24 hours.</p>
             <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
-            <p><strong>Participants signed up (${totalParticipants}):</strong></p>
-            <ul>${list}</ul>
+            ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
+            ${signupList}
+            ${claimsList}
             <p>Jai Sai Ram.</p>
           `,
         });
@@ -124,7 +209,8 @@ async function runReminders(req: Request) {
       results.push({
         activityId: activity.id,
         title,
-        volunteerEmails: volunteerCount,
+        onsiteVolunteerEmails,
+        itemOnlyEmails,
         coordinatorSent,
       });
     }
