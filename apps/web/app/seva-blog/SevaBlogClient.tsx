@@ -95,7 +95,10 @@ export default function SevaBlogClient() {
     open: false,
     section: SECTIONS[0].id,
   });
-  const [postSubmitSuccessMessage, setPostSubmitSuccessMessage] = useState<string | null>(null);
+  const [postSubmitSuccess, setPostSubmitSuccess] = useState<{
+    message: string;
+    driveFolderUrl?: string | null;
+  } | null>(null);
   const [postsFetchError, setPostsFetchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -226,10 +229,10 @@ export default function SevaBlogClient() {
 
   // Auto-hide success banner after 12 seconds (must be before any early return to keep hook order consistent)
   useEffect(() => {
-    if (!postSubmitSuccessMessage) return;
-    const t = setTimeout(() => setPostSubmitSuccessMessage(null), 12000);
+    if (!postSubmitSuccess) return;
+    const t = setTimeout(() => setPostSubmitSuccess(null), 16000);
     return () => clearTimeout(t);
-  }, [postSubmitSuccessMessage]);
+  }, [postSubmitSuccess]);
 
   if (loading) {
     return (
@@ -258,19 +261,32 @@ export default function SevaBlogClient() {
 
   const successBanner =
     typeof document !== "undefined" &&
-    postSubmitSuccessMessage &&
+    postSubmitSuccess &&
     createPortal(
       <div
-        className="fixed left-0 right-0 top-0 z-[99999] flex items-center gap-4 border-b-4 border-green-500 bg-green-300 px-4 py-4 shadow-xl sm:px-6"
+        className="fixed left-0 right-0 top-0 z-[99999] flex items-start gap-4 border-b-4 border-green-500 bg-green-300 px-4 py-4 shadow-xl sm:px-6"
         role="alert"
         data-success-banner="post-submitted"
       >
-        <p className="flex-1 text-base font-bold text-green-900 sm:text-lg">
-          {postSubmitSuccessMessage}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-bold text-green-900 sm:text-lg">{postSubmitSuccess.message}</p>
+          {postSubmitSuccess.driveFolderUrl ? (
+            <p className="mt-2 text-sm font-medium text-green-950">
+              <span className="mr-1">Google Drive folder for this post:</span>
+              <a
+                href={postSubmitSuccess.driveFolderUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all underline"
+              >
+                Open folder
+              </a>
+            </p>
+          ) : null}
+        </div>
         <button
           type="button"
-          onClick={() => setPostSubmitSuccessMessage(null)}
+          onClick={() => setPostSubmitSuccess(null)}
           className="shrink-0 rounded-lg bg-green-500 px-4 py-2 text-sm font-bold text-white hover:bg-green-600"
           aria-label="Dismiss"
         >
@@ -281,7 +297,7 @@ export default function SevaBlogClient() {
     );
 
   return (
-    <div className={`min-h-screen bg-[#fefaf8] ${postSubmitSuccessMessage ? "pt-[80px]" : ""}`}>
+    <div className={`min-h-screen bg-[#fefaf8] ${postSubmitSuccess ? "pt-[80px]" : ""}`}>
       {successBanner}
 
       {/* Hero: title, tagline, heart-framed image + taglines (reference: Sai Heart Beats style) */}
@@ -710,7 +726,10 @@ export default function SevaBlogClient() {
               (pendingVerification ? POST_SUBMIT_SUCCESS_MESSAGE : null);
             if (textToShow) {
               setTimeout(() => {
-                setPostSubmitSuccessMessage(textToShow);
+                setPostSubmitSuccess({
+                  message: textToShow,
+                  driveFolderUrl: opts?.driveFolderUrl ?? null,
+                });
                 setTimeout(
                   () => window.scrollTo({ top: 0, behavior: "smooth" }),
                   100

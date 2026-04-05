@@ -339,10 +339,27 @@ function OurImpactSection() {
   );
 }
 
-/** Hero paths: add `public/banner_newest.png` (preferred) or `public/banner_newest.PNG` to the repo for prod — Linux/Vercel is case-sensitive. */
+/** Hero paths: add `public/banner_newest.png` (preferred) or `public/banner_newest.PNG` — Linux/Vercel is case-sensitive. */
 const HERO_BANNER_SRCS = ["/banner_newest.png", "/banner_newest.PNG"] as const;
 
-function HomeHeroBanner() {
+/**
+ * Shown only below the `sm` breakpoint in portrait orientation.
+ * Add `public/home-hero-mobile-portrait.png` (or `.PNG`) for prod; if missing, falls back to desktop banner then SVG.
+ */
+const HERO_BANNER_MOBILE_PORTRAIT_SRCS = [
+  "/home-hero-mobile-portrait.png",
+  "/home-hero-mobile-portrait.PNG",
+] as const;
+
+function HomeHeroImageLayer({
+  attemptSrcs,
+  alt,
+  priority,
+}: {
+  attemptSrcs: readonly string[];
+  alt: string;
+  priority?: boolean;
+}) {
   const [srcIndex, setSrcIndex] = useState(0);
   const [useSvgFallback, setUseSvgFallback] = useState(false);
 
@@ -350,7 +367,7 @@ function HomeHeroBanner() {
     return (
       <img
         src="/manage-hero-swami.svg"
-        alt="Seva Wheel"
+        alt={alt}
         className="absolute inset-0 h-full w-full object-contain object-top"
         width={1200}
         height={800}
@@ -359,25 +376,66 @@ function HomeHeroBanner() {
     );
   }
 
-  const src = HERO_BANNER_SRCS[srcIndex] ?? HERO_BANNER_SRCS[0];
+  const src = attemptSrcs[srcIndex] ?? attemptSrcs[0];
+  if (!src) {
+    return (
+      <img
+        src="/manage-hero-swami.svg"
+        alt={alt}
+        className="absolute inset-0 h-full w-full object-contain object-top"
+        width={1200}
+        height={800}
+        decoding="async"
+      />
+    );
+  }
 
   return (
     <Image
       key={src}
       src={src}
-      alt="Seva Wheel"
+      alt={alt}
       fill
-      priority
+      priority={priority}
       className="object-contain object-top"
       sizes="100vw"
       onError={() => {
-        if (srcIndex + 1 < HERO_BANNER_SRCS.length) {
+        if (srcIndex + 1 < attemptSrcs.length) {
           setSrcIndex((i) => i + 1);
         } else {
           setUseSvgFallback(true);
         }
       }}
     />
+  );
+}
+
+/**
+ * Desktop / tablet / mobile landscape: wide hero.
+ * Mobile portrait only: tall hero (`HERO_BANNER_MOBILE_PORTRAIT_SRCS`, then same fallbacks as desktop).
+ */
+function HomeHeroBanner() {
+  const desktopAttempts = [...HERO_BANNER_SRCS];
+  const mobilePortraitAttempts = [
+    ...HERO_BANNER_MOBILE_PORTRAIT_SRCS,
+    ...HERO_BANNER_SRCS,
+  ];
+
+  return (
+    <>
+      {/* sm+ always, or narrow width in landscape (not portrait) */}
+      <div className="absolute inset-0 hidden max-sm:landscape:block sm:block">
+        <div className="relative h-full w-full min-h-0">
+          <HomeHeroImageLayer attemptSrcs={desktopAttempts} alt="Seva Wheel" priority />
+        </div>
+      </div>
+      {/* Narrow portrait phones only */}
+      <div className="absolute inset-0 block max-sm:landscape:hidden sm:hidden">
+        <div className="relative h-full w-full min-h-0">
+          <HomeHeroImageLayer attemptSrcs={mobilePortraitAttempts} alt="Seva Wheel" priority />
+        </div>
+      </div>
+    </>
   );
 }
 

@@ -1,3 +1,4 @@
+import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
 import { htmlToPlain } from "@/lib/htmlToPlain";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
@@ -7,6 +8,9 @@ export type PostForReport = {
   title: string;
   content: string;
   imageUrl: string | null;
+  driveMediaLinks: unknown;
+  /** Per-post Google Drive folder when configured */
+  driveFolderUrl?: string | null;
   centerCity: string | null;
   createdAt: Date;
   section: string;
@@ -79,7 +83,16 @@ export async function generateBlogAnalyticsNarrative(
             : p.imageUrl
               ? `[uploaded/local path: ${p.imageUrl} — infer only from text, not from pixels]`
               : "(no cover image)";
-        return `---\nTitle: ${p.title}\nSection: ${p.section}\nCenter: ${p.centerCity ?? "unspecified"}\nDate: ${p.createdAt.toISOString().slice(0, 10)}\nCover image: ${imgNote}\nBody (plain excerpt):\n${plain}\n`;
+        const drive = normalizeStoredDriveMedia(p.driveMediaLinks);
+        const driveNote =
+          drive.length > 0
+            ? `Google Drive / Docs links (${drive.length}): ${drive.map((d) => d.url).join("; ")}`
+            : "(no extra Drive links)";
+        const folderNote =
+          p.driveFolderUrl && p.driveFolderUrl.startsWith("https://")
+            ? `Post media folder: ${p.driveFolderUrl}`
+            : "(no dedicated Drive folder URL)";
+        return `---\nTitle: ${p.title}\nSection: ${p.section}\nCenter: ${p.centerCity ?? "unspecified"}\nDate: ${p.createdAt.toISOString().slice(0, 10)}\nCover image: ${imgNote}\n${folderNote}\n${driveNote}\nBody (plain excerpt):\n${plain}\n`;
       })
       .join("\n");
 

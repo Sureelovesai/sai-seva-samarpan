@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { driveFolderUrlFromId } from "@/lib/blogDriveFolderUrl";
+import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
 import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
@@ -61,6 +63,8 @@ export async function GET(
       title: post.title,
       content: post.content,
       imageUrl: post.imageUrl,
+      driveFolderUrl: driveFolderUrlFromId(post.driveFolderId),
+      driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
       section: post.section,
       authorName:
         post.authorName ||

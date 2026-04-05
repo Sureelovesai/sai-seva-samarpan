@@ -1,3 +1,5 @@
+import type { BlogDriveMediaItem } from "@/lib/blogDriveMedia";
+import { parseAndValidateDriveMediaLinks } from "@/lib/blogDriveMedia";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { CITIES } from "@/lib/cities";
 
@@ -31,6 +33,7 @@ export type ValidatedBlogPostWrite = {
   title: string;
   content: string;
   imageUrl: string | null;
+  driveMediaLinks: BlogDriveMediaItem[];
   section: string;
   centerCity: string;
   sevaDate: Date;
@@ -121,12 +124,20 @@ export function validateBlogPostWriteBody(body: unknown):
       ? imageUrl.trim()
       : null;
 
+  const driveParsed = parseAndValidateDriveMediaLinks(
+    (b as Record<string, unknown>).driveMediaLinks
+  );
+  if (!driveParsed.ok) {
+    return { ok: false, error: driveParsed.error };
+  }
+
   return {
     ok: true,
     data: {
       title: title.trim(),
       content: content.trim(),
       imageUrl: imageUrlNorm,
+      driveMediaLinks: driveParsed.value,
       section: sectionTrim,
       centerCity: cTrim,
       sevaDate,

@@ -1,5 +1,12 @@
+import { CITIES } from "@/lib/cities";
 import { resolveCityFromText } from "./resolveCity";
 import type { HelpLink } from "./validateLinks";
+
+/** Rotates with the calendar day so fallback copy is not tied to one center. */
+function pickChatbotExampleCity(): string {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return CITIES[day % CITIES.length] ?? CITIES[0];
+}
 
 export type ChatReply = { message: string; links: HelpLink[] };
 
@@ -14,13 +21,29 @@ function cityLink(city: string): HelpLink {
 export function fallbackReply(userText: string): ChatReply {
   const q = userText.toLowerCase();
 
-  if (q.includes("charlotte")) {
-    const city = "Charlotte";
+  const cityInQuestion = resolveCityFromText(userText);
+  const mentionsCity =
+    cityInQuestion != null && q.includes(cityInQuestion.toLowerCase());
+  const findSevaIntent =
+    q.includes("find seva") ||
+    q.includes("find service") ||
+    q.includes("seva in") ||
+    q.includes("activities in") ||
+    q.includes("activities for") ||
+    q.includes("browse") ||
+    q.includes("where to find");
+  const onlyCityName = cityInQuestion != null && q.trim() === cityInQuestion.toLowerCase();
+
+  if (cityInQuestion && mentionsCity && (findSevaIntent || onlyCityName)) {
     return {
       message:
-        `To browse activities for **${city}**, open **Find Seva** with that center already selected in the dropdown. You can change category or date, then use the page controls to refresh results.\n\n` +
+        `To browse activities for **${cityInQuestion}**, open **Find Seva** with that center already selected in the dropdown. You can change category or date, then use **Apply** to refresh results.\n\n` +
         `After logging in, **My Seva Dashboard** shows your sign-ups if you need to withdraw.`,
-      links: [cityLink(city), { label: "Find Seva (all centers)", href: "/find-seva" }, { label: "My Seva Dashboard", href: "/dashboard" }],
+      links: [
+        cityLink(cityInQuestion),
+        { label: "Find Seva (all centers)", href: "/find-seva" },
+        { label: "My Seva Dashboard", href: "/dashboard" },
+      ],
     };
   }
 
@@ -171,7 +194,7 @@ export function fallbackReply(userText: string): ChatReply {
   return {
     message:
       "I can help with **Find Seva**, **joining or withdrawing** from activities, **My Seva Dashboard**, **Log Hours / certificate**, **Community Outreach**, and **coordinator/admin** features (including **bulk Excel import** on **Add Seva Activity** after you save an activity).\n\n" +
-      "Try asking: “How do I find seva in Charlotte?”, “How do I withdraw?”, “How do I bulk import volunteers?”, or “I can’t see Add Seva.”\n\n" +
+      `Try asking: “How do I find seva in ${pickChatbotExampleCity()}?”, “How do I withdraw?”, “How do I bulk import volunteers?”, or “I can’t see Add Seva.”\n\n` +
       "(For richer answers, your administrator can set **OPENAI_API_KEY** on the server.)",
     links: [
       { label: "Find Seva", href: "/find-seva" },

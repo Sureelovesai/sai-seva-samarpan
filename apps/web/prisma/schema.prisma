@@ -77,6 +77,10 @@ model BlogPost {
   title     String
   content   String         @db.Text
   imageUrl  String?
+  /// Optional extra media: [{ "url": "https://drive.google.com/...", "caption": "..." }] — Google Drive/Docs only; set per post by authors.
+  driveMediaLinks Json?
+  /// Per-post Google Drive folder (created by server when GOOGLE_DRIVE_* env is set). Uploads and curated links for this story only.
+  driveFolderId String?
   section   String         // e.g. "Seva in Action", "SSSE & Sai Youth Corner"
   /// Sai center / group city (for regional blog analytics reports). Optional.
   centerCity String?

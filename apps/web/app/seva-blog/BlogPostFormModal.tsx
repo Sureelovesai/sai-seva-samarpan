@@ -25,6 +25,8 @@ type AdminBlogPostPayload = {
   title: string;
   content: string;
   imageUrl: string | null;
+  driveMediaLinks?: unknown;
+  driveFolderUrl?: string | null;
   section: string;
   authorName: string | null;
   centerCity: string | null;
@@ -53,6 +55,7 @@ export function BlogPostFormModal({
     pendingVerification?: boolean;
     message?: string;
     saved?: boolean;
+    driveFolderUrl?: string | null;
   }) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -70,6 +73,12 @@ export function BlogPostFormModal({
   const [authorName, setAuthorName] = useState("");
   const [posterEmail, setPosterEmail] = useState("");
   const [posterPhone, setPosterPhone] = useState("");
+  const [driveRows, setDriveRows] = useState<{ url: string; caption: string }[]>([
+    { url: "", caption: "" },
+  ]);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
+  const [driveUploadBusy, setDriveUploadBusy] = useState(false);
+  const [driveMaxUploadMb, setDriveMaxUploadMb] = useState(25);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +159,27 @@ export function BlogPostFormModal({
         setAuthorName(p.authorName?.trim() ?? "");
         setPosterEmail(p.posterEmail?.trim() ?? "");
         setPosterPhone(p.posterPhone?.trim() ?? "");
+        const rawLinks = (p as AdminBlogPostPayload).driveMediaLinks;
+        if (Array.isArray(rawLinks) && rawLinks.length > 0) {
+          const mapped = rawLinks
+            .map((row: unknown) => {
+              if (!row || typeof row !== "object") return null;
+              const o = row as Record<string, unknown>;
+              return {
+                url: typeof o.url === "string" ? o.url : "",
+                caption: typeof o.caption === "string" ? o.caption : "",
+              };
+            })
+            .filter((x): x is { url: string; caption: string } => Boolean(x && x.url.trim()));
+          setDriveRows(mapped.length > 0 ? mapped : [{ url: "", caption: "" }]);
+        } else {
+          setDriveRows([{ url: "", caption: "" }]);
+        }
+        const du =
+          typeof p.driveFolderUrl === "string" && p.driveFolderUrl.startsWith("https://")
+            ? p.driveFolderUrl
+            : null;
+        setDriveFolderUrl(du);
       } catch (e) {
         if (!cancelled) {
           setLoadError((e as Error).message);
@@ -162,6 +192,67 @@ export function BlogPostFormModal({
       cancelled = true;
     };
   }, [mode, postId]);
+
+  async function handleDriveMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !postId) return;
+    setError(null);
+    setDriveUploadBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/blog-posts/${postId}/drive-upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        detail?: string;
+        driveFolderUrl?: string;
+        driveMediaLinks?: unknown;
+        appendedToMediaList?: boolean;
+        mediaListFull?: boolean;
+        maxUploadMb?: number;
+      };
+      if (!res.ok) {
+        const msg = data.detail
+          ? `${data.error ?? "Upload failed"}: ${data.detail}`
+          : data.error || "Upload failed.";
+        throw new Error(msg);
+      }
+      if (typeof data.driveFolderUrl === "string" && data.driveFolderUrl.startsWith("https://")) {
+        setDriveFolderUrl(data.driveFolderUrl);
+      }
+      if (typeof data.maxUploadMb === "number" && data.maxUploadMb > 0) {
+        setDriveMaxUploadMb(data.maxUploadMb);
+      }
+      if (data.appendedToMediaList && Array.isArray(data.driveMediaLinks)) {
+        const mapped = data.driveMediaLinks
+          .map((row: unknown) => {
+            if (!row || typeof row !== "object") return null;
+            const o = row as Record<string, unknown>;
+            return {
+              url: typeof o.url === "string" ? o.url : "",
+              caption: typeof o.caption === "string" ? o.caption : "",
+            };
+          })
+          .filter((x): x is { url: string; caption: string } => Boolean(x && x.url.trim()));
+        if (mapped.length > 0) {
+          setDriveRows(mapped.length < 12 ? [...mapped, { url: "", caption: "" }] : mapped);
+        }
+      } else if (data.mediaListFull && !data.appendedToMediaList) {
+        setError(
+          "File uploaded to the folder, but the embedded media list is full (12). Remove a link below or open the folder in Drive."
+        );
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDriveUploadBusy(false);
+      e.target.value = "";
+    }
+  }
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -258,6 +349,13 @@ export function BlogPostFormModal({
 
     setError(null);
     setSubmitting(true);
+    const driveMediaLinks = driveRows
+      .map((r) => ({
+        url: r.url.trim(),
+        ...(r.caption.trim() ? { caption: r.caption.trim() } : {}),
+      }))
+      .filter((r) => r.url.length > 0);
+
     try {
       if (mode === "create") {
         const res = await fetch("/api/blog-posts", {
@@ -267,6 +365,7 @@ export function BlogPostFormModal({
             title: title.trim(),
             content: content.trim(),
             imageUrl: imageUrl.trim() || undefined,
+            driveMediaLinks,
             section: effectiveSection,
             centerCity: centerCity.trim(),
             sevaDate: sevaDate.trim(),
@@ -289,7 +388,11 @@ export function BlogPostFormModal({
           data.status === "PENDING_APPROVAL" ||
           !!data.message?.toLowerCase().includes("verification");
         const message = data.message || POST_SUBMIT_SUCCESS_MESSAGE;
-        onSuccess({ id: data.id, pendingVerification: pending, message });
+        const dfu =
+          typeof data.driveFolderUrl === "string" && data.driveFolderUrl.startsWith("https://")
+            ? data.driveFolderUrl
+            : null;
+        onSuccess({ id: data.id, pendingVerification: pending, message, driveFolderUrl: dfu });
         return;
       }
 
@@ -304,6 +407,7 @@ export function BlogPostFormModal({
           title: title.trim(),
           content: content.trim(),
           imageUrl: imageUrl.trim() || null,
+          driveMediaLinks,
           section: effectiveSection.trim(),
           centerCity: centerCity.trim(),
           sevaDate: sevaDate.trim(),
@@ -320,7 +424,12 @@ export function BlogPostFormModal({
           : data.error || "Failed to save changes.";
         throw new Error(msg);
       }
-      onSuccess({ saved: true, id: postId });
+      const dfu =
+        typeof data.driveFolderUrl === "string" && data.driveFolderUrl.startsWith("https://")
+          ? data.driveFolderUrl
+          : null;
+      if (dfu) setDriveFolderUrl(dfu);
+      onSuccess({ saved: true, id: postId, driveFolderUrl: dfu });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -530,6 +639,129 @@ export function BlogPostFormModal({
                     />
                   </div>
                 )}
+              </div>
+              {mode === "edit" && postId ? (
+                <div className="rounded-lg border border-[#e8b4a0] bg-[#f8faf8] p-4">
+                  <label className="block text-sm font-medium text-[#6b5344]">
+                    This post’s Google Drive folder
+                  </label>
+                  <p className="mt-1 text-xs leading-relaxed text-[#7a6b65]">
+                    One folder per post. Upload here (or in Drive) so all media for this story stays
+                    together. The folder link is shown on the public post when present.
+                  </p>
+                  {driveFolderUrl ? (
+                    <a
+                      href={driveFolderUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block break-all text-sm font-semibold text-[#8b6b5c] underline hover:text-[#6b5344]"
+                    >
+                      {driveFolderUrl}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-xs text-[#7a6b65]">
+                      No folder yet. Upload a file below to create one automatically (if the server is
+                      configured), or ask an admin to create the folder from the dashboard.
+                    </p>
+                  )}
+                  <label className="mt-3 block text-sm font-medium text-[#6b5344]">
+                    Upload into folder
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,video/*,audio/*,application/pdf"
+                    onChange={handleDriveMediaUpload}
+                    disabled={driveUploadBusy}
+                    className="mt-1 w-full text-sm text-[#7a6b65] file:mr-2 file:rounded file:border-0 file:bg-[#fdf2f0] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#8b6b5c]"
+                  />
+                  {driveUploadBusy ? (
+                    <p className="mt-1 text-xs text-[#7a6b65]">Uploading to Google Drive…</p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-[#7a6b65]">
+                    Server limit about {driveMaxUploadMb} MB per file (hosting limit). For larger
+                    videos, open the folder link and upload in Google Drive.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-[#e8b4a0] bg-[#f8faf8] p-4">
+                  <p className="text-sm font-medium text-[#6b5344]">Google Drive folder for this post</p>
+                  <p className="mt-1 text-xs leading-relaxed text-[#7a6b65]">
+                    After you submit, you may receive a <strong>unique folder link</strong> for this
+                    story (when the site is configured). Put all related photos, videos, and audio in
+                    that folder — the same link appears on the blog post for readers.
+                  </p>
+                </div>
+              )}
+              <div className="rounded-lg border border-dashed border-[#e8b4a0] bg-[#fffdfb] p-4">
+                <label className="block text-sm font-medium text-[#6b5344]">
+                  Extra photos, videos, or audio (Google Drive links, optional)
+                </label>
+                <p className="mt-1 text-xs leading-relaxed text-[#7a6b65]">
+                  Alternatively, upload files to <strong>Google Drive</strong>, set sharing to{" "}
+                  <strong>Anyone with the link</strong> (Viewer), then paste each file’s link below.
+                  Use <strong>only</strong> media for this story — readers will only see what you list
+                  here. Up to 12 links. Supported URLs: <code className="text-[11px]">drive.google.com</code>{" "}
+                  or <code className="text-[11px]">docs.google.com</code>.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {driveRows.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className="grid gap-2 rounded-lg border border-[#f0ddd4] bg-white p-3 sm:grid-cols-[1fr_auto]"
+                    >
+                      <div className="min-w-0 space-y-2 sm:col-span-1">
+                        <input
+                          type="url"
+                          value={row.url}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setDriveRows((prev) =>
+                              prev.map((r, i) => (i === idx ? { ...r, url: v } : r))
+                            );
+                          }}
+                          placeholder="https://drive.google.com/file/d/…/view?usp=sharing"
+                          className="w-full rounded-lg border border-[#e8b4a0] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#8b6b5c]/30"
+                        />
+                        <input
+                          type="text"
+                          value={row.caption}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setDriveRows((prev) =>
+                              prev.map((r, i) => (i === idx ? { ...r, caption: v } : r))
+                            );
+                          }}
+                          placeholder="Short caption (optional)"
+                          className="w-full rounded-lg border border-[#e8b4a0] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#8b6b5c]/30"
+                        />
+                      </div>
+                      <div className="flex items-start justify-end gap-2 sm:flex-col">
+                        {driveRows.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDriveRows((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {driveRows.length < 12 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDriveRows((prev) => [...prev, { url: "", caption: "" }])
+                    }
+                    className="mt-3 text-sm font-semibold text-[#8b6b5c] underline hover:text-[#6b5344]"
+                  >
+                    + Add another link
+                  </button>
+                ) : null}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#6b5344]">

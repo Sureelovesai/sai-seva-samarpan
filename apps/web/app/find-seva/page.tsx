@@ -4,11 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CENTERS_FOR_FILTER } from "@/lib/cities";
+import { CENTERS_FOR_FILTER, CITIES, FIND_SEVA_LAST_CENTER_STORAGE_KEY } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { USA_REGIONS_FOR_FILTER, parseUsaRegionParam } from "@/lib/usaRegions";
 
 const ACTIVITY_STATUS_OPTIONS = ["All", "DRAFT", "PUBLISHED", "ARCHIVED"] as const;
+
+function persistLastFindSevaCenter(center: string) {
+  try {
+    if (center && center !== "All" && (CITIES as readonly string[]).includes(center)) {
+      localStorage.setItem(FIND_SEVA_LAST_CENTER_STORAGE_KEY, center);
+    }
+  } catch {
+    /* private mode */
+  }
+}
 
 type SevaActivity = {
   id: string;
@@ -206,6 +216,13 @@ function FindSevaContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
+  useEffect(() => {
+    const fromUrl = sp.get("city")?.trim();
+    if (fromUrl && fromUrl !== "All" && (CITIES as readonly string[]).includes(fromUrl)) {
+      persistLastFindSevaCenter(fromUrl);
+    }
+  }, [sp]);
+
   // Fetch from DB whenever applied filters change
   useEffect(() => {
     let cancelled = false;
@@ -369,6 +386,7 @@ function FindSevaContent() {
                 if (e.key === "Enter") {
                   setAppliedCategory(category);
                   setAppliedCenter(center);
+                  persistLastFindSevaCenter(center);
                   setAppliedUsaRegion(usaRegion);
                   setAppliedQ(q);
                   setAppliedDate(eventDate);
@@ -386,6 +404,7 @@ function FindSevaContent() {
               onClick={() => {
                 setAppliedCategory(category);
                 setAppliedCenter(center);
+                persistLastFindSevaCenter(center);
                 setAppliedUsaRegion(usaRegion);
                 setAppliedQ(q);
                 setAppliedDate(eventDate);

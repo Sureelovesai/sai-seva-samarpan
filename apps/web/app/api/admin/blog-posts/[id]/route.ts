@@ -1,4 +1,6 @@
+import { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
+import { driveFolderUrlFromId } from "@/lib/blogDriveFolderUrl";
 import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
@@ -32,6 +34,8 @@ export async function GET(
         sevaCategory: true,
         posterEmail: true,
         posterPhone: true,
+        driveMediaLinks: true,
+        driveFolderId: true,
         createdAt: true,
         status: true,
       },
@@ -41,7 +45,10 @@ export async function GET(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    return NextResponse.json(post);
+    return NextResponse.json({
+      ...post,
+      driveFolderUrl: driveFolderUrlFromId(post.driveFolderId),
+    });
   } catch (e: unknown) {
     console.error("Admin blog post GET error:", e);
     return NextResponse.json(
@@ -94,7 +101,10 @@ export async function PATCH(
         where: { id },
         data: { imageUrl },
       });
-      return NextResponse.json(updated);
+      return NextResponse.json({
+        ...updated,
+        driveFolderUrl: driveFolderUrlFromId(updated.driveFolderId),
+      });
     }
 
     const validated = validateBlogPostWriteBody(body);
@@ -109,6 +119,10 @@ export async function PATCH(
         title: d.title,
         content: d.content,
         imageUrl: d.imageUrl,
+        driveMediaLinks:
+          d.driveMediaLinks.length > 0
+            ? (d.driveMediaLinks as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         section: d.section,
         centerCity: d.centerCity,
         sevaDate: d.sevaDate,
@@ -119,7 +133,10 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      driveFolderUrl: driveFolderUrlFromId(updated.driveFolderId),
+    });
   } catch (e: unknown) {
     console.error("Admin blog post PATCH error:", e);
     return NextResponse.json(

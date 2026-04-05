@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
+import { driveFolderUrlFromId } from "@/lib/blogDriveFolderUrl";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 import { canGenerateBlogReport } from "@/lib/blogReportAccess";
@@ -69,6 +70,8 @@ const postSelect = {
   title: true,
   content: true,
   imageUrl: true,
+  driveMediaLinks: true,
+  driveFolderId: true,
   centerCity: true,
   createdAt: true,
   section: true,
@@ -213,6 +216,8 @@ export async function POST(req: Request) {
           title: p.title,
           content: p.content,
           imageUrl: p.imageUrl,
+          driveMediaLinks: p.driveMediaLinks,
+          driveFolderUrl: driveFolderUrlFromId(p.driveFolderId),
           centerCity: p.centerCity,
           createdAt: p.createdAt,
           section: p.section,

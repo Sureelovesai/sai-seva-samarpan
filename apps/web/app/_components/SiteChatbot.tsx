@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { resolveCityFromText } from "@/lib/chatbot/resolveCity";
+import { CITIES, FIND_SEVA_LAST_CENTER_STORAGE_KEY } from "@/lib/cities";
 
 type HelpLink = { label: string; href: string };
 
@@ -11,8 +13,7 @@ type ChatTurn = {
   links?: HelpLink[];
 };
 
-const QUICK_PROMPTS = [
-  "How do I find seva in Charlotte?",
+const QUICK_PROMPTS_AFTER_FIND = [
   "How do I join a seva activity?",
   "What is the difference between Join Seva and Register for items?",
   "How do I withdraw from a signup?",
@@ -20,7 +21,69 @@ const QUICK_PROMPTS = [
   "How do I bulk import volunteers from Excel?",
   "I can't see Seva Admin Dashboard or Add Seva",
   "How do I get my volunteer certificate?",
-];
+] as const;
+
+/**
+ * First chip: logged-in profile location → canonical center; else one coordinator city; else last Find Seva center; else generic (no invented city).
+ */
+function useFindSevaFirstQuickPrompt(): string {
+  const [prompt, setPrompt] = useState("How do I find seva activities?");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolve() {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+        const data = (await res.json().catch(() => ({}))) as {
+          user?: {
+            location?: string | null;
+            coordinatorCities?: string[] | null;
+          } | null;
+        };
+        const user = data?.user;
+        if (user && !cancelled) {
+          const loc = user.location?.trim();
+          if (loc) {
+            const fromProfile = resolveCityFromText(loc);
+            if (fromProfile) {
+              setPrompt(`How do I find seva in ${fromProfile}?`);
+              return;
+            }
+          }
+          const coord = user.coordinatorCities;
+          if (Array.isArray(coord) && coord.length === 1) {
+            const c = coord[0]?.trim();
+            if (c && (CITIES as readonly string[]).includes(c)) {
+              setPrompt(`How do I find seva in ${c}?`);
+              return;
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
+      if (cancelled) return;
+
+      try {
+        const stored = localStorage.getItem(FIND_SEVA_LAST_CENTER_STORAGE_KEY)?.trim();
+        if (stored && stored !== "All" && (CITIES as readonly string[]).includes(stored)) {
+          setPrompt(`How do I find seva in ${stored}?`);
+        }
+      } catch {
+        /* private mode */
+      }
+    }
+
+    void resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return prompt;
+}
 
 function renderInlineBold(text: string) {
   const segments = text.split(/(\*\*[^*]+\*\*)/g);
@@ -38,6 +101,12 @@ function renderInlineBold(text: string) {
 }
 
 export function SiteChatbot() {
+  const findSevaFirstPrompt = useFindSevaFirstQuickPrompt();
+  const quickPrompts = useMemo(
+    () => [findSevaFirstPrompt, ...QUICK_PROMPTS_AFTER_FIND],
+    [findSevaFirstPrompt]
+  );
+
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -155,9 +224,9 @@ export function SiteChatbot() {
               <div className="space-y-2">
                 <p className="text-xs text-zinc-500">Try one of these:</p>
                 <div className="flex flex-col gap-1.5">
-                  {QUICK_PROMPTS.map((p) => (
+                  {quickPrompts.map((p, i) => (
                     <button
-                      key={p}
+                      key={`${i}-${p}`}
                       type="button"
                       disabled={loading}
                       onClick={() => send(p)}

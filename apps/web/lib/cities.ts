@@ -92,6 +92,9 @@ const CITIES_SORTED = [
 
 export const CITIES = CITIES_SORTED;
 
+/** Persisted when a visitor applies filters on Find Seva (used e.g. chatbot quick prompts). */
+export const FIND_SEVA_LAST_CENTER_STORAGE_KEY = "sevaFindSevaLastCenter";
+
 /** For filter dropdowns (Find Seva): same list with "All" first */
 export const CENTERS_FOR_FILTER = ["All", ...CITIES] as const;
 
