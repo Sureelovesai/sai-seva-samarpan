@@ -344,11 +344,11 @@ const HERO_BANNER_SRCS = ["/banner_newest.png", "/banner_newest.PNG"] as const;
 
 /**
  * Shown only below the `sm` breakpoint in portrait orientation.
- * Add `public/home-hero-mobile-portrait.png` (or `.PNG`) for prod; if missing, falls back to desktop banner then SVG.
+ * Add `public/mobile_copy_newest.PNG` (or `.png`) for prod; if missing, falls back to desktop banner then SVG.
  */
 const HERO_BANNER_MOBILE_PORTRAIT_SRCS = [
-  "/home-hero-mobile-portrait.png",
-  "/home-hero-mobile-portrait.PNG",
+  "/mobile_copy_newest.PNG",
+  "/mobile_copy_newest.png",
 ] as const;
 
 function HomeHeroImageLayer({
