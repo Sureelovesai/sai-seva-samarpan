@@ -9,7 +9,7 @@ import { getSessionWithRole, hasRole } from "@/lib/getRole";
  * Create the per-post Google Drive folder if missing (admin / blog admin).
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
