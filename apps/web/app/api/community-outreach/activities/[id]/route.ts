@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole, type SessionWithRole } from "@/lib/getRole";
 import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
@@ -46,16 +47,16 @@ const contributionInclude = {
   },
 } as const;
 
+type ActivityWithContributionInclude = Prisma.SevaActivityGetPayload<{
+  include: typeof contributionInclude;
+}>;
+
 async function loadOwnedActivity(
   id: string,
   session: SessionWithRole
 ): Promise<{
   profile: ApprovedCommunityProfile | null;
-  activity: Awaited<
-    ReturnType<
-      typeof prisma.sevaActivity.findUnique<{ include: typeof contributionInclude }>
-    >
-  > | null;
+  activity: ActivityWithContributionInclude | null;
   isAdmin: boolean;
 }> {
   const isAdmin = hasRole(session, "ADMIN");

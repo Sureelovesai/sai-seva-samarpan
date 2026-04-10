@@ -14,7 +14,9 @@ export async function downloadElementAsPdf(
     };
   };
 
-  const mod = (await import("html2pdf.js")) as { default?: Html2PdfFactory } & Html2PdfFactory;
+  const mod = (await import("html2pdf.js")) as unknown as {
+    default?: Html2PdfFactory;
+  } & Html2PdfFactory;
   const html2pdf = (typeof mod.default === "function" ? mod.default : mod) as Html2PdfFactory;
 
   await html2pdf()

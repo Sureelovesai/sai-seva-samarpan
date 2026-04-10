@@ -6,8 +6,18 @@ import { EventsPageShell } from "./EventsPageShell";
 
 export const dynamic = "force-dynamic";
 
+type PublishedEventListItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  heroImageUrl: string | null;
+  startsAt: Date;
+  venue: string | null;
+  signupsEnabled: boolean;
+};
+
 export default async function EventsListPage() {
-  let data: Awaited<ReturnType<typeof loadPublishedEvents>>;
+  let data: { upcoming: PublishedEventListItem[]; past: PublishedEventListItem[] };
   try {
     data = await loadPublishedEvents();
   } catch (e: unknown) {
@@ -144,7 +154,10 @@ function CalendarGlyph({ className }: { className?: string }) {
   );
 }
 
-async function loadPublishedEvents() {
+async function loadPublishedEvents(): Promise<{
+  upcoming: PublishedEventListItem[];
+  past: PublishedEventListItem[];
+}> {
   const now = new Date();
   const upcoming = await prisma.portalEvent.findMany({
     where: { status: "PUBLISHED", startsAt: { gte: now } },

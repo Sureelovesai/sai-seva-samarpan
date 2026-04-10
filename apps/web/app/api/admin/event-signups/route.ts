@@ -44,7 +44,8 @@ export async function GET(req: Request) {
     if (responseFilter === "YES" || responseFilter === "NO" || responseFilter === "MAYBE") {
       conditions.push(Prisma.sql`s.response = CAST(${responseFilter} AS "EventSignupResponse")`);
     }
-    const whereSql = conditions.length === 0 ? Prisma.sql`TRUE` : Prisma.join(conditions, Prisma.sql` AND `);
+    const whereSql =
+      conditions.length === 0 ? Prisma.sql`TRUE` : Prisma.join(conditions, " AND ");
 
     type RawRow = {
       id: string;
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
       eventStartsAt: Date;
     };
 
-    const rawRows = await prisma.$queryRaw<RawRow[]>(Prisma.sql`
+    const rawRows = (await prisma.$queryRaw(Prisma.sql`
       SELECT
         s.id,
         s."participantName",
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
       INNER JOIN "PortalEvent" e ON e.id = s."eventId"
       WHERE ${whereSql}
       ORDER BY s."createdAt" DESC
-    `);
+    `)) as RawRow[];
 
     const signups = rawRows.map((r) => ({
       id: r.id,

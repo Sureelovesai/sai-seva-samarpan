@@ -28,7 +28,7 @@ let cachedEventSignupHasCommentColumn = false;
 async function eventSignupCommentColumnExists(): Promise<boolean> {
   if (cachedEventSignupHasCommentColumn) return true;
   try {
-    const rows = await prisma.$queryRaw<Array<{ ok: boolean }>>(
+    const rows = (await prisma.$queryRaw(
       Prisma.sql`
         SELECT EXISTS (
           SELECT 1
@@ -42,7 +42,7 @@ async function eventSignupCommentColumnExists(): Promise<boolean> {
             AND NOT a.attisdropped
         ) AS ok
       `
-    );
+    )) as Array<{ ok: boolean }>;
     const ok = Boolean(rows[0]?.ok);
     if (ok) cachedEventSignupHasCommentColumn = true;
     return ok;
@@ -59,9 +59,9 @@ async function mergeCommentsFromDb(eventId: string, rows: RowBase[]): Promise<Pu
   if (!(await eventSignupCommentColumnExists())) {
     return rows.map((r) => ({ ...r, comment: null }));
   }
-  const cm = await prisma.$queryRaw<Array<{ id: string; comment: string | null }>>(
+  const cm = (await prisma.$queryRaw(
     Prisma.sql`SELECT id, comment FROM "EventSignup" WHERE "eventId" = ${eventId}`
-  );
+  )) as Array<{ id: string; comment: string | null }>;
   const map = new Map(cm.map((x) => [x.id, x.comment ?? null]));
   return rows.map((r) => ({ ...r, comment: map.get(r.id) ?? null }));
 }
@@ -87,19 +87,17 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
   } catch (e) {
     if (!isPrismaColumnMissing(e)) throw e;
 
-    const rows = await prisma.$queryRaw<
-      Array<{
-        id: string;
-        participantName: string;
-        response: "YES" | "NO" | "MAYBE";
-        accompanyingCount: number;
-      }>
-    >(Prisma.sql`
+    const rows = (await prisma.$queryRaw(Prisma.sql`
       SELECT id, "participantName", response, "accompanyingCount"
       FROM "EventSignup"
       WHERE "eventId" = ${eventId}
       ORDER BY "createdAt" ASC
-    `);
+    `)) as Array<{
+      id: string;
+      participantName: string;
+      response: "YES" | "NO" | "MAYBE";
+      accompanyingCount: number;
+    }>;
 
     return rows.map((r) => ({
       id: r.id,

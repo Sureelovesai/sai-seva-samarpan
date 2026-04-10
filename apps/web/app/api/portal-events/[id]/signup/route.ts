@@ -162,7 +162,7 @@ export async function POST(
 
       const legacyGuestTotal = accompanyingAdults + accompanyingKids;
       const id = randomUUID().replace(/-/g, "");
-      const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      const rows = (await prisma.$queryRaw(Prisma.sql`
         INSERT INTO "EventSignup" ("id", "eventId", "participantName", email, "accompanyingCount", response, "createdAt")
         VALUES (
           ${id},
@@ -174,7 +174,7 @@ export async function POST(
           NOW()
         )
         RETURNING id
-      `);
+      `)) as Array<{ id: string }>;
       const row = rows[0];
       if (!row) {
         return NextResponse.json({ error: "Could not save sign-up." }, { status: 500 });
