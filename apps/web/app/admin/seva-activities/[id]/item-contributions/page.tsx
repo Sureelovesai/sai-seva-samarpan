@@ -32,13 +32,19 @@ export default function ItemContributionsDashboardPage() {
   const [city, setCity] = useState("");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
+  const [listedAsCommunityOutreach, setListedAsCommunityOutreach] = useState(false);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
+
+  const publicActivityPath = listedAsCommunityOutreach
+    ? `/community-activity-details?id=${encodeURIComponent(id)}`
+    : `/seva-activities?id=${encodeURIComponent(id)}`;
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
+    setListedAsCommunityOutreach(false);
     try {
       const res = await fetch(`/api/admin/seva-activities/${id}`, {
         credentials: "include",
@@ -52,6 +58,7 @@ export default function ItemContributionsDashboardPage() {
       setTitle(a.title ?? "");
       setCity(a.city ?? "");
       setStartDate(a.startDate ?? null);
+      setListedAsCommunityOutreach(Boolean(a.listedAsCommunityOutreach));
       const rows = (a.contributionItems ?? []) as ItemRow[];
       setItems(rows);
     } catch (e: unknown) {
@@ -151,7 +158,7 @@ export default function ItemContributionsDashboardPage() {
                     </p>
                   </div>
                   <Link
-                    href={`/seva-activities?id=${encodeURIComponent(id)}`}
+                    href={publicActivityPath}
                     className="shrink-0 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50"
                   >
                     View public page
@@ -287,8 +294,8 @@ export default function ItemContributionsDashboardPage() {
               <p className="text-sm font-semibold text-indigo-900">Public link</p>
               <p className="mt-2 break-all text-xs text-indigo-800">
                 {typeof window !== "undefined"
-                  ? `${window.location.origin}/seva-activities?id=${id}`
-                  : `/seva-activities?id=${id}`}
+                  ? `${window.location.origin}${publicActivityPath}`
+                  : publicActivityPath}
               </p>
               <button
                 type="button"
@@ -296,7 +303,7 @@ export default function ItemContributionsDashboardPage() {
                 onClick={() => {
                   const url =
                     typeof window !== "undefined"
-                      ? `${window.location.origin}/seva-activities?id=${encodeURIComponent(id)}`
+                      ? `${window.location.origin}${publicActivityPath}`
                       : "";
                   if (url) void navigator.clipboard.writeText(url);
                 }}

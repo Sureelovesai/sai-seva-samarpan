@@ -77,6 +77,26 @@ const reportDetailSelectFull = {
   userInstructions: true,
   generatedBody: true,
   editedBody: true,
+  presentation: true,
+  sourcePostIds: true,
+  reportTitle: true,
+} as const;
+
+/** DB without `presentation` column (older migrations). */
+const reportDetailSelectNoPresentation = {
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  createdById: true,
+  dateFrom: true,
+  dateTo: true,
+  centerFilter: true,
+  regionFilter: true,
+  sevaCategoryFilter: true,
+  targetWordCount: true,
+  userInstructions: true,
+  generatedBody: true,
+  editedBody: true,
   sourcePostIds: true,
   reportTitle: true,
 } as const;
@@ -112,6 +132,7 @@ export type BlogReportDetailRow = {
   userInstructions: string | null;
   generatedBody: string;
   editedBody: string | null;
+  presentation: unknown | null;
   sourcePostIds: unknown;
   reportTitle: string | null;
 };
@@ -129,11 +150,21 @@ export async function findUniqueBlogReportById(
     return r as BlogReportDetailRow | null;
   } catch (e) {
     if (!isPrismaSchemaMismatchError(e)) throw e;
-    const r: BlogReportDetailRowBase | null = await prisma.blogAnalyticsReport.findUnique({
-      where: { id },
-      select: reportDetailSelectLegacy,
-    });
-    if (!r) return null;
-    return { ...r, sevaCategoryFilter: null };
+    try {
+      const r = await prisma.blogAnalyticsReport.findUnique({
+        where: { id },
+        select: reportDetailSelectNoPresentation,
+      });
+      if (!r) return null;
+      return { ...r, presentation: null } as BlogReportDetailRow;
+    } catch (e2) {
+      if (!isPrismaSchemaMismatchError(e2)) throw e2;
+      const r: BlogReportDetailRowBase | null = await prisma.blogAnalyticsReport.findUnique({
+        where: { id },
+        select: reportDetailSelectLegacy,
+      });
+      if (!r) return null;
+      return { ...r, sevaCategoryFilter: null, presentation: null };
+    }
   }
 }

@@ -5,12 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 
 type RoleAssignment = { id: string; email: string; role: string; cities: string | null };
 
-const ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
+const ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR", "EVENT_ADMIN"] as const;
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   BLOG_ADMIN: "Blog Admin",
   VOLUNTEER: "Volunteer",
   SEVA_COORDINATOR: "Seva Coordinator",
+  EVENT_ADMIN: "Event Admin (events only)",
 };
 
 export default function RolesPage() {
@@ -54,7 +55,11 @@ export default function RolesPage() {
       const res = await fetch("/api/admin/roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: addEmail.trim(), role: addRole, cities: addRole === "SEVA_COORDINATOR" ? addCities.trim() || null : null }),
+        body: JSON.stringify({
+          email: addEmail.trim(),
+          role: addRole,
+          cities: addRole === "SEVA_COORDINATOR" ? addCities.trim() || null : null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to add");

@@ -768,8 +768,10 @@ export function BlogPostFormModal({
                   Full article *
                 </label>
                 <p className="mt-1 mb-2 text-xs text-[#7a6b65]">
-                  Use the toolbar for font, size, bold, italic, lists, link,
-                  and more.
+                  Toolbar: fonts, sizes, bold, lists, links,{" "}
+                  <strong className="font-semibold text-[#6b5344]">Insert template</strong> (starter layouts),{" "}
+                  <strong className="font-semibold text-[#6b5344]">Highlight</strong> swatches and custom color.
+                  Place the cursor where you want a template before choosing one.
                 </p>
                 <RichTextEditor
                   value={content}

@@ -87,6 +87,7 @@ export async function GET(request: Request) {
           city: true,
           startDate: true,
           status: true,
+          listedAsCommunityOutreach: true,
         },
       }),
       prisma.loggedHours.aggregate({
@@ -194,6 +195,7 @@ export async function GET(request: Request) {
         city: a.city,
         startDate: a.startDate,
         status: a.status,
+        listedAsCommunityOutreach: a.listedAsCommunityOutreach,
       })),
     });
   } catch (e: unknown) {

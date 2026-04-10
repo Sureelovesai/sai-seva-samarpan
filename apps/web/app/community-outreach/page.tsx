@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 type Me = {
   user: { id: string; email: string } | null;
   profile: { status: string } | null;
+  role?: string | null;
+  roles?: string[];
   errorCode?: string;
 };
 
@@ -35,6 +37,9 @@ export default function CommunityOutreachPage() {
   const approved = profileStatus === "APPROVED";
   const pending = profileStatus === "PENDING";
   const rejected = profileStatus === "REJECTED";
+  const isAdmin = me?.role === "ADMIN" || (me?.roles?.includes("ADMIN") ?? false);
+  /** Steps 3–5 after org approval, or for site Admins (manage any community listing). */
+  const registeredWithOrganization = approved || isAdmin;
 
   return (
     <div className="min-h-screen bg-white text-zinc-800">
@@ -48,8 +53,12 @@ export default function CommunityOutreachPage() {
               aria-hidden
             />
           </span>{" "}
-          program in three easy steps
+          program
         </h1>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-zinc-600">
+          Register your account and organization first. Steps 3–5 appear once your organization is approved
+          {isAdmin && loggedIn ? " (site administrators can open steps 3–5 anytime)" : ""}.
+        </p>
 
         {meLoadFailed && (
           <div
@@ -63,7 +72,7 @@ export default function CommunityOutreachPage() {
           </div>
         )}
 
-        <div className="mt-16 grid gap-10 md:grid-cols-3 md:gap-0">
+        <div className="mt-14 grid gap-10 md:grid-cols-2 md:gap-0">
           <div className="relative md:border-r md:border-zinc-200 md:pr-8">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100 text-2xl font-semibold text-zinc-600">
               1
@@ -77,7 +86,7 @@ export default function CommunityOutreachPage() {
             </p>
           </div>
 
-          <div className="relative md:border-r md:border-zinc-200 md:px-8">
+          <div className="md:pl-8">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100 text-2xl font-semibold text-zinc-600">
               2
             </div>
@@ -87,19 +96,6 @@ export default function CommunityOutreachPage() {
             <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
               Fill out a profile for your organization. Our review team will review your submission
               and notify you by email.
-            </p>
-          </div>
-
-          <div className="md:pl-8">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100 text-2xl font-semibold text-zinc-600">
-              3
-            </div>
-            <h2 className="mt-6 text-center text-lg font-bold text-zinc-900 md:text-left">
-              Post a service activity
-            </h2>
-            <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
-              Once approved, you are ready to post a service activity. Your organization name appears
-              on <strong>Find Community Activity</strong> with each listing so volunteers recognize your group.
             </p>
           </div>
         </div>
@@ -121,14 +117,6 @@ export default function CommunityOutreachPage() {
               {pending ? "Update organization profile" : rejected ? "Resubmit organization profile" : "Add organization profile"}
             </Link>
           )}
-          {loggedIn && approved && (
-            <Link
-              href="/community-outreach/post-activity"
-              className="inline-flex min-w-[200px] items-center justify-center rounded-full bg-blue-600 px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-blue-700"
-            >
-              Post a service activity
-            </Link>
-          )}
           {pending && (
             <p className="text-center text-sm text-amber-800">
               Your organization profile is pending review. You’ll receive an email when it’s approved.
@@ -140,6 +128,87 @@ export default function CommunityOutreachPage() {
             </p>
           )}
         </div>
+
+        {registeredWithOrganization && (
+          <>
+            <h2 className="mt-20 text-center text-xl font-semibold text-zinc-900 sm:text-2xl">
+              {isAdmin && !approved ? "Community Network tools (admin)" : "With your approved organization"}
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-zinc-600">
+              Steps 3–5: publish listings, manage them, and review volunteer sign-ups
+              {isAdmin && !approved ? " — as an admin you can access all community-outreach listings." : "."}
+            </p>
+
+            <div className="mt-12 grid gap-10 md:grid-cols-3 md:gap-0">
+              <div className="relative md:border-r md:border-zinc-200 md:pr-6">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-800">
+                  3
+                </div>
+                <h2 className="mt-6 text-center text-lg font-bold text-zinc-900 md:text-left">
+                  Post a service activity
+                </h2>
+                <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
+                  Post a service activity. Your organization name appears on{" "}
+                  <strong>Find Community Activity</strong> with each listing so volunteers recognize your group.
+                </p>
+                <div className="mt-6 flex justify-center md:justify-start">
+                  <Link
+                    href="/community-outreach/post-activity"
+                    className="inline-flex min-w-[180px] items-center justify-center rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                  >
+                    Post a service activity
+                  </Link>
+                </div>
+              </div>
+
+              <div className="relative md:border-r md:border-zinc-200 md:px-4">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-800">
+                  4
+                </div>
+                <h2 className="mt-6 text-center text-lg font-bold text-zinc-900 md:text-left">
+                  Manage Activity
+                </h2>
+                <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
+                  Edit, archive, or remove listings you have posted. Keep details and coordinator contact up to date.
+                </p>
+                <div className="mt-6 flex justify-center md:justify-start">
+                  <Link
+                    href="/community-outreach/manage-activities"
+                    className="inline-flex min-w-[180px] items-center justify-center rounded-full border-2 border-blue-600 bg-white px-6 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
+                  >
+                    Manage Activity
+                  </Link>
+                </div>
+              </div>
+
+              <div className="md:pl-6">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-800">
+                  5
+                </div>
+                <h2 className="mt-6 text-center text-lg font-bold text-zinc-900 md:text-left">
+                  View Sign Ups
+                </h2>
+                <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600 md:text-left">
+                  See everyone who signed up for your activities, full details in one place, and remove entries when needed.
+                </p>
+                <div className="mt-6 flex justify-center md:justify-start">
+                  <Link
+                    href="/community-outreach/view-signups"
+                    className="inline-flex min-w-[180px] items-center justify-center rounded-full border-2 border-zinc-400 bg-white px-6 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+                  >
+                    View Sign Ups
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {!registeredWithOrganization && loggedIn && !me?.profile && (
+          <p className="mt-10 text-center text-sm text-zinc-600">
+            Complete step 2 to submit your organization. Steps 3–5 will appear here after approval.
+          </p>
+        )}
       </div>
     </div>
   );

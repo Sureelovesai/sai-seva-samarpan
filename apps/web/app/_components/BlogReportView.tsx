@@ -2,7 +2,22 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RichTextEditor } from "@/app/seva-blog/RichTextEditor";
+import { downloadElementAsPdf } from "@/lib/htmlToPdf";
+import {
+  normalizeReportBodyHtml,
+  sanitizeReportHtml,
+} from "@/lib/reportBodyHtml";
+import {
+  DEFAULT_REPORT_PRESENTATION,
+  REPORT_BACKGROUND_OPTIONS,
+  REPORT_BORDER_OPTIONS,
+  REPORT_BODY_PROSE_CLASS,
+  type ReportPresentation,
+  getReportBodyShellStyles,
+  normalizePresentation,
+} from "@/lib/reportPresentation";
 
 type SourcePostRow = {
   id: string;
@@ -38,6 +53,7 @@ type ReportApi = {
   userInstructions: string | null;
   generatedBody: string;
   editedBody: string | null;
+  presentation?: ReportPresentation;
   sourcePostCount: number;
   sourcePosts: SourcePostRow[];
   relatedSevaActivities: SevaActivityRow[];
@@ -61,53 +77,27 @@ function safeFileBase(s: string): string {
   return s.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "").slice(0, 80) || "blog-report";
 }
 
-/**
- * jsPDF's built-in fonts only support WinAnsI-ish Latin. AI text often has smart quotes / em dashes / emoji
- * which throw or corrupt output. Normalize + drop unsupported code points.
- */
-function textSafeForPdf(input: string): string {
-  let s = input
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\u2013/g, "-")
-    .replace(/\u2014/g, "--")
-    .replace(/\u2018/g, "'")
-    .replace(/\u2019/g, "'")
-    .replace(/\u201C/g, '"')
-    .replace(/\u201D/g, '"')
-    .replace(/\u2026/g, "...")
-    .replace(/\u00A0/g, " ")
-    .replace(/\u200B/g, "");
-  s = s.replace(/[^\n\t\x20-\x7E]/g, "");
-  return s;
-}
-
-function buildWrappedLines(doc: { splitTextToSize: (t: string, w: number) => string | string[] }, body: string, maxW: number): string[] {
-  const paras = body.split(/\n+/);
-  const lines: string[] = [];
-  for (const p of paras) {
-    const t = p.trimEnd();
-    if (t.length === 0) {
-      lines.push("");
-      continue;
-    }
-    const part = doc.splitTextToSize(t, maxW);
-    const arr = Array.isArray(part) ? part : [part];
-    lines.push(...arr.map(String));
-  }
-  return lines;
-}
-
-function triggerPdfDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+function ReportStyledBody({
+  workingBody,
+  presentation,
+  className = "",
+}: {
+  workingBody: string;
+  presentation: ReportPresentation;
+  className?: string;
+}) {
+  const shell = getReportBodyShellStyles(presentation);
+  return (
+    <div className={className} style={shell.outer}>
+      <div
+        className={`${REPORT_BODY_PROSE_CLASS} prose prose-sm max-w-none text-[#3d3530] sm:prose-base [&_a]:text-[#8b6b5c] [&_a]:underline`}
+        style={shell.inner}
+        dangerouslySetInnerHTML={{
+          __html: sanitizeReportHtml(workingBody || "<p></p>"),
+        }}
+      />
+    </div>
+  );
 }
 
 export function BlogReportView() {
@@ -121,13 +111,17 @@ export function BlogReportView() {
 
   const [report, setReport] = useState<ReportApi | null>(null);
   const [workingBody, setWorkingBody] = useState("");
+  const [presentation, setPresentation] = useState<ReportPresentation>(DEFAULT_REPORT_PRESENTATION);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [presentationSaving, setPresentationSaving] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfWorking, setPdfWorking] = useState(false);
+
+  const pdfCaptureRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -148,7 +142,8 @@ export function BlogReportView() {
       }
       const r = data as ReportApi;
       setReport(r);
-      setWorkingBody((r.editedBody ?? r.generatedBody) || "");
+      setWorkingBody(normalizeReportBodyHtml((r.editedBody ?? r.generatedBody) || ""));
+      setPresentation(normalizePresentation(r.presentation));
       setEditing(false);
     } catch {
       setError("Network error loading report.");
@@ -162,6 +157,42 @@ export function BlogReportView() {
     load();
   }, [load]);
 
+  async function persistPresentation(next: ReportPresentation) {
+    if (!report?.canEdit) return;
+    const previous = presentation;
+    setPresentation(next);
+    setPresentationSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/blog-reports/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ presentation: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPresentation(previous);
+        setSaveError(typeof data?.error === "string" ? data.error : "Could not save layout.");
+        return;
+      }
+      setReport((prev) =>
+        prev
+          ? {
+              ...prev,
+              presentation: next,
+              updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : prev.updatedAt,
+            }
+          : prev
+      );
+    } catch {
+      setPresentation(previous);
+      setSaveError("Network error while saving layout.");
+    } finally {
+      setPresentationSaving(false);
+    }
+  }
+
   async function saveEdits() {
     if (!report?.canEdit) return;
     setSaveError(null);
@@ -171,18 +202,22 @@ export function BlogReportView() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ editedBody: workingBody }),
+        body: JSON.stringify({ editedBody: workingBody, presentation }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setSaveError(typeof data?.error === "string" ? data.error : "Save failed.");
         return;
       }
+      if (data?.presentation) {
+        setPresentation(normalizePresentation(data.presentation));
+      }
       setReport((prev) =>
         prev
           ? {
               ...prev,
               editedBody: workingBody,
+              presentation: data?.presentation ? normalizePresentation(data.presentation) : presentation,
               updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : prev.updatedAt,
             }
           : prev
@@ -200,69 +235,14 @@ export function BlogReportView() {
     setPdfError(null);
     setPdfWorking(true);
     try {
-      const { jsPDF } = await import("jspdf");
+      const el = pdfCaptureRef.current;
+      if (!el) {
+        setPdfError("Could not prepare PDF (missing content).");
+        return;
+      }
       const titleRaw = report.reportTitle || "Seva blog report";
-      const title = textSafeForPdf(titleRaw).slice(0, 200) || "Seva blog report";
-      const body = textSafeForPdf(workingBody || "") || "(No content)";
-
-      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
-      doc.setFont("helvetica", "normal");
-
-      const margin = 14;
-      const pageBottom = 287;
-      const lineHeight = 5.5;
-      const maxW = 182;
-
-      let y = margin;
-      doc.setFontSize(14);
-      const titleLines = buildWrappedLines(doc, title, maxW);
-      for (const line of titleLines) {
-        if (y > pageBottom - lineHeight) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(line, margin, y);
-        y += lineHeight + 0.5;
-      }
-
-      y += 4;
-      doc.setFontSize(10.5);
-      const metaLine = textSafeForPdf(
-        [
-          `${report.dateFrom.slice(0, 10)} – ${report.dateTo.slice(0, 10)}`,
-          `${report.sourcePostCount} posts`,
-          `~${report.targetWordCount} words target`,
-        ].join(" · ")
-      );
-      if (metaLine) {
-        const metaWrapped = buildWrappedLines(doc, metaLine, maxW);
-        for (const line of metaWrapped) {
-          if (y > pageBottom - lineHeight) {
-            doc.addPage();
-            y = margin;
-          }
-          doc.setTextColor(80, 80, 80);
-          doc.text(line, margin, y);
-          y += lineHeight;
-        }
-        doc.setTextColor(0, 0, 0);
-        y += 3;
-      }
-
-      const lines = buildWrappedLines(doc, body, maxW);
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]!;
-        if (y > pageBottom - lineHeight) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(line || " ", margin, y);
-        y += lineHeight;
-      }
-
       const filename = `${safeFileBase(titleRaw)}.pdf`;
-      const blob = doc.output("blob");
-      triggerPdfDownload(blob, filename);
+      await downloadElementAsPdf(el, filename);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not build PDF.";
       setPdfError(msg);
@@ -305,20 +285,48 @@ export function BlogReportView() {
     .filter(Boolean)
     .join(" · ");
 
+  const pdfMetaLine = [
+    `${report.dateFrom.slice(0, 10)} – ${report.dateTo.slice(0, 10)}`,
+    `${report.sourcePostCount} posts`,
+    `~${report.targetWordCount} words target`,
+  ].join(" · ");
+
   const sourcePosts = Array.isArray(report.sourcePosts) ? report.sourcePosts : [];
   const sevaActivities = Array.isArray(report.relatedSevaActivities)
     ? report.relatedSevaActivities
     : [];
 
+  const titleDisplay = report.reportTitle || "Blog analytics report";
+
   return (
     <div className="min-h-screen bg-[#fefaf8] px-4 py-10">
+      {/* Off-screen: exact snapshot for PDF (matches screen styling). */}
+      <div
+        ref={pdfCaptureRef}
+        className="pointer-events-none fixed top-0 -left-[14000px] z-0 box-border w-[210mm] bg-[#fefaf8] p-[12mm] text-[#3d3530] shadow-none"
+        aria-hidden
+      >
+        <h1
+          style={{
+            fontFamily: "Georgia, 'Times New Roman', serif",
+            fontSize: "22px",
+            fontWeight: 700,
+            color: "#5a4538",
+            margin: "0 0 8px 0",
+            lineHeight: 1.25,
+          }}
+        >
+          {titleDisplay}
+        </h1>
+        <p style={{ fontSize: "10.5pt", color: "#5c534e", margin: "0 0 14px 0" }}>{pdfMetaLine}</p>
+        <ReportStyledBody workingBody={workingBody} presentation={presentation} />
+      </div>
+
       <div className="mx-auto max-w-3xl">
         <Link href={backHref} className="text-sm font-semibold text-[#8b6b5c] hover:underline">
           {backLabel}
         </Link>
-        <h1 className="mt-4 font-serif text-2xl font-bold text-[#5a4538] sm:text-3xl">
-          {report.reportTitle || "Blog analytics report"}
-        </h1>
+        <h1 className="mt-4 font-serif text-2xl font-bold text-[#5a4538] sm:text-3xl">{titleDisplay}</h1>
         <p className="mt-2 text-sm text-[#7a6b65]">{meta}</p>
         {report.userInstructions ? (
           <p className="mt-3 rounded-lg border border-[#e8b4a0]/50 bg-white/80 px-4 py-3 text-sm text-[#6b5344]">
@@ -388,17 +396,64 @@ export function BlogReportView() {
         </section>
 
         <div className="mt-8 space-y-4">
+          <div className="rounded-xl border border-[#e8b4a0]/50 bg-white/90 p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#8b7355]">
+              Report layout (screen + PDF)
+            </p>
+            <p className="mt-1 text-xs text-[#7a6b65]">
+              Background and frame use inline styles so the downloaded PDF matches what you see.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-4">
+              <label className="flex flex-col gap-1 text-sm text-[#5a4538]">
+                <span className="font-medium">Background</span>
+                <select
+                  className="rounded-lg border border-[#e8b4a0] bg-white px-3 py-2 text-[#3d3530] disabled:opacity-60"
+                  disabled={!report.canEdit || presentationSaving}
+                  value={presentation.backgroundId}
+                  onChange={(e) => {
+                    void persistPresentation({ ...presentation, backgroundId: e.target.value });
+                  }}
+                >
+                  {REPORT_BACKGROUND_OPTIONS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-[#5a4538]">
+                <span className="font-medium">Frame</span>
+                <select
+                  className="rounded-lg border border-[#e8b4a0] bg-white px-3 py-2 text-[#3d3530] disabled:opacity-60"
+                  disabled={!report.canEdit || presentationSaving}
+                  value={presentation.borderId}
+                  onChange={(e) => {
+                    void persistPresentation({ ...presentation, borderId: e.target.value });
+                  }}
+                >
+                  {REPORT_BORDER_OPTIONS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {presentationSaving ? (
+                <span className="text-xs text-[#7a6b65]">Saving layout…</span>
+              ) : null}
+            </div>
+          </div>
+
           {report.canEdit && editing ? (
-            <textarea
+            <RichTextEditor
               value={workingBody}
-              onChange={(e) => setWorkingBody(e.target.value)}
-              rows={22}
-              className="w-full rounded-xl border border-[#e8b4a0] bg-white p-4 font-sans text-sm leading-relaxed text-[#3d3530] shadow-sm"
+              onChange={setWorkingBody}
+              placeholder="Edit your report…"
+              minHeight="min(70vh, 520px)"
+              className="shadow-sm"
             />
           ) : (
-            <div className="whitespace-pre-wrap rounded-xl border border-[#e8b4a0]/60 bg-white p-6 text-sm leading-relaxed text-[#3d3530] shadow-sm">
-              {workingBody}
-            </div>
+            <ReportStyledBody workingBody={workingBody} presentation={presentation} />
           )}
 
           {saveError && <p className="text-sm text-red-700">{saveError}</p>}
@@ -423,7 +478,7 @@ export function BlogReportView() {
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={saveEdits}
+                  onClick={() => void saveEdits()}
                   className="rounded-lg bg-[#8b6b5c] px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-[#6b5344] disabled:opacity-60"
                 >
                   {saving ? "Saving…" : "Save changes"}
@@ -432,7 +487,10 @@ export function BlogReportView() {
                   type="button"
                   disabled={saving}
                   onClick={() => {
-                    setWorkingBody((report.editedBody ?? report.generatedBody) || "");
+                    setWorkingBody(
+                      normalizeReportBodyHtml((report.editedBody ?? report.generatedBody) || "")
+                    );
+                    setPresentation(normalizePresentation(report.presentation));
                     setEditing(false);
                     setSaveError(null);
                   }}

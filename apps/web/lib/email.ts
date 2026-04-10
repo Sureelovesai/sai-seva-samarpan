@@ -12,6 +12,8 @@ export type SendEmailOptions = {
   subject: string;
   html: string;
   from?: string;
+  /** Resend: base64-encoded file contents */
+  attachments?: Array<{ filename: string; content: string }>;
 };
 
 function normalizeFrom(from: string): string {
@@ -83,6 +85,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ ok: boolea
         to: toClean,
         subject: options.subject,
         html: options.html,
+        ...(options.attachments?.length
+          ? { attachments: options.attachments.map((a) => ({ filename: a.filename, content: a.content })) }
+          : {}),
       }),
     });
 

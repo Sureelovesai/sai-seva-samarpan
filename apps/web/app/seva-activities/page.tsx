@@ -2,7 +2,7 @@
 
 import NextImage from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { isActivityEnded } from "@/lib/activityEnded";
 
 type SevaActivity = {
@@ -105,6 +105,7 @@ const TAB_GAP_PX = 8;
 const ARROWS_AND_GAPS_PX = 104; // << button + gap + >> button + gap (approx)
 
 function SevaActivitiesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id");
   const tabsRowRef = useRef<HTMLDivElement>(null);
@@ -228,14 +229,24 @@ function SevaActivitiesContent() {
         const res = await fetch("/api/seva-activities", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load");
         const data = (await res.json()) as SevaActivity[];
-        if (!cancelled) {
-          setActivities(data || []);
-          const idToSelect = searchParams.get("id");
-          if (data?.length) {
-            const exists = idToSelect && data.some((a) => a.id === idToSelect);
-            const sid = exists ? idToSelect! : data[0].id;
-            setSelectedId(sid);
+        const idToSelect = searchParams.get("id");
+        if (cancelled) return;
+
+        const inSevaList = Boolean(idToSelect && data?.some((a) => a.id === idToSelect));
+        if (idToSelect && !inSevaList) {
+          const cr = await fetch(`/api/community-activities/${encodeURIComponent(idToSelect)}`, {
+            cache: "no-store",
+          });
+          if (cr.ok && !cancelled) {
+            router.replace(`/community-activity-details?id=${encodeURIComponent(idToSelect)}`);
+            return;
           }
+        }
+
+        setActivities(data || []);
+        if (data?.length) {
+          const sid = inSevaList ? idToSelect! : data[0].id;
+          setSelectedId(sid);
         }
       } catch {
         if (!cancelled) setActivities([]);
@@ -245,7 +256,7 @@ function SevaActivitiesContent() {
     }
     load();
     return () => { cancelled = true; };
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Sync tabs page so the selected tab stays in view (on load, tab click, or when tabsPerPage changes e.g. resize)
   useEffect(() => {

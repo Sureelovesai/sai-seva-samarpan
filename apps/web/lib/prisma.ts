@@ -76,15 +76,17 @@ function getPrisma(): PrismaClientInstance {
 
   const delegate = (client as { sevaContributionItem?: { findMany?: unknown } }).sevaContributionItem;
   const missingContributionApi = typeof delegate?.findMany !== "function";
+  const portalDelegate = (client as { portalEvent?: { findMany?: unknown } }).portalEvent;
+  const missingPortalEventApi = typeof portalDelegate?.findMany !== "function";
   const shouldRebuild =
     process.env.NODE_ENV !== "production" &&
-    missingContributionApi &&
+    (missingContributionApi || missingPortalEventApi) &&
     !globalForPrisma.__prismaStaleRebuildDone;
 
   if (shouldRebuild) {
     globalForPrisma.__prismaStaleRebuildDone = true;
     console.warn(
-      "[prisma] Replacing cached dev client: it was created before the latest schema (e.g. item contributions). If errors continue, run: npx prisma generate && restart the dev server."
+      "[prisma] Replacing cached dev client: it was created before the latest schema (e.g. portal events or item contributions). If errors continue, run: npx prisma generate && restart the dev server."
     );
     client.$disconnect().catch(() => {});
     client = createPrismaClient();

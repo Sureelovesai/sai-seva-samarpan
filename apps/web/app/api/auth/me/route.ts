@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole } from "@/lib/getRole";
+import { getSessionWithRole, isEventAdminOnlyUser } from "@/lib/getRole";
 
 export async function GET(req: Request) {
   try {
@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         role: sessionWithRole.role,
         roles: sessionWithRole.roles,
         coordinatorCities: sessionWithRole.coordinatorCities,
+        eventAdminOnly: isEventAdminOnlyUser(sessionWithRole),
       },
     });
   } catch (e: unknown) {

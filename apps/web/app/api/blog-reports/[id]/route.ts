@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { findUniqueBlogReportById } from "@/lib/blogAnalyticsReportDb";
 import { getSessionWithRole } from "@/lib/getRole";
 import { canEditBlogReport, canViewBlogReport } from "@/lib/blogReportAccess";
+import { normalizePresentation } from "@/lib/reportPresentation";
 import {
   buildPublishedActivityWhereForScope,
   type ReportScopeInput,
@@ -113,6 +114,7 @@ export async function GET(
       userInstructions: report.userInstructions,
       generatedBody: report.generatedBody,
       editedBody: report.editedBody,
+      presentation: normalizePresentation(report.presentation),
       sourcePostCount: ids.length,
       sourcePosts,
       relatedSevaActivities: relatedSevaActivities.map((a: ActivityListRow) => ({
@@ -138,7 +140,7 @@ const MAX_BODY = 500_000;
 
 /**
  * PATCH /api/blog-reports/[id]
- * Body: { editedBody: string }
+ * Body: { editedBody?: string, presentation?: { backgroundId, borderId } }
  */
 export async function PATCH(
   req: Request,
@@ -157,19 +159,32 @@ export async function PATCH(
 
     const body = await req.json().catch(() => ({}));
     const editedBody = body?.editedBody;
-    if (typeof editedBody !== "string") {
-      return NextResponse.json({ error: "editedBody (string) is required." }, { status: 400 });
+    const hasEditedBody = typeof editedBody === "string";
+    const hasPresentation = body && Object.prototype.hasOwnProperty.call(body, "presentation");
+
+    if (!hasEditedBody && !hasPresentation) {
+      return NextResponse.json(
+        { error: "Provide editedBody and/or presentation." },
+        { status: 400 }
+      );
     }
-    if (editedBody.length > MAX_BODY) {
+    if (hasEditedBody && editedBody.length > MAX_BODY) {
       return NextResponse.json({ error: "editedBody is too long." }, { status: 400 });
+    }
+
+    const data: Prisma.BlogAnalyticsReportUpdateInput = {};
+    if (hasEditedBody) data.editedBody = editedBody;
+    if (hasPresentation) {
+      data.presentation = normalizePresentation(body.presentation) as unknown as Prisma.InputJsonValue;
     }
 
     const updated = await prisma.blogAnalyticsReport.update({
       where: { id },
-      data: { editedBody },
+      data,
       select: {
         id: true,
         editedBody: true,
+        presentation: true,
         updatedAt: true,
       },
     });
@@ -177,6 +192,7 @@ export async function PATCH(
     return NextResponse.json({
       id: updated.id,
       editedBody: updated.editedBody,
+      presentation: normalizePresentation(updated.presentation),
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (e: unknown) {

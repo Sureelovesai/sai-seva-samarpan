@@ -183,6 +183,20 @@ export function fallbackReply(userText: string): ChatReply {
     };
   }
 
+  if (
+    q.includes("event") &&
+    (q.includes("rsvp") || q.includes("sign up") || q.includes("signup") || q.includes("flyer") || q.includes("gathering"))
+  ) {
+    return {
+      message:
+        "Public **Events** are listed under **Events** in the main menu. Coordinators and admins manage them from **Event Admin Dashboard** (add event, manage, view sign-ups with Yes/No/Maybe).",
+      links: [
+        { label: "Events", href: "/events" },
+        { label: "Event Admin Dashboard", href: "/admin/events-dashboard" },
+      ],
+    };
+  }
+
   const looseCity = resolveCityFromText(userText);
   if (looseCity && (q.includes("center") || q.includes("city") || q.includes("near"))) {
     return {

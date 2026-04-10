@@ -28,6 +28,20 @@ export default function AdminLayout({
           router.replace("/");
           return;
         }
+
+        const eventAdminOnly = Boolean(user.eventAdminOnly);
+        if (eventAdminOnly) {
+          const allowed =
+            pathname === "/admin/events-dashboard" ||
+            pathname.startsWith("/admin/add-event") ||
+            pathname.startsWith("/admin/manage-events") ||
+            pathname.startsWith("/admin/event-signups");
+          if (!allowed) {
+            router.replace("/admin/events-dashboard");
+            return;
+          }
+        }
+
         if ((role === "SEVA_COORDINATOR" || role === "BLOG_ADMIN") && pathname === "/admin/roles") {
           router.replace("/admin/seva-dashboard");
           return;

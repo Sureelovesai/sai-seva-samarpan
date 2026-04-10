@@ -322,24 +322,24 @@ function SevaSignUpsContent() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-10 md:grid-cols-2">
-          <div>
+        <div className="mt-10 grid min-w-0 grid-cols-1 gap-10 md:grid-cols-2">
+          <div className="min-w-0">
             <div className="text-lg font-semibold">From Date</div>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+              className="admin-date-input mt-4 w-full max-w-full border border-zinc-700 bg-white px-4 py-4 text-base sm:max-w-[360px] sm:px-6 sm:text-lg"
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="text-lg font-semibold">To Date</div>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+              className="admin-date-input mt-4 w-full max-w-full border border-zinc-700 bg-white px-4 py-4 text-base sm:max-w-[360px] sm:px-6 sm:text-lg"
             />
           </div>
         </div>

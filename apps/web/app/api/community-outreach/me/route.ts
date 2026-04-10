@@ -6,13 +6,13 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/community-outreach/me
- * Current user + community outreach profile (if any).
+ * Current user + community outreach profile (if any) + primary role (for hub steps 3–5 admin access).
  */
 export async function GET(req: Request) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
     if (!session) {
-      return NextResponse.json({ user: null, profile: null });
+      return NextResponse.json({ user: null, profile: null, role: null, roles: [] });
     }
 
     const user = await prisma.user.findUnique({
@@ -28,13 +28,15 @@ export async function GET(req: Request) {
     });
 
     if (!user) {
-      return NextResponse.json({ user: null, profile: null });
+      return NextResponse.json({ user: null, profile: null, role: session.role, roles: session.roles });
     }
 
     const { communityOutreachProfile: profile, ...rest } = user;
     return NextResponse.json({
       user: rest,
       profile,
+      role: session.role,
+      roles: session.roles,
     });
   } catch (e: unknown) {
     console.error("GET /api/community-outreach/me:", e);

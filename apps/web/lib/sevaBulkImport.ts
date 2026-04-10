@@ -45,6 +45,18 @@ export type ParsedBulkVolunteerRow = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
+/**
+ * Remove template suffixes like " *", "(required…)", "(optional…)" from row-1 headers
+ * so downloads can mark mandatory columns without breaking parsing.
+ */
+export function stripExcelHeaderDisplayDecorations(raw: string): string {
+  return raw
+    .replace(/\s*\(optional[^)]*\)\s*$/i, "")
+    .replace(/\s*\(required[^)]*\)\s*$/i, "")
+    .replace(/\s*\*+\s*$/, "")
+    .trim();
+}
+
 function cellStr(v: unknown): string {
   if (v == null || v === "") return "";
   if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v) === v ? v : v);
@@ -64,10 +76,11 @@ function cellInt(v: unknown): number | null {
 
 /** Map header cell to canonical key or item__id or null if unknown (ignored). */
 export function normalizeBulkHeader(raw: string, validItemIds: Set<string>): string | null {
-  const h = raw.trim().toLowerCase().replace(/\s+/g, "_");
+  const cleaned = stripExcelHeaderDisplayDecorations(raw.trim());
+  const h = cleaned.toLowerCase().replace(/\s+/g, "_");
   if (!h) return null;
 
-  const itemM = raw.trim().match(/^item__(.+)$/i);
+  const itemM = cleaned.match(/^item__(.+)$/i);
   if (itemM) {
     const id = itemM[1].trim();
     if (validItemIds.has(id)) return `item__${id}`;
@@ -113,7 +126,10 @@ export function itemIdFromHeader(canonical: string): string | null {
 function normalizeContribItemHeader(
   raw: string
 ): "item_id" | "item_name" | "activity_max" | "_skip" | null {
-  const t = raw.trim().toLowerCase().replace(/\s+/g, " ");
+  const t = stripExcelHeaderDisplayDecorations(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   if (!t) return null;
   if (t.startsWith("item id")) return "item_id";
   if (t === "item name") return "item_name";
@@ -303,6 +319,23 @@ export function parseContributionItemsWorkbook(buffer: Buffer): {
 export const BULK_IMPORT_MAX_ROWS = 500;
 export const BULK_IMPORT_MAX_BYTES = 2 * 1024 * 1024;
 
+/** Gray sample rows on blank Join Seva Activity template — skipped on upload (not real volunteers). */
+const JOIN_SEVA_BLANK_TEMPLATE_SAMPLES: readonly { name: string; email: string }[] = [
+  { name: "Sample Volunteer", email: "volunteer@example.com" },
+  { name: "Priya Sharma (sample)", email: "priya.sample@example.com" },
+];
+
+export function isJoinSevaBlankTemplateSampleRow(
+  volunteerName: string,
+  email: string
+): boolean {
+  const n = volunteerName.trim().toLowerCase().replace(/\s+/g, " ");
+  const e = email.trim().toLowerCase();
+  return JOIN_SEVA_BLANK_TEMPLATE_SAMPLES.some(
+    (s) => s.name.toLowerCase() === n && s.email.toLowerCase() === e
+  );
+}
+
 export function parseBulkVolunteerWorkbook(
   buffer: Buffer,
   validItemIds: Set<string>
@@ -400,6 +433,10 @@ export function parseBulkVolunteerWorkbook(
     const phone = cellStr(get("phone"));
     const adultsRaw = get("adults_count");
     const kidsRaw = headerRow.kids_count !== undefined ? get("kids_count") : "";
+
+    if (volunteer_name && email && isJoinSevaBlankTemplateSampleRow(volunteer_name, email)) {
+      continue;
+    }
 
     const allEmpty =
       !volunteer_name &&
@@ -633,7 +670,10 @@ type AddSevaColKey =
   | "_skip";
 
 function normalizeAddSevaHeader(raw: string): AddSevaColKey | null {
-  const t = raw.trim().toLowerCase().replace(/\s+/g, " ");
+  const t = stripExcelHeaderDisplayDecorations(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   if (!t) return null;
   if (t.startsWith("activity id")) return "activity_id";
   if (t === "seva activity") return "title";

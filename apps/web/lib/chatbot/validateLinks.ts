@@ -12,9 +12,17 @@ const ALLOWED_PATHNAMES = new Set([
   "/community-outreach",
   "/community-outreach/profile",
   "/community-outreach/post-activity",
+  "/community-outreach/manage-activities",
+  "/community-outreach/view-signups",
   "/seva-blog",
   "/seva-activities",
+  "/community-activity-details",
+  "/events",
   "/admin/seva-dashboard",
+  "/admin/events-dashboard",
+  "/admin/add-event",
+  "/admin/manage-events",
+  "/admin/event-signups",
   "/admin/add-seva-activity",
   "/admin/manage-seva",
   "/admin/seva-signups",
@@ -47,7 +55,9 @@ export function sanitizeHelpLinks(items: unknown): HelpLink[] {
       search = pathRaw.slice(qIdx);
     }
 
-    if (!ALLOWED_PATHNAMES.has(pathname)) continue;
+    const eventDetail = /^\/events\/[^/]+$/.test(pathname);
+    const adminEditEvent = /^\/admin\/manage-events\/[^/]+$/.test(pathname);
+    if (!ALLOWED_PATHNAMES.has(pathname) && !eventDetail && !adminEditEvent) continue;
 
     if (pathname === "/find-seva" && search) {
       const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);

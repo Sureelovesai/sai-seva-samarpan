@@ -895,7 +895,7 @@ export default function AddSevaActivityPage() {
                 type="button"
                 onClick={downloadBulkTemplate}
                 disabled={saving}
-                className="rounded-lg border-2 border-indigo-400 bg-white px-5 py-3 text-sm font-bold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+                className="cursor-pointer rounded-lg border-2 border-indigo-400 bg-white px-5 py-3 text-sm font-bold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Download Excel template
               </button>
@@ -904,17 +904,19 @@ export default function AddSevaActivityPage() {
                 user click (reliable across browsers). Programmatic input.click() is often blocked.
               */}
               <label
-                className={`relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-lg px-5 py-3 text-sm font-bold text-white shadow ${
-                  (!bulkActivityId || bulkImportAllowed) && !bulkUploading && !saving
-                    ? "bg-indigo-800 hover:bg-indigo-900"
-                    : "bg-zinc-500 hover:bg-zinc-600"
-                } ${bulkUploading || saving ? "pointer-events-none cursor-not-allowed opacity-60" : ""}`}
+                className={`relative inline-flex items-center justify-center overflow-hidden rounded-lg px-5 py-3 text-sm font-bold text-white shadow ${
+                  bulkUploading || saving
+                    ? "pointer-events-none cursor-not-allowed opacity-60 bg-zinc-500"
+                    : bulkActivityId && !bulkImportAllowed
+                      ? "cursor-not-allowed bg-zinc-500 hover:bg-zinc-600"
+                      : "cursor-pointer bg-indigo-800 hover:bg-indigo-900"
+                }`}
               >
                 <input
                   type="file"
                   accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                  className="absolute inset-0 z-10 h-full min-h-[44px] w-full cursor-pointer opacity-0"
-                  disabled={bulkUploading || saving}
+                  className="absolute inset-0 z-10 h-full min-h-[44px] w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                  disabled={bulkUploading || saving || (Boolean(bulkActivityId) && !bulkImportAllowed)}
                   onChange={handleBulkUpload}
                   aria-label="Choose Excel file to upload"
                 />

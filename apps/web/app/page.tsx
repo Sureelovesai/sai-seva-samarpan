@@ -55,6 +55,9 @@ const FEATURED_SLIDER_AUTOPLAY_MS = 2000;
 
 const MOBILE_BREAKPOINT = 640;
 
+/** Shown when a featured activity has no uploaded image (same asset as hero SVG fallback). */
+const FEATURED_ACTIVITY_DEFAULT_IMAGE = "/manage-hero-swami.svg";
+
 function FeaturedSevaSection() {
   const [activities, setActivities] = useState<FeaturedActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,9 +199,12 @@ function FeaturedSevaSection() {
                           sizes="(max-width: 640px) 100vw, 50vw"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center bg-zinc-200 text-zinc-500">
-                          No image
-                        </div>
+                        // eslint-disable-next-line @next/next/no-img-element -- local SVG default; matches home hero fallback
+                        <img
+                          src={FEATURED_ACTIVITY_DEFAULT_IMAGE}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-contain object-center p-2"
+                        />
                       )}
                     </div>
                   </div>

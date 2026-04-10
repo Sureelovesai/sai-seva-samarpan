@@ -56,6 +56,7 @@ type AnalyticsData = {
     city: string;
     startDate: string | null;
     status: string;
+    listedAsCommunityOutreach?: boolean;
   }>;
 };
 
@@ -593,7 +594,10 @@ export default function SevaAdminDashboardPage() {
 
         {/* ================= PENDING BLOG POSTS (ADMIN ONLY) ================= */}
         {(role === "ADMIN" || role === "BLOG_ADMIN") && (
-          <section id="pending-blog-posts" className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-6 py-6 shadow-md">
+          <section
+            id="pending-blog-posts"
+            className="mt-8 overflow-hidden rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-6 shadow-md sm:px-6"
+          >
             <div className="flex items-center justify-center gap-4 border-b border-amber-200 pb-4">
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-amber-700" aria-hidden />
               <h2 className="text-xl font-extrabold tracking-wide text-amber-800 sm:text-2xl">Pending Blog Posts</h2>
@@ -612,9 +616,9 @@ export default function SevaAdminDashboardPage() {
                 {uniqById(pendingBlogPosts).map((post) => (
                   <li
                     key={post.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 shadow-sm"
+                    className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4"
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 w-full sm:flex-1">
                       <span className="font-semibold text-slate-800">{post.title}</span>
                       <span className="ml-2 text-sm text-slate-500">{post.section}</span>
                       {post.authorName && (
@@ -633,12 +637,12 @@ export default function SevaAdminDashboardPage() {
                         {post.sevaCategory && <span>{post.sevaCategory}</span>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-2">
                       <button
                         type="button"
                         onClick={() => openViewPendingPost(post.id)}
                         disabled={!!blogPostActingId || viewingPostLoading}
-                        className="rounded-lg border border-amber-600 bg-white px-4 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg border border-amber-600 bg-white px-3 py-2 text-sm font-semibold text-amber-800 shadow-sm hover:bg-amber-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         {viewingPostLoading && viewingPostId === post.id ? "Loading…" : "View"}
                       </button>
@@ -646,7 +650,7 @@ export default function SevaAdminDashboardPage() {
                         type="button"
                         onClick={() => approveBlogPost(post.id)}
                         disabled={blogPostActingId === post.id}
-                        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         {blogPostActingId === post.id ? "Working…" : "Approve"}
                       </button>
@@ -654,7 +658,7 @@ export default function SevaAdminDashboardPage() {
                         type="button"
                         onClick={() => rejectBlogPost(post.id)}
                         disabled={blogPostActingId === post.id}
-                        className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         Reject
                       </button>
@@ -663,7 +667,7 @@ export default function SevaAdminDashboardPage() {
                           type="button"
                           onClick={() => deleteBlogPost(post.id)}
                           disabled={blogPostActingId === post.id}
-                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                         >
                           Delete
                         </button>
@@ -680,7 +684,7 @@ export default function SevaAdminDashboardPage() {
         {(role === "ADMIN" || role === "SEVA_COORDINATOR") && (
           <section
             id="pending-community-outreach"
-            className="mt-8 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/90 px-6 py-6 shadow-md"
+            className="mt-8 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/90 px-3 py-6 shadow-md sm:px-6"
           >
             <div className="flex items-center justify-center gap-4 border-b border-indigo-200 pb-4">
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-indigo-700" aria-hidden />
@@ -702,9 +706,9 @@ export default function SevaAdminDashboardPage() {
                 {uniqById(pendingOutreachProfiles).map((row) => (
                   <li
                     key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-white px-4 py-3 shadow-sm"
+                    className="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4"
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 w-full sm:flex-1">
                       <span className="font-semibold text-slate-800">{row.organizationName}</span>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
                         <span>Center: {row.city}</span>
@@ -722,12 +726,12 @@ export default function SevaAdminDashboardPage() {
                         {displayOutreachSubmitterName(row.user)} · {row.user.email}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-2">
                       <button
                         type="button"
                         onClick={() => setViewingOutreachProfile(row)}
                         disabled={!!outreachActingId}
-                        className="rounded-lg border border-indigo-600 bg-white px-4 py-2 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg border border-indigo-600 bg-white px-3 py-2 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         View
                       </button>
@@ -735,7 +739,7 @@ export default function SevaAdminDashboardPage() {
                         type="button"
                         onClick={() => approveOutreachProfile(row.id)}
                         disabled={outreachActingId === row.id}
-                        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         {outreachActingId === row.id ? "Working…" : "Approve"}
                       </button>
@@ -743,7 +747,7 @@ export default function SevaAdminDashboardPage() {
                         type="button"
                         onClick={() => rejectOutreachProfile(row.id)}
                         disabled={outreachActingId === row.id}
-                        className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                       >
                         Reject
                       </button>
@@ -752,7 +756,7 @@ export default function SevaAdminDashboardPage() {
                           type="button"
                           onClick={() => deleteOutreachProfile(row.id)}
                           disabled={outreachActingId === row.id}
-                          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
                         >
                           Delete
                         </button>
@@ -836,7 +840,7 @@ export default function SevaAdminDashboardPage() {
 
           {/* Filters */}
           <div className="border-b border-slate-700 px-4 py-4 sm:px-6">
-            <div className="flex flex-wrap items-end gap-3 sm:gap-4">
+            <div className="flex min-w-0 flex-wrap items-end gap-3 sm:gap-4">
               <div className="min-w-[120px] flex-1 sm:flex-none">
                 <label className="block text-xs font-semibold text-slate-300">Center</label>
                 <select
@@ -863,22 +867,22 @@ export default function SevaAdminDashboardPage() {
                   ))}
                 </select>
               </div>
-              <div className="min-w-[100px]">
+              <div className="min-w-0 flex-1 basis-[8rem] sm:min-w-[100px] sm:flex-none">
                 <label className="block text-xs font-semibold text-slate-300">From</label>
                 <input
                   type="date"
                   value={filterFrom}
                   onChange={(e) => setFilterFrom(e.target.value)}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-indigo-400"
+                  className="admin-date-input mt-1 rounded border border-slate-600 bg-slate-700 px-2 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-indigo-400 sm:px-3"
                 />
               </div>
-              <div className="min-w-[100px]">
+              <div className="min-w-0 flex-1 basis-[8rem] sm:min-w-[100px] sm:flex-none">
                 <label className="block text-xs font-semibold text-slate-300">To</label>
                 <input
                   type="date"
                   value={filterTo}
                   onChange={(e) => setFilterTo(e.target.value)}
-                  className="mt-1 w-full rounded border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-indigo-400"
+                  className="admin-date-input mt-1 rounded border border-slate-600 bg-slate-700 px-2 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-indigo-400 sm:px-3"
                 />
               </div>
               <div className="min-w-[140px] flex-1 sm:min-w-[160px]">
@@ -972,38 +976,38 @@ export default function SevaAdminDashboardPage() {
         </section>
 
         {/* ================= EXPORT CSV ================= */}
-        <section className="mt-10">
-          <div className="mx-auto max-w-5xl bg-yellow-200/85 px-6 py-10 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
+        <section className="mt-10 w-full min-w-0">
+          <div className="mx-auto w-full min-w-0 max-w-5xl bg-yellow-200/85 px-3 py-10 shadow-[0_10px_25px_rgba(0,0,0,0.18)] sm:px-6">
             <div className="text-center text-3xl font-semibold underline">
               Export CSV
             </div>
 
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              <div>
+            <div className="mt-8 grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="min-w-0">
                 <label className="block text-sm font-semibold text-zinc-900">
                   From Date
                 </label>
                 <input
                   type="date"
-                  className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-4 py-3 text-zinc-900 outline-none"
+                  className="admin-date-input mt-2 rounded-none border border-zinc-700 bg-white px-3 py-3 text-base text-zinc-900 outline-none sm:px-4"
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-semibold text-zinc-900">
                   To Date
                 </label>
                 <input
                   type="date"
-                  className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-4 py-3 text-zinc-900 outline-none"
+                  className="admin-date-input mt-2 rounded-none border border-zinc-700 bg-white px-3 py-3 text-base text-zinc-900 outline-none sm:px-4"
                 />
               </div>
 
-              <div>
+              <div className="min-w-0 sm:col-span-2 xl:col-span-1">
                 <label className="block text-sm font-semibold text-zinc-900">
                   Signup Status
                 </label>
-                <select className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-4 py-3 text-zinc-900 outline-none">
+                <select className="mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-700 bg-white px-3 py-3 text-base text-zinc-900 outline-none box-border sm:px-4">
                   <option>Status</option>
                   <option>Pending</option>
                   <option>Approved</option>
@@ -1181,7 +1185,11 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
                   <tr key={a.id} className={`border-b ${tableRow}`}>
                     <td className="px-3 py-2">
                       <Link
-                        href={`/seva-activities?id=${a.id}`}
+                        href={
+                          a.listedAsCommunityOutreach
+                            ? `/community-activity-details?id=${a.id}`
+                            : `/seva-activities?id=${a.id}`
+                        }
                         className={`font-medium ${linkClr}`}
                       >
                         {a.title}

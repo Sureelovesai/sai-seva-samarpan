@@ -252,10 +252,10 @@ function Content() {
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="mx-auto grid w-full grid-cols-[180px_1fr] overflow-hidden shadow-lg"
+              className="mx-auto grid w-full min-w-0 grid-cols-1 shadow-lg md:grid-cols-[minmax(0,180px)_minmax(0,1fr)] md:overflow-hidden"
             >
-              <div className="flex min-h-[140px] w-[180px] shrink-0 items-center justify-center bg-zinc-200">
-                <div className="relative aspect-[9/8] w-full max-w-[180px] overflow-hidden">
+              <div className="flex min-h-[140px] w-full items-center justify-center overflow-hidden bg-zinc-200 md:min-h-0 md:h-full md:w-[180px] md:shrink-0">
+                <div className="relative aspect-[9/8] w-full max-w-[min(100%,280px)] overflow-hidden md:max-w-[180px]">
                   {(() => {
                     const src = item.imageUrl ?? "/swami-circle.jpeg";
                     const local = src.startsWith("/") || src.includes("blob.vercel-storage.com");
@@ -265,7 +265,7 @@ function Content() {
                         alt={item.title}
                         fill
                         className="object-contain object-center"
-                        sizes="180px"
+                        sizes="(max-width: 767px) 90vw, 180px"
                       />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -274,20 +274,22 @@ function Content() {
                   })()}
                 </div>
               </div>
-              <div className={`${tileBg(item.category)} px-8 py-8 sm:px-10`}>
-                <div className="rounded-lg border border-indigo-900/20 bg-white/50 px-4 py-3">
+              <div className={`${tileBg(item.category)} min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10`}>
+                <div className="rounded-lg border border-indigo-900/20 bg-white/50 px-3 py-3 sm:px-4">
                   <p className="text-xs font-bold uppercase text-indigo-800">Organization</p>
-                  <p className="text-xl font-bold text-indigo-950">
+                  <p className="break-words text-lg font-bold text-indigo-950 sm:text-xl">
                     {item.organizationName || "Community organization"}
                   </p>
                 </div>
-                <div className="mt-4 text-3xl font-semibold text-zinc-900">{item.title}</div>
-                <div className="mt-3 text-lg font-semibold text-zinc-800">{formatWhenWhere(item)}</div>
-                <div className="mt-2 text-sm font-semibold text-zinc-700">{item.category}</div>
-                <div className="mt-8">
+                <div className="mt-4 break-words text-2xl font-semibold text-zinc-900 sm:text-3xl">{item.title}</div>
+                <div className="mt-3 break-words text-base font-semibold leading-snug text-zinc-800 sm:text-lg">
+                  {formatWhenWhere(item)}
+                </div>
+                <div className="mt-2 break-words text-sm font-semibold text-zinc-700">{item.category}</div>
+                <div className="mt-6 md:mt-8">
                   <Link
-                    href={`/seva-activities?id=${encodeURIComponent(item.id)}`}
-                    className="inline-block bg-white px-10 py-3 font-medium text-zinc-800 shadow hover:bg-zinc-50"
+                    href={`/community-activity-details?id=${encodeURIComponent(item.id)}`}
+                    className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
                   >
                     View details &amp; sign up
                   </Link>

@@ -11,9 +11,10 @@ type AuthUser = {
   lastName: string | null;
   name: string | null;
   location: string | null;
-  role?: "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR";
+  role?: "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | "EVENT_ADMIN";
   roles?: string[];
   coordinatorCities?: string[] | null;
+  eventAdminOnly?: boolean;
 } | null;
 
 // Main nav (Community Network is a dropdown below)
@@ -109,12 +110,18 @@ export function SiteHeader() {
   // Top row: same for everyone (non-logged-in users see "To view this you should login" on dashboard)
   const topLinks = topLinksAll;
 
-  // Volunteer: no admin links. Seva Coordinator / Blog Admin: admin links except Roles. Admin: all.
-  const canSeeRoles = user?.roles?.includes("ADMIN") ?? user?.role === "ADMIN";
-  const secondRow =
-    user?.role === "ADMIN" || user?.role === "SEVA_COORDINATOR" || user?.role === "BLOG_ADMIN"
-      ? canSeeRoles ? adminLinks : adminLinks.filter((l) => l.href !== "/admin/roles")
-      : [];
+  // Volunteer: no admin row. Event-only admin: Event Admin Dashboard only. Seva/Blog/Admin: Seva + Roles rules.
+  const roles = user?.roles ?? [];
+  const canSeeRoles = roles.includes("ADMIN");
+  const canSevaAdminRow =
+    roles.includes("ADMIN") || roles.includes("SEVA_COORDINATOR") || roles.includes("BLOG_ADMIN");
+
+  let secondRow: { href: string; label: string }[] = [];
+  if (user?.eventAdminOnly) {
+    secondRow = [{ href: "/admin/events-dashboard", label: "Event Admin Dashboard" }];
+  } else if (canSevaAdminRow) {
+    secondRow = canSeeRoles ? [...adminLinks] : adminLinks.filter((l) => l.href !== "/admin/roles");
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">

@@ -446,61 +446,63 @@ function FindSevaContent() {
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="mx-auto grid w-full grid-cols-[180px_1fr] items-stretch overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)]"
+              className="mx-auto grid w-full min-w-0 grid-cols-1 items-stretch shadow-[0_10px_25px_rgba(0,0,0,0.22)] md:grid-cols-[minmax(0,180px)_minmax(0,1fr)] md:overflow-hidden"
             >
-              {/* LEFT IMAGE - fixed space; image centered vertically (symmetric up/down) on all viewports */}
-              <div className="flex min-h-0 h-full min-h-[140px] w-[180px] shrink-0 items-center justify-center overflow-hidden bg-zinc-200">
-                <div className="relative aspect-[9/8] w-full max-w-[180px] overflow-hidden">
-                {(() => {
-                  const src = item.imageUrl ?? "/swami-circle.jpeg";
-                  const isRelativeOrBlob =
-                    src.startsWith("/") || src.includes("blob.vercel-storage.com");
-                  if (isRelativeOrBlob) {
+              {/* LEFT IMAGE — full-width row on narrow phones; fixed 180px from md up */}
+              <div className="flex min-h-[140px] w-full items-center justify-center overflow-hidden bg-zinc-200 md:min-h-0 md:h-full md:w-[180px] md:shrink-0">
+                <div className="relative aspect-[9/8] w-full max-w-[min(100%,280px)] overflow-hidden md:max-w-[180px]">
+                  {(() => {
+                    const src = item.imageUrl ?? "/swami-circle.jpeg";
+                    const isRelativeOrBlob =
+                      src.startsWith("/") || src.includes("blob.vercel-storage.com");
+                    if (isRelativeOrBlob) {
+                      return (
+                        <Image
+                          src={src}
+                          alt={item.title}
+                          fill
+                          className="object-contain object-center"
+                          sizes="(max-width: 767px) 90vw, 180px"
+                        />
+                      );
+                    }
                     return (
-                      <Image
+                      <img
                         src={src}
                         alt={item.title}
-                        fill
-                        className="object-contain object-center"
-                        sizes="180px"
+                        className="absolute inset-0 h-full w-full object-contain object-center"
                       />
                     );
-                  }
-                  return (
-                    <img
-                      src={src}
-                      alt={item.title}
-                      className="absolute inset-0 h-full w-full object-contain object-center"
-                    />
-                  );
-                })()}
+                  })()}
                 </div>
               </div>
 
-              {/* RIGHT PANEL */}
-              <div className={`${tileBg(item.category)} px-10 py-8`}>
-                <div className="text-3xl font-semibold tracking-wide text-zinc-900">
+              {/* RIGHT PANEL — min-w-0 lets long lines wrap instead of clipping (narrow / foldable) */}
+              <div
+                className={`${tileBg(item.category)} min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10`}
+              >
+                <div className="break-words text-2xl font-semibold tracking-wide text-zinc-900 sm:text-3xl">
                   {item.title}
                 </div>
 
-                <div className="mt-3 text-lg font-semibold text-zinc-800">
+                <div className="mt-3 break-words text-base font-semibold leading-snug text-zinc-800 sm:text-lg">
                   {formatWhenWhere(item)}
                 </div>
 
-                <div className="mt-2 text-sm font-semibold text-zinc-700">
+                <div className="mt-2 break-words text-sm font-semibold text-zinc-700">
                   {item.category}
                 </div>
 
                 {item.organizationName && (
-                  <div className="mt-2 text-base font-semibold text-indigo-900">
+                  <div className="mt-2 break-words text-base font-semibold text-indigo-900">
                     {item.organizationName}
                   </div>
                 )}
 
-                <div className="mt-8">
+                <div className="mt-6 md:mt-8">
                   <Link
                     href={`/seva-activities?id=${encodeURIComponent(item.id)}`}
-                    className="inline-block bg-white px-10 py-3 text-base font-medium text-zinc-800 shadow hover:bg-zinc-50"
+                    className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
                   >
                     View Details
                   </Link>

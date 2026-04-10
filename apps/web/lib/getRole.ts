@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth";
 
-export type AppRole = "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR";
+export type AppRole = "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | "EVENT_ADMIN";
 
 /** Primary role order (highest first). Used to pick a single "role" for backward compatibility. */
-const ROLE_ORDER: AppRole[] = ["ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR", "VOLUNTEER"];
+const ROLE_ORDER: AppRole[] = ["ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR", "EVENT_ADMIN", "VOLUNTEER"];
 
 export type SessionWithRole = {
   sub: string;
@@ -66,6 +66,25 @@ export async function getSessionWithRole(
 export function hasRole(session: SessionWithRole | null, ...allowed: AppRole[]): boolean {
   if (!session) return false;
   return allowed.some((r) => session.roles.includes(r));
+}
+
+/** Seva / blog / full admin surfaces (not event-only). */
+export function canAccessSevaAdminSurfaces(session: SessionWithRole | null): boolean {
+  return hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR");
+}
+
+/** Portal events APIs and event admin pages. */
+export function canManagePortalEvents(session: SessionWithRole | null): boolean {
+  return hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR", "EVENT_ADMIN");
+}
+
+/**
+ * User has EVENT_ADMIN and no ADMIN / BLOG_ADMIN / SEVA_COORDINATOR — restrict UI to event admin only.
+ */
+export function isEventAdminOnlyUser(session: SessionWithRole | null): boolean {
+  if (!session) return false;
+  if (canAccessSevaAdminSurfaces(session)) return false;
+  return session.roles.includes("EVENT_ADMIN");
 }
 
 /** Build Prisma where clause for SevaActivity by coordinator cities (case-insensitive). */

@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 
 import { SEVA_CATEGORIES } from "@/lib/categories";
+import { CITIES } from "@/lib/cities";
 import { CONTRIBUTION_ITEMS_SHEET } from "@/lib/sevaBulkImport";
 
 /** Visible sheet 2 — activity definition (human-readable columns + dropdowns). */
@@ -58,6 +59,41 @@ const BLANK_CONTRIBUTION_EXAMPLES: { name: string; max: number }[] = [
   { name: "Napkins (packs)", max: 200 },
 ];
 
+/** Muted styling for template-only sample rows (same idea as Contribution items examples). */
+const SAMPLE_ROW_FONT: Partial<ExcelJS.Font> = {
+  italic: true,
+  color: { argb: "FF9CA3AF" },
+};
+
+function sampleCityForTemplate(): string {
+  return CITIES.find((c) => c === "Charlotte") ?? CITIES[0] ?? "Charlotte";
+}
+
+/** Full sample row for Add Seva Activity (blank template only; row 2 is for real data — this row is not parsed). */
+function blankTemplateAddSevaSampleRow(): (string | number)[] {
+  const city = sampleCityForTemplate();
+  return [
+    "",
+    "Weekend community lunch (example)",
+    SEVA_CATEGORIES[0],
+    "Arrive 30 minutes early. Closed-toe shoes; hair tied back for kitchen.",
+    40,
+    "2026-06-15",
+    "09:00",
+    "2026-06-15",
+    "13:00",
+    3,
+    city,
+    "Sai Center — main hall",
+    "123 Example Street (sample), " + city,
+    "R. Coordinator (example)",
+    "coordinator.sample@example.com",
+    "+1-555-0100",
+    "Active",
+    "",
+  ];
+}
+
 export type SevaWorkbookSignup = {
   id: string;
   volunteerName: string;
@@ -111,27 +147,27 @@ function encodeActiveFeatured(isActive: boolean, isFeatured: boolean): string {
   return "Active";
 }
 
-/** Row 1 headers for the Add Seva Activity sheet (display labels). */
+/** Row 1 headers for the Add Seva Activity sheet (display labels). Trailing * = required for upload (stripped when parsing). */
 export function addSevaActivityDisplayHeaders(): string[] {
   return [
-    "Activity ID (system — leave blank for new)",
-    "Seva Activity",
-    "Find Service (Service Category)",
-    "Description",
-    "Capacity",
-    "Start Date",
-    "Start Time",
-    "End Date",
-    "End Time",
-    "Duration (hours)",
-    "City",
-    "Location Name",
-    "Address",
-    "Coordinator name",
-    "Coordinator Email",
-    "Coordinator Phone Number",
-    "Active / Featured",
-    "Contribution items",
+    "Activity ID (system — leave blank for new) (optional)",
+    "Seva Activity *",
+    "Find Service (Service Category) *",
+    "Description (optional)",
+    "Capacity *",
+    "Start Date *",
+    "Start Time *",
+    "End Date *",
+    "End Time *",
+    "Duration (hours) *",
+    "City *",
+    "Location Name (optional)",
+    "Address *",
+    "Coordinator name *",
+    "Coordinator Email *",
+    "Coordinator Phone Number *",
+    "Active / Featured (optional — default Active)",
+    "Contribution items (optional — summary only)",
   ];
 }
 
@@ -172,15 +208,15 @@ function addSevaDataValues(
 
 function joinSevaDisplayHeaders(items: SevaWorkbookItem[]): string[] {
   return [
-    "Signup ID",
-    "Volunteer name",
-    "Email",
-    "Phone",
-    "Adults count",
-    "Kids count",
-    "Signup status",
-    "Comment",
-    "Created at",
+    "Signup ID (optional — export only)",
+    "Volunteer name *",
+    "Email *",
+    "Phone *",
+    "Adults count *",
+    "Kids count (optional)",
+    "Signup status (optional)",
+    "Comment (optional)",
+    "Created at (optional — export only)",
     ...items.map((it) => `item__${it.id}`),
   ];
 }
@@ -239,6 +275,23 @@ function exampleJoinSevaRow(items: SevaWorkbookItem[]): (string | number)[] {
   ];
 }
 
+/** Second gray sample row on blank Join Seva template (skipped on upload with exampleJoinSevaRow). */
+function secondExampleJoinSevaRow(items: SevaWorkbookItem[]): (string | number)[] {
+  const itemCells = items.map((_, i) => (i === 0 ? 2 : i === 1 ? 1 : ""));
+  return [
+    "",
+    "Priya Sharma (sample)",
+    "priya.sample@example.com",
+    "+1-555-0199",
+    2,
+    1,
+    "",
+    "",
+    "",
+    ...itemCells,
+  ];
+}
+
 function instructionLineForItem(it: SevaWorkbookItem): string {
   const name = it.name.replace(/\s+/g, " ").trim() || "(unnamed item)";
   return `    • ${name} — activity max (total units/slots for everyone): ${it.maxQuantity} — column header: item__${it.id}`;
@@ -250,30 +303,34 @@ function buildInstructionLines(items: SevaWorkbookItem[]): string[] {
     "",
     "Tab order: Instructions → Add Seva Activity → Contribution items → Join Seva Activity",
     "",
+    "Light gray italic rows are EXAMPLES ONLY (like Contribution items). They are not imported. Enter real data in the normal (non-gray) rows.",
+    "",
     "SHEET: Add Seva Activity",
     "  Row 1: column names. Row 2: one activity (blank in the blank template; filled when you download after saving).",
+    "  REQUIRED columns end with * or say (required). (optional) may be left blank. Capacity must be a whole number ≥ 1 (column formatted as a number).",
     "  Start Date and End Date (columns F and H): use the in-cell date picker (calendar) or type YYYY-MM-DD.",
     "  On Upload filled Excel: if you upload from Add Seva **without** a published activity saved in that browser session, row 2 **creates** a new published activity, then Contribution items and Join Seva Activity are applied. If you already have a published activity saved on that page, row 2 **updates** that activity first.",
     "  Activity ID: Do NOT invent an ID. Leave blank when creating from a blank template; upload assigns a real ID. After you download a template for an existing activity, the ID is filled for reference (must match when updating that same activity).",
     "  Dropdowns: Find Service (Service Category) = Find Seva categories; Start Time / End Time = 15-minute slots; Duration (hours); Active / Featured.",
     "  Contribution items column: short summary. The Contribution items tab is the place to edit activity-wide max (and names) in Excel — those values apply on upload before volunteer rows are imported.",
-    "  Required on the website to create an activity: Seva Activity title, category, capacity, dates, times, duration, city, address, coordinator fields.",
+    "  Required on the website / upload: same as columns marked * on the sheet (title, category, capacity as integer, dates, times, duration, city, address, coordinator name/email/phone).",
     "  Dates: use YYYY-MM-DD. For draft/publish, image URL, or community-outreach-only listing, use the Add / Manage Seva pages.",
     "",
     "SHEET: Contribution items (full list for this activity — manage in Excel)",
-    "  One row per item. Columns: Item ID (from server when exported), Item name, Activity max (total for everyone), Claimed so far (export), Remaining (formula).",
+    "  One row per item. New rows: Item name * and Activity max (total) * as a whole number. Columns: Item ID (optional when creating), Item name, Activity max (number), Claimed so far (export), Remaining (formula).",
     "  If any row has an Item ID, the sheet is the full ordered list (same as Manage Seva): update by ID, add rows with blank ID, and items missing from the sheet may be removed if unclaimed. If every Item ID is blank, only new rows are added — existing items are kept.",
     "  Blank-template sample names (e.g. Drinking water (cases)) are ignored on upload. After new items are created, re-download the template to get item__… columns on Join Seva Activity for those items.",
     "  Join Seva Activity: each volunteer row’s name, email, and phone are stored on the signup and on each item claim for that person (same as Join Seva on the website).",
     "",
     "SHEET: Join Seva Activity (map every contribution item to an individual here)",
+    "  Blank template: two light gray sample rows show the format; they are ignored on upload. Replace with real volunteers or delete them.",
     "  Each ROW = one person (individual). Name, email, phone appear once per person.",
     "  Each ITEM is a COLUMN to the right (header item__...). That maps many contribution items to the same individual: enter a quantity in each column for that row, or leave blank for items they are not bringing.",
     "  Example: one volunteer can enter quantities in several item__ columns on the same row — each column is a different item for that same person.",
     "  Do NOT duplicate the person on extra rows just to add another item; add more item columns from a fresh template if the activity has many items.",
     "  Activity-wide maximum per item (total across everyone) is set on the website; upload rejects if quantities would exceed what is left.",
     "  Bulk upload imports this sheet only (name: Join Seva Activity, or legacy Join Seva / Volunteers).",
-    "  Required: Volunteer name, Email, Phone, Adults count.",
+    "  Required (columns with *): Volunteer name, Email, Phone, Adults count (use whole numbers).",
     "  Optional: Signup ID (export only — do not invent), Kids count, Signup status, Comment, Created at.",
     "",
     "  ——— SAMPLE: one volunteer row, many contribution items + activity max (illustration only) ———",
@@ -410,6 +467,20 @@ export async function buildSevaActivityWorkbookBuffer(params: {
   addWs.addRow(addHeaders);
   addWs.addRow(addSevaDataValues(mode, activity, items));
 
+  if (mode === "blank") {
+    const nCol = addHeaders.length;
+    addWs.mergeCells(3, 1, 3, nCol);
+    const hint = addWs.getRow(3).getCell(1);
+    hint.value =
+      "Example row below (light gray) is for reference only — not imported. Enter your real activity in row 2.";
+    hint.font = SAMPLE_ROW_FONT;
+    hint.alignment = { vertical: "middle", wrapText: true };
+    addWs.addRow(blankTemplateAddSevaSampleRow());
+    addWs.getRow(4).eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = SAMPLE_ROW_FONT;
+    });
+  }
+
   addWs.getRow(1).font = { bold: true };
   addWs.getRow(1).alignment = { wrapText: true, vertical: "middle" };
 
@@ -426,12 +497,20 @@ export async function buildSevaActivityWorkbookBuffer(params: {
   addDateBetweenValidation(addWs, "F2:F500");
   addDateBetweenValidation(addWs, "H2:H500");
 
+  /** Capacity (column 5): integer number format for data row and template cells */
+  for (let r = 2; r <= 500; r++) {
+    addWs.getCell(r, 5).numFmt = "0";
+  }
+  const capHeader = addWs.getRow(1).getCell(5);
+  capHeader.note =
+    "Required. Whole number ≥ 1 (maximum on-site volunteers). Use digits only — cell is formatted as a number.";
+
   const ciHeaders = [
-    "Item ID (do not change)",
-    "Item name",
-    "Activity max (total)",
-    "Claimed so far (at download)",
-    "Remaining",
+    "Item ID (do not change) (optional for new items)",
+    "Item name *",
+    "Activity max (total) *",
+    "Claimed so far (at download) (optional)",
+    "Remaining (formula)",
   ];
   const ciWs = wb.addWorksheet(CONTRIBUTION_ITEMS_SHEET);
   ciWs.addRow(ciHeaders);
@@ -449,24 +528,23 @@ export async function buildSevaActivityWorkbookBuffer(params: {
       ciWs.getCell(`E${r}`).value = { formula: `MAX(0,C${r}-D${r})` };
     });
   } else if (mode === "blank" && items.length === 0) {
-    /** Example-only rows: muted so they read like placeholders, not real item names. */
-    const exampleHintFont: Partial<ExcelJS.Font> = {
-      italic: true,
-      color: { argb: "FF9CA3AF" },
-    };
     BLANK_CONTRIBUTION_EXAMPLES.forEach((ex, i) => {
       const r = i + 2;
       ciWs.getCell(`A${r}`).value = "";
       ciWs.getCell(`B${r}`).value = ex.name;
-      ciWs.getCell(`B${r}`).font = exampleHintFont;
+      ciWs.getCell(`B${r}`).font = SAMPLE_ROW_FONT;
       ciWs.getCell(`C${r}`).value = ex.max;
-      ciWs.getCell(`C${r}`).font = exampleHintFont;
+      ciWs.getCell(`C${r}`).font = SAMPLE_ROW_FONT;
     });
   }
 
   [40, 34, 22, 28, 14].forEach((w, i) => {
     ciWs.getColumn(i + 1).width = w;
   });
+
+  for (let r = 2; r <= 500; r++) {
+    ciWs.getCell(r, 3).numFmt = "0";
+  }
 
   const claimMap = params.claims?.length ? claimsByEmailLower(params.claims) : new Map<string, Map<string, number>>();
   const vHeaders = joinSevaDisplayHeaders(items);
@@ -478,22 +556,40 @@ export async function buildSevaActivityWorkbookBuffer(params: {
         ? [vHeaders, ...params.signups.map((s) => signupDataRow(s, items, claimMap))]
         : [vHeaders];
   } else {
-    volunteerRows = [vHeaders, exampleJoinSevaRow(items)];
+    volunteerRows = [vHeaders, exampleJoinSevaRow(items), secondExampleJoinSevaRow(items)];
   }
 
   const joinWs = wb.addWorksheet(JOIN_SEVA_ACTIVITY_SHEET);
   volunteerRows.forEach((row) => joinWs.addRow(row));
   joinWs.getRow(1).font = { bold: true };
 
+  if (mode === "blank") {
+    joinWs.getRow(2).eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = SAMPLE_ROW_FONT;
+    });
+    joinWs.getRow(3).eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = SAMPLE_ROW_FONT;
+    });
+  }
+
   const joinBaseWidths = [12, 22, 28, 14, 12, 12, 14, 28, 20];
   joinBaseWidths.forEach((w, i) => {
     joinWs.getColumn(i + 1).width = w;
   });
   items.forEach((_, i) => {
-    joinWs.getColumn(joinBaseWidths.length + i + 1).width = 14;
+    const col = joinBaseWidths.length + i + 1;
+    joinWs.getColumn(col).width = 14;
+    for (let r = 2; r <= 500; r++) {
+      joinWs.getCell(r, col).numFmt = "0";
+    }
   });
 
   addListValidation(joinWs, "G2:G500", [listsSheetRef("E", 1, 2)]);
+
+  for (let r = 2; r <= 500; r++) {
+    joinWs.getCell(r, 5).numFmt = "0";
+    joinWs.getCell(r, 6).numFmt = "0";
+  }
 
   const firstItemCol = joinBaseWidths.length + 1;
   items.forEach((it, i) => {

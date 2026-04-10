@@ -1,7 +1,7 @@
 import "./globals.css";
-import { SiteHeader } from "./_components/SiteHeader";
-import { SiteFooter } from "./_components/SiteFooter";
-import { SiteChatbot } from "./_components/SiteChatbot";
+import { ConditionalSiteChatbot } from "./_components/ConditionalSiteChatbot";
+import { ConditionalSiteFooter } from "./_components/ConditionalSiteFooter";
+import { ConditionalSiteHeader } from "./_components/ConditionalSiteHeader";
 
 export default function RootLayout({
   children,
@@ -12,7 +12,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <div className="print:hidden">
-          <SiteHeader />
+          <ConditionalSiteHeader />
         </div>
 
         <main className="flex-1">
@@ -20,10 +20,10 @@ export default function RootLayout({
         </main>
 
         <div className="print:hidden">
-          <SiteFooter />
+          <ConditionalSiteFooter />
         </div>
 
-        <SiteChatbot />
+        <ConditionalSiteChatbot />
       </body>
     </html>
   );

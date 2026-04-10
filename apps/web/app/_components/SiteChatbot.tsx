@@ -108,15 +108,32 @@ export function SiteChatbot() {
   );
 
   const panelId = useId();
+  const suggestedTopicsSectionId = useId();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Open until first assistant reply; then collapsed by default to free message space. */
+  const [suggestedTopicsExpanded, setSuggestedTopicsExpanded] = useState(true);
+  const prevAssistantCountRef = useRef(0);
   const listEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef<ChatTurn[]>([]);
   messagesRef.current = messages;
+
+  useEffect(() => {
+    const assistantCount = messages.filter((m) => m.role === "assistant").length;
+    if (messages.length === 0) {
+      setSuggestedTopicsExpanded(true);
+      prevAssistantCountRef.current = 0;
+      return;
+    }
+    if (prevAssistantCountRef.current === 0 && assistantCount >= 1) {
+      setSuggestedTopicsExpanded(false);
+    }
+    prevAssistantCountRef.current = assistantCount;
+  }, [messages]);
 
   useEffect(() => {
     if (open) {
@@ -221,22 +238,9 @@ export function SiteChatbot() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {messages.length === 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-zinc-500">Try one of these:</p>
-                <div className="flex flex-col gap-1.5">
-                  {quickPrompts.map((p, i) => (
-                    <button
-                      key={`${i}-${p}`}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => send(p)}
-                      className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2 text-left text-xs font-medium text-indigo-950 hover:bg-indigo-100 disabled:opacity-50"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <p className="mb-3 text-xs text-zinc-500">
+                Ask anything about the portal, or pick a suggested topic below.
+              </p>
             )}
 
             <ul className="space-y-3">
@@ -276,6 +280,46 @@ export function SiteChatbot() {
             )}
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
             <div ref={listEndRef} />
+          </div>
+
+          <div className="shrink-0 border-t border-zinc-200 bg-zinc-50/90">
+            <button
+              type="button"
+              id={`${suggestedTopicsSectionId}-toggle`}
+              aria-expanded={suggestedTopicsExpanded}
+              aria-controls={suggestedTopicsSectionId}
+              onClick={() => setSuggestedTopicsExpanded((e) => !e)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium text-zinc-700 transition hover:bg-zinc-100/80"
+            >
+              <span>Suggested topics</span>
+              <span className="shrink-0 text-zinc-500" aria-hidden>
+                {suggestedTopicsExpanded ? "▼" : "▶"}
+              </span>
+            </button>
+            {suggestedTopicsExpanded && (
+              <div
+                id={suggestedTopicsSectionId}
+                role="region"
+                aria-labelledby={`${suggestedTopicsSectionId}-toggle`}
+                className="border-t border-zinc-200/80 px-3 pb-2 pt-1"
+              >
+                <div className="max-h-[min(200px,28vh)] overflow-y-auto pr-0.5">
+                  <div className="flex flex-col gap-1.5">
+                    {quickPrompts.map((p, i) => (
+                      <button
+                        key={`${i}-${p}`}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => send(p)}
+                        className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-left text-xs font-medium text-indigo-950 shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <form

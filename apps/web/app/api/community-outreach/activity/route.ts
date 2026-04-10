@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole } from "@/lib/getRole";
+import { getSessionWithRole, hasRole } from "@/lib/getRole";
 import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,9 @@ export async function POST(req: Request) {
     const profile = await prisma.communityOutreachProfile.findUnique({
       where: { userId: session.sub },
     });
-    if (!profile || profile.status !== "APPROVED") {
+    const isAdmin = hasRole(session, "ADMIN");
+    const approvedProfile = profile?.status === "APPROVED" ? profile : null;
+    if (!approvedProfile && !isAdmin) {
       return NextResponse.json(
         {
           error:
@@ -55,13 +57,25 @@ export async function POST(req: Request) {
     if (!city) {
       return NextResponse.json({ error: "City is required" }, { status: 400 });
     }
-    if (!cityMatches(city, profile.city)) {
-      return NextResponse.json(
-        {
-          error: `Activities must be listed for your organization’s city: ${profile.city}.`,
-        },
-        { status: 400 }
-      );
+
+    const organizationNameFromAdmin =
+      typeof body.organizationName === "string" ? body.organizationName.trim() : "";
+    if (approvedProfile) {
+      if (!cityMatches(city, approvedProfile.city)) {
+        return NextResponse.json(
+          {
+            error: `Activities must be listed for your organization’s city: ${approvedProfile.city}.`,
+          },
+          { status: 400 }
+        );
+      }
+    } else if (isAdmin) {
+      if (!organizationNameFromAdmin) {
+        return NextResponse.json(
+          { error: "Organization name is required when posting as a site administrator." },
+          { status: 400 }
+        );
+      }
     }
 
     if (!body.startDate || !String(body.startDate).trim()) {
@@ -122,7 +136,7 @@ export async function POST(req: Request) {
         durationHours,
 
         city,
-        organizationName: profile.organizationName,
+        organizationName: approvedProfile ? approvedProfile.organizationName : organizationNameFromAdmin,
         locationName:
           typeof body.locationName === "string" ? body.locationName.trim() || null : null,
         address,

@@ -12,6 +12,7 @@ import {
 export default function CommunityOutreachPostActivityPage() {
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [profileCity, setProfileCity] = useState("");
 
@@ -53,6 +54,19 @@ export default function CommunityOutreachPostActivityPage() {
           return;
         }
         const p = data.profile;
+        const adminUser = data.role === "ADMIN" || (Array.isArray(data.roles) && data.roles.includes("ADMIN"));
+        if (adminUser) {
+          setIsAdmin(true);
+          if (p?.status === "APPROVED") {
+            setOrgName(p.organizationName || "");
+            setProfileCity(p.city || "");
+            setCity(p.city || "");
+          } else {
+            setCity(CITIES[0] ?? "");
+          }
+          setLoading(false);
+          return;
+        }
         if (!p || p.status !== "APPROVED") {
           setBlocked("notapproved");
           setLoading(false);
@@ -79,6 +93,7 @@ export default function CommunityOutreachPostActivityPage() {
     return (
       title.trim() &&
       category.trim() &&
+      (!isAdmin || orgName.trim()) &&
       city.trim() &&
       startDate.trim() &&
       endDate.trim() &&
@@ -94,6 +109,8 @@ export default function CommunityOutreachPostActivityPage() {
   }, [
     title,
     category,
+    isAdmin,
+    orgName,
     city,
     startDate,
     endDate,
@@ -144,6 +161,7 @@ export default function CommunityOutreachPostActivityPage() {
       const payload = {
         title: title.trim(),
         category: category.trim(),
+        ...(isAdmin ? { organizationName: orgName.trim() } : {}),
         description: description.trim() || undefined,
         capacity: Number(capacity.trim()),
         startDate: new Date(startDate + "T12:00:00").toISOString(),
@@ -262,8 +280,25 @@ export default function CommunityOutreachPostActivityPage() {
       <div className="mx-auto max-w-4xl px-4">
         <div className="rounded-xl border border-indigo-200 bg-white/95 p-6 shadow-md">
           <p className="text-sm font-semibold text-indigo-800">Organization (shown on Find Community Activity)</p>
-          <p className="mt-1 text-xl font-bold text-zinc-900">{orgName}</p>
-          <p className="text-sm text-zinc-600">Activities must be listed for: {profileCity}</p>
+          {isAdmin && !profileCity ? (
+            <div className="mt-2 space-y-2">
+              <label className="block text-xs font-medium text-zinc-600">Organization name *</label>
+              <input
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-lg font-semibold text-zinc-900"
+                placeholder="Partner organization name"
+              />
+              <p className="text-xs text-zinc-500">
+                As a site administrator you can post without your own approved profile; choose city in the form below.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="mt-1 text-xl font-bold text-zinc-900">{orgName}</p>
+              <p className="text-sm text-zinc-600">Activities must be listed for: {profileCity}</p>
+            </>
+          )}
         </div>
 
         <h1 className="mt-8 text-center text-3xl font-black italic text-indigo-900 md:text-4xl">
@@ -390,13 +425,13 @@ export default function CommunityOutreachPostActivityPage() {
               onChange={(e) => setCity(e.target.value)}
               className="w-full rounded-md border border-zinc-300 px-3 py-2"
             >
-              {CITIES.filter((c) => c === profileCity).map((c) => (
+              {(isAdmin && !profileCity ? CITIES : CITIES.filter((c) => c === profileCity)).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
-            {city !== profileCity && (
+            {!isAdmin && city !== profileCity && (
               <p className="text-xs text-amber-800">City is fixed to your approved center.</p>
             )}
             <label className="block text-sm font-semibold">Venue / location name</label>

@@ -123,6 +123,8 @@ model BlogAnalyticsReport {
   userInstructions String?  @db.Text
   generatedBody    String   @db.Text
   editedBody       String?  @db.Text
+  /// Optional layout: { backgroundId, borderId } for report body (blog analytics reports).
+  presentation     Json?
   /// JSON array of BlogPost ids included in this report
   sourcePostIds    Json
   reportTitle      String?
@@ -166,6 +168,7 @@ enum AppRole {
   BLOG_ADMIN
   VOLUNTEER
   SEVA_COORDINATOR
+  EVENT_ADMIN
 }
 
 model RoleAssignment {
@@ -294,4 +297,61 @@ enum SevaActivityStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+/// Public calendar-style events (RSVP Yes / No / Maybe), separate from SevaActivity.
+enum PortalEventStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum EventSignupResponse {
+  YES
+  NO
+  MAYBE
+}
+
+model PortalEvent {
+  id             String            @id @default(cuid())
+  title          String
+  description    String            @db.Text
+  /// Swami / generic or event-specific hero image URL
+  heroImageUrl   String?
+  /// Event flyer (PDF or image) URL
+  flyerUrl       String?
+  /// Event start (date & time) in UTC as stored
+  startsAt       DateTime
+  /// Venue name and/or address
+  venue          String            @db.Text
+  /// Receives RSVP notification emails; defaults to creator login email when saved from admin.
+  organizerEmail String?
+  /// When false, public page hides the RSVP form
+  signupsEnabled Boolean           @default(true)
+  status         PortalEventStatus @default(DRAFT)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  signups        EventSignup[]
+
+  @@index([status])
+  @@index([startsAt])
+}
+
+model EventSignup {
+  id                 String              @id @default(cuid())
+  eventId            String
+  event              PortalEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantName    String
+  email              String
+  /// Optional note from the respondent (e.g. dietary, accessibility).
+  comment            String?             @db.VarChar(500)
+  /// Guest adults accompanying (excluding the named participant)
+  accompanyingAdults Int               @default(0)
+  /// Guest kids accompanying (excluding the named participant)
+  accompanyingKids   Int               @default(0)
+  response           EventSignupResponse
+  createdAt          DateTime            @default(now())
+
+  @@index([eventId])
+  @@index([email])
 }

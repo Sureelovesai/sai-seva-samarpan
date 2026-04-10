@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 
-const VALID_ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR"] as const;
+const VALID_ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR", "EVENT_ADMIN"] as const;
 
 /**
  * PATCH /api/admin/roles/[id]
@@ -26,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (role !== undefined) {
       if (!VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
         return NextResponse.json(
-          { error: "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR" },
+          { error: "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR, EVENT_ADMIN" },
           { status: 400 }
         );
       }
