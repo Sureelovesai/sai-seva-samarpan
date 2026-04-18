@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { certificatePathFromLoggedHoursRow } from "@/lib/logHoursCertificate";
+import { SsLogoRingLoader } from "@/app/_components/SsLogoRingLoader";
 
 type UpcomingActivity = {
   id: string;
@@ -19,6 +20,8 @@ const CARD_COLORS = [
   "bg-rose-800",     // darker brown/red
   "bg-emerald-800",  // dark green
 ];
+
+const LOG_HOURS_PAGE_SIZE = 5;
 
 function DashboardContent() {
   const searchParams = useSearchParams();
@@ -43,6 +46,10 @@ function DashboardContent() {
   const [loggedHoursList, setLoggedHoursList] = useState<LogHoursListRow[]>([]);
   const [loggedHoursLoading, setLoggedHoursLoading] = useState(true);
   const [loggedHoursError, setLoggedHoursError] = useState<string | null>(null);
+  const [logHoursPage, setLogHoursPage] = useState(1);
+  const [logHoursTotal, setLogHoursTotal] = useState(0);
+  const [logHoursPageLoading, setLogHoursPageLoading] = useState(false);
+  const didLoadLogHoursOnce = useRef(false);
 
   // My Seva Dashboard: show "To view this you should login" when not signed in
   useEffect(() => {
@@ -62,6 +69,17 @@ function DashboardContent() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    didLoadLogHoursOnce.current = false;
+    setLoggedHoursList([]);
+    setLogHoursTotal(0);
+    setLogHoursPage(1);
+    setLoggedHoursError(null);
+    setLoggedHoursLoading(true);
+    setLogHoursPageLoading(false);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -119,13 +137,23 @@ function DashboardContent() {
   useEffect(() => {
     if (!authChecked || !isLoggedIn) return;
     let cancelled = false;
-    setLoggedHoursLoading(true);
+    const firstLoad = !didLoadLogHoursOnce.current;
+    if (firstLoad) {
+      setLoggedHoursLoading(true);
+    } else {
+      setLogHoursPageLoading(true);
+    }
     setLoggedHoursError(null);
-    fetch("/api/log-hours?limit=25", { credentials: "include", cache: "no-store" })
+    const offset = (logHoursPage - 1) * LOG_HOURS_PAGE_SIZE;
+    fetch(`/api/log-hours?limit=${LOG_HOURS_PAGE_SIZE}&offset=${offset}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
       .then(async (res) => {
         if (!res.ok) {
           if (!cancelled) {
             setLoggedHoursList([]);
+            setLogHoursTotal(0);
             setLoggedHoursError(
               res.status === 401
                 ? "Could not verify your session for log history."
@@ -134,30 +162,48 @@ function DashboardContent() {
           }
           return null;
         }
-        return res.json() as Promise<{ entries?: LogHoursListRow[] }>;
+        return res.json() as Promise<{ entries?: LogHoursListRow[]; total?: number }>;
       })
       .then((data) => {
         if (cancelled || !data) return;
         setLoggedHoursList(Array.isArray(data.entries) ? data.entries : []);
+        setLogHoursTotal(typeof data.total === "number" ? data.total : 0);
       })
       .catch(() => {
         if (!cancelled) {
           setLoggedHoursList([]);
+          setLogHoursTotal(0);
           setLoggedHoursError("Could not load your log history.");
         }
       })
       .finally(() => {
-        if (!cancelled) setLoggedHoursLoading(false);
+        if (!cancelled) {
+          setLoggedHoursLoading(false);
+          setLogHoursPageLoading(false);
+          didLoadLogHoursOnce.current = true;
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [authChecked, isLoggedIn]);
+  }, [authChecked, isLoggedIn, logHoursPage]);
+
+  const logHoursTotalPages = Math.max(1, Math.ceil(logHoursTotal / LOG_HOURS_PAGE_SIZE));
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(logHoursTotal / LOG_HOURS_PAGE_SIZE));
+    if (logHoursTotal === 0) {
+      setLogHoursPage((p) => (p !== 1 ? 1 : p));
+      return;
+    }
+    if (logHoursPage > tp) setLogHoursPage(tp);
+  }, [logHoursTotal, logHoursPage]);
 
   if (!authChecked) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center bg-[#FFF2A8]">
-        <p className="text-zinc-600">Loading…</p>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#FFF2A8]">
+        <SsLogoRingLoader size="lg" label="Checking session" />
+        <p className="text-sm font-medium text-indigo-900/80">Loading…</p>
       </div>
     );
   }
@@ -226,7 +272,10 @@ function DashboardContent() {
             <strong>Upcoming Seva Activities</strong> below, which shows activities you joined.
           </p>
           {loggedHoursLoading ? (
-            <div className="mx-auto mt-6 h-24 max-w-2xl animate-pulse rounded-lg bg-indigo-200/50" />
+            <div className="mx-auto mt-6 flex flex-col items-center justify-center gap-3 py-10">
+              <SsLogoRingLoader size="md" label="Loading log hours history" />
+              <p className="text-sm text-zinc-600">Loading your log history…</p>
+            </div>
           ) : loggedHoursError ? (
             <div className="mx-auto mt-6 rounded-md bg-red-50 px-6 py-4 text-center text-sm text-red-900 shadow-sm">
               {loggedHoursError}
@@ -237,48 +286,85 @@ function DashboardContent() {
               <strong>View certificate</strong>.
             </div>
           ) : (
-            <div className="mt-6 overflow-x-auto rounded-lg border border-indigo-200/60 bg-white/50 shadow-sm">
-              <table className="w-full min-w-[640px] text-left text-sm text-zinc-800">
-                <thead>
-                  <tr className="border-b border-indigo-200/80 bg-indigo-50/90 text-xs font-bold uppercase tracking-wide text-indigo-900">
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Activity</th>
-                    <th className="px-4 py-3">Hours</th>
-                    <th className="px-4 py-3 text-right">Certificate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loggedHoursList.map((row) => {
-                    const d = new Date(row.date);
-                    const dateLabel = Number.isNaN(d.getTime())
-                      ? "—"
-                      : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-                    return (
-                      <tr key={row.id} className="border-b border-indigo-100/80 last:border-0">
-                        <td className="whitespace-nowrap px-4 py-3 font-medium">{dateLabel}</td>
-                        <td className="px-4 py-3">{row.activityCategory}</td>
-                        <td className="whitespace-nowrap px-4 py-3">{row.hours}</td>
-                        <td className="px-4 py-3 text-right">
-                          <Link
-                            href={certificatePathFromLoggedHoursRow({
-                              volunteerName: row.volunteerName,
-                              location: row.location,
-                              activityCategory: row.activityCategory,
-                              hours: row.hours,
-                              date: row.date,
-                              comments: row.comments,
-                            })}
-                            className="inline-block rounded-full bg-emerald-800 px-4 py-2 text-xs font-bold tracking-wide text-white shadow hover:bg-emerald-900"
-                          >
-                            View certificate
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="mt-6 overflow-x-auto rounded-lg border border-indigo-200/60 bg-white/50 shadow-sm">
+                <table
+                  className={`w-full min-w-[640px] text-left text-sm text-zinc-800 transition-opacity ${logHoursPageLoading ? "opacity-50" : ""}`}
+                  aria-busy={logHoursPageLoading}
+                >
+                  <thead>
+                    <tr className="border-b border-indigo-200/80 bg-indigo-50/90 text-xs font-bold uppercase tracking-wide text-indigo-900">
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Activity</th>
+                      <th className="px-4 py-3">Hours</th>
+                      <th className="px-4 py-3 text-right">Certificate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loggedHoursList.map((row) => {
+                      const d = new Date(row.date);
+                      const dateLabel = Number.isNaN(d.getTime())
+                        ? "—"
+                        : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+                      return (
+                        <tr key={row.id} className="border-b border-indigo-100/80 last:border-0">
+                          <td className="whitespace-nowrap px-4 py-3 font-medium">{dateLabel}</td>
+                          <td className="px-4 py-3">{row.activityCategory}</td>
+                          <td className="whitespace-nowrap px-4 py-3">{row.hours}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={certificatePathFromLoggedHoursRow({
+                                volunteerName: row.volunteerName,
+                                location: row.location,
+                                activityCategory: row.activityCategory,
+                                hours: row.hours,
+                                date: row.date,
+                                comments: row.comments,
+                              })}
+                              className="inline-block rounded-full bg-emerald-800 px-4 py-2 text-xs font-bold tracking-wide text-white shadow hover:bg-emerald-900"
+                            >
+                              View certificate
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {logHoursTotalPages > 1 && (
+                <nav
+                  className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row"
+                  aria-label="Log hours history pages"
+                >
+                  <p className="text-sm text-zinc-600">
+                    Showing {(logHoursPage - 1) * LOG_HOURS_PAGE_SIZE + 1}–
+                    {Math.min(logHoursPage * LOG_HOURS_PAGE_SIZE, logHoursTotal)} of {logHoursTotal}
+                  </p>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      disabled={logHoursPage <= 1 || logHoursPageLoading}
+                      onClick={() => setLogHoursPage((p) => Math.max(1, p - 1))}
+                      className="rounded-full border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-800 shadow-sm transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="min-w-[7rem] text-center text-sm font-medium text-zinc-700">
+                      Page {logHoursPage} of {logHoursTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={logHoursPage >= logHoursTotalPages || logHoursPageLoading}
+                      onClick={() => setLogHoursPage((p) => Math.min(logHoursTotalPages, p + 1))}
+                      className="rounded-full border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-800 shadow-sm transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </nav>
+              )}
+            </>
           )}
         </div>
 
@@ -299,13 +385,9 @@ function DashboardContent() {
           </h2>
 
           {upcomingLoading ? (
-            <div className="mx-auto mt-6 flex justify-center gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="h-[140px] w-full max-w-[200px] animate-pulse rounded-lg bg-indigo-200/60"
-                />
-              ))}
+            <div className="mx-auto mt-6 flex flex-col items-center justify-center gap-3 py-8">
+              <SsLogoRingLoader size="md" label="Loading upcoming activities" />
+              <p className="text-sm text-zinc-600">Loading upcoming activities…</p>
             </div>
           ) : upcoming.length === 0 ? (
             <div className="mx-auto mt-4 max-w-3xl rounded-md bg-white/35 px-6 py-8 text-zinc-700 shadow-sm">
@@ -347,8 +429,9 @@ export default function MyDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40vh] items-center justify-center bg-[#FFF2A8]">
-          <p className="text-zinc-600">Loading…</p>
+        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#FFF2A8]">
+          <SsLogoRingLoader size="lg" label="Loading dashboard" />
+          <p className="text-sm font-medium text-indigo-900/80">Loading…</p>
         </div>
       }
     >

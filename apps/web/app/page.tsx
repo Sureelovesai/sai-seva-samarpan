@@ -378,20 +378,30 @@ function HomeHeroImageLayer({
   attemptSrcs,
   alt,
   priority,
+  /** `fill`: fixed-height box (near viewport). `intrinsic`: natural image height — avoids large bottom gap on narrow portrait. */
+  mode = "fill",
 }: {
   attemptSrcs: readonly string[];
   alt: string;
   priority?: boolean;
+  mode?: "fill" | "intrinsic";
 }) {
   const [srcIndex, setSrcIndex] = useState(0);
   const [useSvgFallback, setUseSvgFallback] = useState(false);
+
+  const imgClassFill = "object-contain object-top";
+  const imgClassIntrinsic = "h-auto w-full object-contain object-top";
 
   if (useSvgFallback) {
     return (
       <img
         src="/manage-hero-swami.svg"
         alt={alt}
-        className="absolute inset-0 h-full w-full object-contain object-top"
+        className={
+          mode === "intrinsic"
+            ? imgClassIntrinsic
+            : `absolute inset-0 h-full w-full ${imgClassFill}`
+        }
         width={1200}
         height={800}
         decoding="async"
@@ -405,10 +415,36 @@ function HomeHeroImageLayer({
       <img
         src="/manage-hero-swami.svg"
         alt={alt}
-        className="absolute inset-0 h-full w-full object-contain object-top"
+        className={
+          mode === "intrinsic"
+            ? imgClassIntrinsic
+            : `absolute inset-0 h-full w-full ${imgClassFill}`
+        }
         width={1200}
         height={800}
         decoding="async"
+      />
+    );
+  }
+
+  if (mode === "intrinsic") {
+    return (
+      <Image
+        key={src}
+        src={src}
+        alt={alt}
+        width={1200}
+        height={1800}
+        priority={priority}
+        className={imgClassIntrinsic}
+        sizes="100vw"
+        onError={() => {
+          if (srcIndex + 1 < attemptSrcs.length) {
+            setSrcIndex((i) => i + 1);
+          } else {
+            setUseSvgFallback(true);
+          }
+        }}
       />
     );
   }
@@ -420,7 +456,7 @@ function HomeHeroImageLayer({
       alt={alt}
       fill
       priority={priority}
-      className="object-contain object-top"
+      className={imgClassFill}
       sizes="100vw"
       onError={() => {
         if (srcIndex + 1 < attemptSrcs.length) {
@@ -452,11 +488,14 @@ function HomeHeroBanner() {
           <HomeHeroImageLayer attemptSrcs={desktopAttempts} alt="Seva Wheel" priority />
         </div>
       </div>
-      {/* Narrow portrait phones only */}
-      <div className="absolute inset-0 block max-sm:landscape:hidden sm:hidden">
-        <div className="relative h-full w-full min-h-0">
-          <HomeHeroImageLayer attemptSrcs={mobilePortraitAttempts} alt="Seva Wheel" priority />
-        </div>
+      {/* Narrow portrait: intrinsic height so the block isn’t a near-full-screen box with empty space below `object-contain` art */}
+      <div className="relative block w-full max-sm:landscape:hidden sm:hidden">
+        <HomeHeroImageLayer
+          mode="intrinsic"
+          attemptSrcs={mobilePortraitAttempts}
+          alt="Seva Wheel"
+          priority
+        />
       </div>
     </>
   );
@@ -486,8 +525,10 @@ export default function HomePage() {
           }}
         />
         <div className="relative w-full px-0 py-0">
-          <div className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px]">
-            <div className="relative h-full w-full min-h-0">
+          <div
+            className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px] max-sm:portrait:h-auto max-sm:portrait:min-h-0 max-sm:portrait:items-start max-sm:portrait:pt-1"
+          >
+            <div className="relative h-full w-full min-h-0 max-sm:portrait:h-auto">
               <HomeHeroBanner />
             </div>
           </div>
