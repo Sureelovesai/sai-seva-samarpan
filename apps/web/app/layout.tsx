@@ -10,12 +10,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className="flex min-h-screen flex-col">
         <div className="print:hidden">
           <ConditionalSiteHeader />
         </div>
 
-        <main className="flex-1">
+        <main className="flex min-h-0 flex-1 flex-col self-stretch">
           {children}
         </main>
 

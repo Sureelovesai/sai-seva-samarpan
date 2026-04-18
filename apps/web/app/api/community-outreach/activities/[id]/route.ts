@@ -8,6 +8,7 @@ import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
 import {
   communityActivityOwnedByProfile,
   getApprovedCommunityProfile,
+  isCommunityOutreachPoster,
   type ApprovedCommunityProfile,
 } from "@/lib/communityOutreachOwnership";
 
@@ -78,6 +79,9 @@ async function loadOwnedActivity(
 
   const profile = await getApprovedCommunityProfile(session.sub);
   if (!profile || !communityActivityOwnedByProfile(profile, activity)) {
+    return { profile, activity: null, isAdmin: false };
+  }
+  if (!isCommunityOutreachPoster(session, activity)) {
     return { profile, activity: null, isAdmin: false };
   }
   return { profile, activity, isAdmin: false };

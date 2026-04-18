@@ -16,7 +16,7 @@ const tools = [
     function: {
       name: "suggest_links",
       description:
-        "Provide validated in-app links as buttons. Call whenever you direct the user to a page, especially Find Seva with ?city=.",
+        "Provide validated in-app links as buttons. For Find Seva use ?city=CenterName and/or ?usaRegion=Region%203 (canonical: Region 1–10, Region 7/8) so filters open pre-selected.",
       parameters: {
         type: "object",
         properties: {

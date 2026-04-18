@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, hasRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole, hasRole } from "@/lib/getRole";
+import { adminSevaActivityListWhere } from "@/lib/sevaCoordinatorActivityAccess";
 import { signupCountsTowardImpactTotals } from "@/lib/activityEnded";
 
 /**
@@ -8,20 +9,27 @@ import { signupCountsTowardImpactTotals } from "@/lib/activityEnded";
  * Total hours, total volunteers, active activities, total activities from Seva Activities (Join Seva + bulk import).
  * Does NOT include Logged Hours from the Log Hours page.
  * For Seva Coordinator, all counts are restricted to their cities (unchanged).
- * Admin, Blog Admin, and Seva Coordinator can access.
+ * Admin, Blog Admin, and seva coordinators (center / regional / national) can access.
  */
 export async function GET(req: Request) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!hasRole(session, "ADMIN", "SEVA_COORDINATOR", "BLOG_ADMIN")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (
+      !hasRole(
+        session,
+        "ADMIN",
+        "SEVA_COORDINATOR",
+        "BLOG_ADMIN",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    const cityFilter =
-      session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length
-        ? activityCityWhere(session.coordinatorCities)
-        : undefined;
-
-    const activityWhere = cityFilter ?? {};
+    const scopeFilter = adminSevaActivityListWhere(session);
+    const activityWhere = scopeFilter ?? {};
 
     const activityDateSelect = {
       durationHours: true,
@@ -35,7 +43,7 @@ export async function GET(req: Request) {
       await Promise.all([
         prisma.sevaActivity.count({ where: activityWhere }),
         prisma.sevaActivity.count({ where: { ...activityWhere, isActive: true } }),
-        cityFilter
+        scopeFilter
           ? prisma.sevaSignup.findMany({
               where: { activity: activityWhere },
               select: { status: true, adultsCount: true, kidsCount: true, activity: { select: activityDateSelect } },
@@ -49,7 +57,7 @@ export async function GET(req: Request) {
           _count: { id: true },
         }),
         prisma.sevaSignup.findMany({
-          where: cityFilter ? { activity: activityWhere } : undefined,
+          where: scopeFilter ? { activity: activityWhere } : undefined,
           take: 3,
           orderBy: { createdAt: "desc" },
           include: { activity: { select: { title: true } } },

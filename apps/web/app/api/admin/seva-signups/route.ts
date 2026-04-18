@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole } from "@/lib/getRole";
+import {
+  adminSevaActivityListWhere,
+  sessionCanAccessAdminSevaActivity,
+} from "@/lib/sevaCoordinatorActivityAccess";
 
 /** Shape of contribution items + confirmed claims returned for admin sign-ups view */
 type ContributionClaimRow = {
@@ -40,8 +44,9 @@ export async function GET(req: Request) {
 
     const where: any = {};
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      where.activity = activityCityWhere(session.coordinatorCities);
+    const scopeW = adminSevaActivityListWhere(session);
+    if (scopeW) {
+      where.activity = scopeW;
     }
     if (activityId) where.activityId = activityId;
     if (status && ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(status)) {
@@ -91,15 +96,11 @@ export async function GET(req: Request) {
     } | null = null;
 
     if (activityId) {
-      // Same city scope as signups: coordinators must not read another city's item claims
-      const activityScope: { id: string } & Record<string, unknown> = { id: activityId };
-      if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-        Object.assign(activityScope, activityCityWhere(session.coordinatorCities));
-      }
-      const activityOk = await prisma.sevaActivity.findFirst({
-        where: activityScope,
-        select: { id: true },
+      const act = await prisma.sevaActivity.findUnique({
+        where: { id: activityId },
+        select: { id: true, scope: true, city: true, sevaUsaRegion: true },
       });
+      const activityOk = act && sessionCanAccessAdminSevaActivity(session, act);
 
       if (activityOk) {
         const items = (await prisma.sevaContributionItem.findMany({

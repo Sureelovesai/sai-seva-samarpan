@@ -11,7 +11,7 @@ type AuthUser = {
   lastName: string | null;
   name: string | null;
   location: string | null;
-  role?: "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | "EVENT_ADMIN";
+  role?: string;
   roles?: string[];
   coordinatorCities?: string[] | null;
   eventAdminOnly?: boolean;
@@ -114,7 +114,11 @@ export function SiteHeader() {
   const roles = user?.roles ?? [];
   const canSeeRoles = roles.includes("ADMIN");
   const canSevaAdminRow =
-    roles.includes("ADMIN") || roles.includes("SEVA_COORDINATOR") || roles.includes("BLOG_ADMIN");
+    roles.includes("ADMIN") ||
+    roles.includes("SEVA_COORDINATOR") ||
+    roles.includes("REGIONAL_SEVA_COORDINATOR") ||
+    roles.includes("NATIONAL_SEVA_COORDINATOR") ||
+    roles.includes("BLOG_ADMIN");
 
   let secondRow: { href: string; label: string }[] = [];
   if (user?.eventAdminOnly) {

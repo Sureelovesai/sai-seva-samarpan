@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole } from "@/lib/getRole";
+import { adminSevaActivityListWhere } from "@/lib/sevaCoordinatorActivityAccess";
 
 /**
  * GET /api/admin/export-activities
@@ -38,14 +39,13 @@ export async function GET(req: Request) {
       baseWhere.AND = Array.isArray(baseWhere.AND) ? [...baseWhere.AND, searchOr] : [searchOr];
     }
 
-    const cityFilter =
-      session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length
-        ? activityCityWhere(session.coordinatorCities)
-        : undefined;
+    const scopeFilter = adminSevaActivityListWhere(session);
     const activityWhere =
-      cityFilter
-        ? { AND: [baseWhere, cityFilter] }
-        : baseWhere;
+      scopeFilter && Object.keys(baseWhere).length > 0
+        ? { AND: [baseWhere, scopeFilter] }
+        : scopeFilter
+          ? scopeFilter
+          : baseWhere;
 
     const activities = await prisma.sevaActivity.findMany({
       where: activityWhere,

@@ -1,6 +1,6 @@
 /**
  * Starter layouts for Seva Blog full-article body HTML.
- * Inserted at the caret via RichTextEditor (semantic tags work with prose styles on the post page).
+ * Inserted at the caret via the blog TipTap editor (semantic tags work with prose styles on the post page).
  */
 export type BlogPostContentTemplate = {
   id: string;

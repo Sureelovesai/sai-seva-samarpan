@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { SessionWithRole } from "@/lib/getRole";
 import { hasRole } from "@/lib/getRole";
+import type { Prisma } from "@/generated/prisma";
 
 export type ApprovedCommunityProfile = {
   id: string;
@@ -38,6 +39,49 @@ export function orgActivityWhere(profile: ApprovedCommunityProfile) {
     listedAsCommunityOutreach: true,
     organizationName: { equals: profile.organizationName, mode: "insensitive" as const },
     city: { equals: profile.city, mode: "insensitive" as const },
+  };
+}
+
+/** True if this user created the listing (or legacy row: poster unset but coordinator email matches). */
+export function isCommunityOutreachPoster(
+  session: SessionWithRole,
+  activity: {
+    communityOutreachPostedByUserId: string | null;
+    coordinatorEmail: string | null;
+  }
+): boolean {
+  if (activity.communityOutreachPostedByUserId === session.sub) return true;
+  if (
+    activity.communityOutreachPostedByUserId == null &&
+    activity.coordinatorEmail?.trim() &&
+    activity.coordinatorEmail.trim().toLowerCase() === session.email.trim().toLowerCase()
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Listed by signed-in user only (poster id or legacy coordinator email). No org filter — use with profile AND when needed. */
+export function postedBySessionWhere(session: SessionWithRole): Prisma.SevaActivityWhereInput {
+  return {
+    listedAsCommunityOutreach: true,
+    OR: [
+      { communityOutreachPostedByUserId: session.sub },
+      {
+        communityOutreachPostedByUserId: null,
+        coordinatorEmail: { equals: session.email, mode: "insensitive" },
+      },
+    ],
+  };
+}
+
+/** Manage Activity list: same org/city, and only rows this user posted. */
+export function myPostedCommunityActivitiesWhere(
+  profile: ApprovedCommunityProfile,
+  session: SessionWithRole
+): Prisma.SevaActivityWhereInput {
+  return {
+    AND: [orgActivityWhere(profile), postedBySessionWhere(session)],
   };
 }
 

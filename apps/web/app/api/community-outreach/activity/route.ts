@@ -153,6 +153,7 @@ export async function POST(req: Request) {
         isFeatured: false,
         status: "PUBLISHED",
         listedAsCommunityOutreach: true,
+        communityOutreachPostedByUserId: session.sub,
       },
     });
 

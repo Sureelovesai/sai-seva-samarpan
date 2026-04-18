@@ -24,6 +24,17 @@ function normalizeFrom(from: string): string {
   return s;
 }
 
+/**
+ * From address for **portal events only** (/events — RSVP confirmations, organizer notices, 24h reminders).
+ * Uses `EMAIL_FROM_EVENTS` if set; otherwise a Charlotte Sai Center `events@` address (not the global Seva `EMAIL_FROM`).
+ * Verify the domain in Resend (e.g. charlottesaicenter.org).
+ */
+export function getPortalEventsEmailFrom(): string {
+  const v = (process.env.EMAIL_FROM_EVENTS ?? "").trim();
+  if (v) return normalizeFrom(v);
+  return "Charlotte Sai Center Events <events@charlottesaicenter.org>";
+}
+
 /** Log once at first send so we know env is loaded (dev only). */
 let _envLogged = false;
 function logEnvOnce() {

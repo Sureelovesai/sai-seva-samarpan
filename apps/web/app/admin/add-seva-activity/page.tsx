@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
+import { USA_REGION_LABELS } from "@/lib/usaRegions";
 import {
   ContributionItemsEditor,
   type ContributionRow,
@@ -14,6 +15,13 @@ const SS_BULK_TITLE = "sevaBulkActivityTitle";
 const SS_BULK_PUBLISHED = "sevaBulkImportAllowed";
 
 type Status = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+type ActivityScopeUi = "CENTER" | "REGIONAL" | "NATIONAL";
+
+const LEVEL_LABELS: Record<ActivityScopeUi, string> = {
+  CENTER: "Center level",
+  REGIONAL: "Regional level",
+  NATIONAL: "National level",
+};
 
 export default function AddSevaActivityPage() {
   // UI fields
@@ -46,6 +54,11 @@ export default function AddSevaActivityPage() {
 
   const [contributionItems, setContributionItems] = useState<ContributionRow[]>([]);
 
+  /** Optional program / festival grouping (SevaActivityGroup) */
+  const [programGroups, setProgramGroups] = useState<{ id: string; title: string }[]>([]);
+  const [groupChoice, setGroupChoice] = useState<string>("");
+  const [newGroupTitle, setNewGroupTitle] = useState("");
+
   /** After a successful save, bulk Excel import uses this activity (template + upload APIs). */
   const [bulkActivityId, setBulkActivityId] = useState<string | null>(null);
   const [bulkActivityTitle, setBulkActivityTitle] = useState<string | null>(null);
@@ -62,6 +75,34 @@ export default function AddSevaActivityPage() {
 
   // Seva Coordinator: restrict city to registered locations
   const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [coordinatorRegions, setCoordinatorRegions] = useState<string[] | null>(null);
+  const [activityScope, setActivityScope] = useState<ActivityScopeUi>("CENTER");
+  const [sevaUsaRegion, setSevaUsaRegion] = useState("");
+
+  const scopeOptions = useMemo((): ActivityScopeUi[] => {
+    const r = userRoles;
+    if (!r.length) return ["CENTER"];
+    const admin = r.includes("ADMIN") || r.includes("BLOG_ADMIN");
+    const next: ActivityScopeUi[] = [];
+    if (admin || r.includes("SEVA_COORDINATOR")) next.push("CENTER");
+    if (admin || (r.includes("REGIONAL_SEVA_COORDINATOR") && coordinatorRegions && coordinatorRegions.length > 0)) {
+      next.push("REGIONAL");
+    }
+    if (admin || r.includes("NATIONAL_SEVA_COORDINATOR")) next.push("NATIONAL");
+    if (next.length === 0) {
+      if (r.includes("REGIONAL_SEVA_COORDINATOR")) next.push("REGIONAL");
+      else if (r.includes("NATIONAL_SEVA_COORDINATOR")) next.push("NATIONAL");
+      else next.push("CENTER");
+    }
+    return next;
+  }, [userRoles, coordinatorRegions]);
+
+  const regionalRegionChoices = useMemo(() => {
+    if (!coordinatorRegions?.length) return [...USA_REGION_LABELS];
+    const set = new Set(coordinatorRegions);
+    return USA_REGION_LABELS.filter((x) => set.has(x));
+  }, [coordinatorRegions]);
 
   useEffect(() => {
     try {
@@ -97,6 +138,10 @@ export default function AddSevaActivityPage() {
       .then((res) => (res.ok ? res.json() : { user: null }))
       .then((data) => {
         const cities = data?.user?.coordinatorCities;
+        const roles: string[] = Array.isArray(data?.user?.roles) ? data.user.roles : [];
+        setUserRoles(roles);
+        const regs = data?.user?.coordinatorRegions;
+        setCoordinatorRegions(Array.isArray(regs) && regs.length > 0 ? regs : null);
         if (Array.isArray(cities) && cities.length > 0) {
           setAllowedCities(cities);
           setCity((prev) => (prev ? prev : cities[0]));
@@ -104,8 +149,71 @@ export default function AddSevaActivityPage() {
           setAllowedCities([]);
         }
       })
-      .catch(() => setAllowedCities([]));
+      .catch(() => {
+        setAllowedCities([]);
+        setUserRoles([]);
+        setCoordinatorRegions(null);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!scopeOptions.length) return;
+    if (scopeOptions.length === 1) {
+      setActivityScope(scopeOptions[0]!);
+    } else if (!scopeOptions.includes(activityScope)) {
+      setActivityScope(scopeOptions[0]!);
+    }
+  }, [scopeOptions, activityScope]);
+
+  useEffect(() => {
+    if (activityScope === "NATIONAL" && !city.trim()) {
+      setCity("National");
+    }
+  }, [activityScope]);
+
+  useEffect(() => {
+    const c =
+      activityScope === "NATIONAL" ? (city.trim() || "National") : city.trim();
+    // REGIONAL: list programs by USA region only (location line differs per activity, so do not filter by city).
+    if (activityScope === "REGIONAL") {
+      if (!sevaUsaRegion.trim()) {
+        setProgramGroups([]);
+        return;
+      }
+    } else if (!c) {
+      setProgramGroups([]);
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("scope", activityScope);
+    if (activityScope === "REGIONAL") {
+      params.set("sevaUsaRegion", sevaUsaRegion.trim());
+    } else {
+      params.set("city", c);
+    }
+    let cancelled = false;
+    fetch(`/api/admin/seva-activity-groups?${params.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: unknown) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows)
+          ? rows.map((x: { id?: string; title?: string }) => ({
+              id: String(x.id ?? ""),
+              title: String(x.title ?? ""),
+            })).filter((x) => x.id && x.title)
+          : [];
+        setProgramGroups(list);
+      })
+      .catch(() => {
+        if (!cancelled) setProgramGroups([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activityScope, city, sevaUsaRegion]);
 
   const canSave = useMemo(() => {
     const capNum = capacity.trim() ? Number(capacity) : NaN;
@@ -114,10 +222,13 @@ export default function AddSevaActivityPage() {
       Number.isFinite(capNum) &&
       Number.isInteger(capNum) &&
       capNum >= 1;
+    const scopeOk =
+      activityScope !== "REGIONAL" || (sevaUsaRegion.trim() !== "" && city.trim() !== "");
     return (
       title.trim() &&
       category.trim() &&
       city.trim() &&
+      scopeOk &&
       startDate.trim() &&
       endDate.trim() &&
       startTime.trim() &&
@@ -133,6 +244,8 @@ export default function AddSevaActivityPage() {
     title,
     category,
     city,
+    activityScope,
+    sevaUsaRegion,
     startDate,
     endDate,
     startTime,
@@ -319,9 +432,58 @@ export default function AddSevaActivityPage() {
       return;
     }
 
+    if (groupChoice === "__new__" && !newGroupTitle.trim()) {
+      setMsg({ kind: "err", text: "Enter a program title, or choose “No grouping”." });
+      return;
+    }
+
     setSaving(true);
     try {
-      const payload = {
+      let resolvedGroupId: string | undefined;
+      if (groupChoice === "__new__" && newGroupTitle.trim()) {
+        const cityVal =
+          activityScope === "NATIONAL" && !city.trim()
+            ? "National"
+            : city.trim();
+        const gr = await fetch("/api/admin/seva-activity-groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: newGroupTitle.trim(),
+            scope: activityScope,
+            city: cityVal,
+            sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegion.trim() : undefined,
+            status,
+          }),
+        });
+        const gd = (await gr.json().catch(() => ({}))) as {
+          id?: string;
+          title?: string;
+          error?: string;
+          detail?: string;
+        };
+        if (!gr.ok) {
+          throw new Error(gd?.error || gd?.detail || "Could not create program group.");
+        }
+        if (typeof gd?.id === "string") {
+          resolvedGroupId = gd.id;
+          const gTitle =
+            typeof gd.title === "string" && gd.title.trim() ? gd.title.trim() : newGroupTitle.trim();
+          setProgramGroups((prev) => {
+            if (prev.some((p) => p.id === gd.id)) return prev;
+            return [...prev, { id: gd.id!, title: gTitle }].sort((a, b) =>
+              a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+            );
+          });
+          setGroupChoice(gd.id);
+          setNewGroupTitle("");
+        }
+      } else if (groupChoice && groupChoice !== "__new__") {
+        resolvedGroupId = groupChoice;
+      }
+
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         category: category.trim(),
         description: description.trim() || undefined,
@@ -334,7 +496,12 @@ export default function AddSevaActivityPage() {
         endTime: endTime || undefined,
         durationHours: durationHours > 0 ? durationHours : undefined,
 
-        city: city.trim(),
+        scope: activityScope,
+        sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegion.trim() : undefined,
+        city:
+          activityScope === "NATIONAL" && !city.trim()
+            ? "National"
+            : city.trim(),
         locationName: locationName.trim() || undefined,
         address: address.trim() || undefined,
 
@@ -356,12 +523,13 @@ export default function AddSevaActivityPage() {
             maxQuantity: r.maxQuantity,
           })),
       };
+      if (resolvedGroupId) payload.groupId = resolvedGroupId;
 
       const res = await fetch("/api/admin/seva-activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload as Record<string, unknown>),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -388,7 +556,8 @@ export default function AddSevaActivityPage() {
 
       setMsg({ kind: "ok", text: `Saved: ${data.title} (${data.status})` });
 
-      // optional: clear form after publish, keep after draft
+      // Clear activity fields after publish so coordinators can add the next seva under the same
+      // center/region and program group (group stays in the dropdown; location context is kept).
       if (status === "PUBLISHED") {
         setTitle("");
         setCategory("");
@@ -399,7 +568,6 @@ export default function AddSevaActivityPage() {
         setStartTime("");
         setEndTime("");
         setDurationHours(1);
-        setCity("");
         setLocationName("");
         setAddress("");
         setCoordinatorName("");
@@ -656,38 +824,117 @@ export default function AddSevaActivityPage() {
               </div>
             </div>
 
+            <div className="px-5 py-4">
+              <label className="block text-sm font-semibold text-zinc-800">
+                Level <span className="text-red-600">*</span>
+              </label>
+              <p className="mt-1 text-xs text-zinc-600">
+                Choose center, regional, or national listing. Only levels allowed for your account appear here
+                (Admin / Blog Admin can choose any level they are permitted to post).
+              </p>
+              <select
+                value={activityScope}
+                disabled={scopeOptions.length <= 1}
+                title={
+                  scopeOptions.length <= 1
+                    ? "Your role fixes this level. Ask an admin if you need a different level."
+                    : undefined
+                }
+                onChange={(e) => {
+                  const v = e.target.value as ActivityScopeUi;
+                  setActivityScope(v);
+                  if (v === "NATIONAL") setCity((c) => c.trim() || "National");
+                  if (v === "REGIONAL")
+                    setSevaUsaRegion((r) => r || regionalRegionChoices[0] || "");
+                  if (v === "CENTER" && city.trim().toLowerCase() === "national") {
+                    setCity("");
+                  }
+                }}
+                className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+              >
+                {scopeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {LEVEL_LABELS[opt]}
+                  </option>
+                ))}
+              </select>
+              {activityScope === "REGIONAL" && (
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-zinc-800">
+                    USA region <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={sevaUsaRegion}
+                    onChange={(e) => setSevaUsaRegion(e.target.value)}
+                    className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select region</option>
+                    {regionalRegionChoices.map((reg) => (
+                      <option key={reg} value={reg}>
+                        {reg}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
             <div className="px-5 py-6">
               <label className="block text-sm font-semibold text-zinc-800">
-                City <span className="text-red-600">*</span>
+                {activityScope === "CENTER"
+                  ? "City"
+                  : activityScope === "REGIONAL"
+                    ? "Location / title (listing)"
+                    : "Listing label"}{" "}
+                <span className="text-red-600">*</span>
               </label>
-              {allowedCities !== null && allowedCities.length > 0 ? (
-                <select
+              {activityScope === "CENTER" &&
+                (allowedCities !== null && allowedCities.length > 0 ? (
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select location</option>
+                    {allowedCities.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select city</option>
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ))}
+              {activityScope === "REGIONAL" && (
+                <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Regional food drive — Southeast"
                   required
                   className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select location</option>
-                  {allowedCities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <select
+                />
+              )}
+              {activityScope === "NATIONAL" && (
+                <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
+                  placeholder="National"
                   required
                   className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select city</option>
-                  {CITIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                />
               )}
 
               <label className="mt-5 block text-sm font-semibold text-zinc-800">
@@ -709,6 +956,51 @@ export default function AddSevaActivityPage() {
                 required
                 className="mt-2 w-full resize-none rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
               />
+
+              <div className="mt-8 border-t border-emerald-200/80 pt-6">
+                <label className="block text-sm font-semibold text-zinc-800">
+                  Program / festival grouping (optional)
+                </label>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Link this activity to a named program (e.g. Mahashivarathri). Each activity is still
+                  listed and registered separately; grouping only affects how it appears on Find Seva.
+                  {activityScope === "REGIONAL" ? (
+                    <span className="block pt-1">
+                      For regional level, existing programs load after you choose <strong>USA region</strong> above
+                      (the location line can differ for each activity).
+                    </span>
+                  ) : (
+                    <span className="block pt-1">
+                      Choose <strong>level</strong> and <strong>city</strong> (or national listing) above first so
+                      saved programs for that place appear here.
+                    </span>
+                  )}
+                </p>
+                <select
+                  value={groupChoice}
+                  onChange={(e) => {
+                    setGroupChoice(e.target.value);
+                    if (e.target.value !== "__new__") setNewGroupTitle("");
+                  }}
+                  className="mt-2 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">No grouping</option>
+                  {programGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.title}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new program…</option>
+                </select>
+                {groupChoice === "__new__" ? (
+                  <input
+                    value={newGroupTitle}
+                    onChange={(e) => setNewGroupTitle(e.target.value)}
+                    placeholder="Program title (e.g. Mahashivarathri — Charlotte)"
+                    className="mt-3 w-full rounded-md border border-emerald-700/60 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         </section>

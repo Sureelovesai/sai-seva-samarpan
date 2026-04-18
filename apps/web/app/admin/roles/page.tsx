@@ -3,14 +3,30 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-type RoleAssignment = { id: string; email: string; role: string; cities: string | null };
+type RoleAssignment = {
+  id: string;
+  email: string;
+  role: string;
+  cities: string | null;
+  regions: string | null;
+};
 
-const ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR", "EVENT_ADMIN"] as const;
+const ROLES = [
+  "ADMIN",
+  "BLOG_ADMIN",
+  "VOLUNTEER",
+  "SEVA_COORDINATOR",
+  "REGIONAL_SEVA_COORDINATOR",
+  "NATIONAL_SEVA_COORDINATOR",
+  "EVENT_ADMIN",
+] as const;
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   BLOG_ADMIN: "Blog Admin",
   VOLUNTEER: "Volunteer",
-  SEVA_COORDINATOR: "Seva Coordinator",
+  SEVA_COORDINATOR: "Seva Coordinator (center)",
+  REGIONAL_SEVA_COORDINATOR: "Regional Seva Coordinator",
+  NATIONAL_SEVA_COORDINATOR: "National Seva Coordinator",
   EVENT_ADMIN: "Event Admin (events only)",
 };
 
@@ -22,11 +38,13 @@ export default function RolesPage() {
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<(typeof ROLES)[number]>("VOLUNTEER");
   const [addCities, setAddCities] = useState("");
+  const [addRegions, setAddRegions] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<(typeof ROLES)[number]>("VOLUNTEER");
   const [editCities, setEditCities] = useState("");
+  const [editRegions, setEditRegions] = useState("");
   const [saving, setSaving] = useState(false);
 
   const loadRoles = useCallback(async () => {
@@ -59,12 +77,15 @@ export default function RolesPage() {
           email: addEmail.trim(),
           role: addRole,
           cities: addRole === "SEVA_COORDINATOR" ? addCities.trim() || null : null,
+          regions:
+            addRole === "REGIONAL_SEVA_COORDINATOR" ? addRegions.trim() || null : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to add");
       setMsg({ kind: "ok", text: "Role added. Add another role for the same person by selecting a different role and clicking Add again." });
       setAddCities("");
+      setAddRegions("");
       loadRoles();
     } catch (e: unknown) {
       setMsg({ kind: "err", text: (e as Error)?.message ?? "Failed to add role." });
@@ -78,6 +99,7 @@ export default function RolesPage() {
     setEditEmail(r.email);
     setEditRole(r.role as (typeof ROLES)[number]);
     setEditCities(r.cities ?? "");
+    setEditRegions(r.regions ?? "");
   }
 
   async function saveEdit() {
@@ -88,7 +110,13 @@ export default function RolesPage() {
       const res = await fetch(`/api/admin/roles/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: editEmail.trim(), role: editRole, cities: editRole === "SEVA_COORDINATOR" ? editCities.trim() || null : null }),
+        body: JSON.stringify({
+          email: editEmail.trim(),
+          role: editRole,
+          cities: editRole === "SEVA_COORDINATOR" ? editCities.trim() || null : null,
+          regions:
+            editRole === "REGIONAL_SEVA_COORDINATOR" ? editRegions.trim() || null : null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to update");
@@ -123,7 +151,7 @@ export default function RolesPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-4xl font-extrabold italic tracking-tight text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.35)] md:text-5xl">Roles</div>
-              <div className="mt-2 text-xl font-semibold text-white/95">Assign one or more roles per person — Admin, Blog Admin, Volunteer, Seva Coordinator</div>
+              <div className="mt-2 text-xl font-semibold text-white/95">Assign one or more roles per person — center, regional, and national seva coordinators included</div>
             </div>
             <Link href="/admin/seva-dashboard" className="rounded border border-white/80 bg-white/20 px-6 py-3 text-sm font-semibold text-white hover:bg-white/30">← Back to Dashboard</Link>
           </div>
@@ -139,7 +167,7 @@ export default function RolesPage() {
         <div className="rounded-xl border border-slate-200/90 bg-white px-8 py-8 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
           <div className="text-2xl font-bold text-zinc-800">Add role assignment</div>
           <p className="mt-1 text-sm text-zinc-600">Same email can have multiple roles — add one row per role.</p>
-          <form onSubmit={handleAdd} className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+          <form onSubmit={handleAdd} className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 lg:items-end">
             <div>
               <label className="block text-sm font-semibold text-zinc-700">Email</label>
               <input type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="user@example.com" className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none" />
@@ -151,11 +179,15 @@ export default function RolesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-zinc-700">Cities (Seva Coordinator)</label>
+              <label className="block text-sm font-semibold text-zinc-700">Cities (center coordinator)</label>
               <input type="text" value={addCities} onChange={(e) => setAddCities(e.target.value)} placeholder="Charlotte, Raleigh" className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none" />
             </div>
             <div>
-              <button type="submit" disabled={adding || !addEmail.trim()} className="w-full rounded-none bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{adding ? "Adding…" : "Add"}</button>
+              <label className="block text-sm font-semibold text-zinc-700">USA regions (regional coordinator)</label>
+              <input type="text" value={addRegions} onChange={(e) => setAddRegions(e.target.value)} placeholder="Region 3, Region 7/8" className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none" />
+            </div>
+            <div className="xl:col-span-2">
+              <button type="submit" disabled={adding || !addEmail.trim()} className="w-full rounded-none bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 xl:mt-6">{adding ? "Adding…" : "Add"}</button>
             </div>
           </form>
         </div>
@@ -175,6 +207,7 @@ export default function RolesPage() {
                     <th className="py-3 pr-4 font-semibold text-zinc-800">Email</th>
                     <th className="py-3 pr-4 font-semibold text-zinc-800">Role</th>
                     <th className="py-3 pr-4 font-semibold text-zinc-800">Cities</th>
+                    <th className="py-3 pr-4 font-semibold text-zinc-800">Regions</th>
                     <th className="py-3 font-semibold text-zinc-800">Actions</th>
                   </tr>
                 </thead>
@@ -190,6 +223,7 @@ export default function RolesPage() {
                             </select>
                           </td>
                           <td className="py-3 pr-4"><input value={editCities} onChange={(e) => setEditCities(e.target.value)} placeholder="City1, City2" className="w-full rounded border border-zinc-500 px-2 py-1.5 text-zinc-900" /></td>
+                          <td className="py-3 pr-4"><input value={editRegions} onChange={(e) => setEditRegions(e.target.value)} placeholder="Region 3" className="w-full rounded border border-zinc-500 px-2 py-1.5 text-zinc-900" /></td>
                           <td className="py-3">
                             <button type="button" onClick={saveEdit} disabled={saving} className="mr-2 font-semibold text-blue-600 hover:underline disabled:opacity-60">Save</button>
                             <button type="button" onClick={() => setEditingId(null)} className="text-zinc-600 hover:underline">Cancel</button>
@@ -200,6 +234,7 @@ export default function RolesPage() {
                           <td className="py-3 pr-4 font-medium text-zinc-800">{r.email}</td>
                           <td className="py-3 pr-4">{ROLE_LABELS[r.role] ?? r.role}</td>
                           <td className="py-3 pr-4 text-zinc-700">{r.cities ?? "—"}</td>
+                          <td className="py-3 pr-4 text-zinc-700">{r.regions ?? "—"}</td>
                           <td className="py-3">
                             <button type="button" onClick={() => startEdit(r)} className="mr-3 font-semibold text-blue-600 hover:underline">Edit</button>
                             <button type="button" onClick={() => remove(r.id)} className="font-semibold text-red-600 hover:underline">Remove</button>
@@ -213,7 +248,7 @@ export default function RolesPage() {
             </div>
           )}
         </div>
-        <p className="mt-8 text-center text-sm text-zinc-600">A person can have multiple roles. Admin sees everything; Blog Admin can approve blog posts; Seva Coordinator has city-scoped access. At login, roles are determined by email.</p>
+        <p className="mt-8 text-center text-sm text-zinc-600">A person can have multiple roles. Seva Coordinator is scoped to assigned cities; Regional Seva Coordinator to USA regions (e.g. Region 3); National Seva Coordinator can add national-level activities. At login, roles are determined by email.</p>
       </div>
     </div>
   );

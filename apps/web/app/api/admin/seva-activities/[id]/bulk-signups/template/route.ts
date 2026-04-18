@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
+import { sessionCanAccessAdminSevaActivity } from "@/lib/sevaCoordinatorActivityAccess";
 import { buildSevaActivityWorkbookBuffer } from "@/lib/sevaExcelWorkbook";
 
 /**
@@ -14,7 +15,15 @@ export async function GET(
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!hasRole(session, "ADMIN", "SEVA_COORDINATOR")) {
+    if (
+      !hasRole(
+        session,
+        "ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -47,11 +56,8 @@ export async function GET(
 
     if (!activity) return NextResponse.json({ error: "Activity not found" }, { status: 404 });
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (activity.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!sessionCanAccessAdminSevaActivity(session, activity)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const itemIds = activity.contributionItems.map((it: { id: string }) => it.id);

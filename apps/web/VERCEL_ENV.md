@@ -37,6 +37,8 @@ Without `DATABASE_URL`, all API routes that use the database (login, dashboard, 
 | Name             | Description |
 |------------------|-------------|
 | CRON_SECRET      | Secret for protecting the cron endpoint `/api/cron/seva-reminders`. |
+| NEXT_PUBLIC_EVENT_TIMEZONE | IANA zone (e.g. `America/New_York`) for portal event display and (by default) seva **24h reminder** scheduling (`startDate` + `startTime` interpreted in this zone). |
+| SEVA_REMINDER_TIMEZONE | Optional override for reminders only if it must differ from `NEXT_PUBLIC_EVENT_TIMEZONE`. |
 | EMAIL_ENABLED    | Set to `true` to enable email. |
 | RESEND_API_KEY   | API key for Resend (if using email). |
 | EMAIL_FROM       | From address for emails. |

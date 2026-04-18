@@ -63,6 +63,63 @@ export function parseUsaRegionParam(raw: string): UsaRegionLabel | null {
   return LEGACY_USA_REGION_TO_CANONICAL[trimmed] ?? null;
 }
 
+/**
+ * Canonicalize region text from URLs, chatbot tool args, or user phrases ("region 3", "REGION 3", "3").
+ * Returns null if no known region.
+ */
+export function normalizeUsaRegionQuery(raw: string): UsaRegionLabel | null {
+  const trimmed = raw?.trim();
+  if (!trimmed || trimmed.toLowerCase() === "all") return null;
+
+  const strict = parseUsaRegionParam(trimmed);
+  if (strict) return strict;
+
+  const compact = trimmed.replace(/\s+/g, " ");
+  const lower = compact.toLowerCase();
+  for (const label of USA_REGION_LABELS) {
+    if (label.toLowerCase() === lower) return label;
+  }
+  for (const [k, v] of Object.entries(LEGACY_USA_REGION_TO_CANONICAL)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+
+  if (/^region\s*7\s*\/\s*8$/i.test(compact) || /^7\s*\/\s*8$/.test(compact)) {
+    return "Region 7/8";
+  }
+
+  const regionSlash = /^region\s*(\d+)\s*\/\s*(\d+)$/i.exec(compact);
+  if (regionSlash?.[1] === "7" && regionSlash[2] === "8") return "Region 7/8";
+
+  const regionNum = /^region\s*(\d+)$/i.exec(compact);
+  if (regionNum) {
+    const cand = `Region ${regionNum[1]}` as UsaRegionLabel;
+    if ((USA_REGION_LABELS as readonly string[]).includes(cand)) return cand;
+  }
+
+  const digitsOnly = /^(\d+)$/.exec(compact);
+  if (digitsOnly) {
+    const cand = `Region ${digitsOnly[1]}` as UsaRegionLabel;
+    if ((USA_REGION_LABELS as readonly string[]).includes(cand)) return cand;
+  }
+
+  return null;
+}
+
+/**
+ * Read USA region from Find Seva query string: prefers `usaRegion`, then shorthand `region`
+ * (e.g. `?region=3` is the same as `?usaRegion=Region%203`).
+ */
+export function usaRegionFromUrlParams(get: (key: string) => string | null): UsaRegionLabel | null {
+  const primary = (get("usaRegion") || "").trim();
+  if (primary && primary !== "All") {
+    const a = normalizeUsaRegionQuery(primary) ?? parseUsaRegionParam(primary);
+    if (a) return a;
+  }
+  const shorthand = (get("region") || "").trim();
+  if (!shorthand || shorthand === "All") return null;
+  return normalizeUsaRegionQuery(shorthand) ?? parseUsaRegionParam(shorthand) ?? null;
+}
+
 /** Canonical city names in the given region (for DB `in` / OR filters). */
 export function getCitiesForUsaRegion(region: UsaRegionLabel): string[] {
   return rows.filter((r) => r.usaRegion === region).map((r) => r.city);
@@ -90,6 +147,19 @@ export function prismaCityInUsaRegionOr(region: UsaRegionLabel) {
   };
 }
 
+/**
+ * Find Seva / admin calendar: center-city activities in region, regional-scope rows for that region, and national scope.
+ */
+export function prismaSevaActivityInUsaRegionListing(region: UsaRegionLabel) {
+  return {
+    OR: [
+      prismaCityInUsaRegionOr(region),
+      { scope: "REGIONAL" as const, sevaUsaRegion: region },
+      { scope: "NATIONAL" as const },
+    ],
+  };
+}
+
 /** Same as prismaCityInUsaRegionOr but for BlogPost.centerCity. */
 export function prismaCenterCityInUsaRegionOr(region: UsaRegionLabel) {
   const cities = getCitiesForUsaRegion(region);
@@ -99,4 +169,23 @@ export function prismaCenterCityInUsaRegionOr(region: UsaRegionLabel) {
       centerCity: { equals: c, mode: "insensitive" as const },
     })),
   };
+}
+
+/**
+ * Comma-separated region labels from Admin → Roles (Regional Seva Coordinator).
+ * Accepts canonical labels and legacy "Reg N (...)" strings.
+ */
+export function parseCoordinatorRegionsList(raw: string | null | undefined): UsaRegionLabel[] {
+  if (!raw?.trim()) return [];
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const out: UsaRegionLabel[] = [];
+  for (const p of parts) {
+    if ((USA_REGION_LABELS as readonly string[]).includes(p)) {
+      out.push(p as UsaRegionLabel);
+      continue;
+    }
+    const fromParse = parseUsaRegionParam(p) ?? normalizeUsaRegionQuery(p);
+    if (fromParse) out.push(fromParse);
+  }
+  return out;
 }

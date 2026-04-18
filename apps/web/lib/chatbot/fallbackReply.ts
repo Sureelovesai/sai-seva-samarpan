@@ -1,5 +1,6 @@
 import { CITIES } from "@/lib/cities";
 import { resolveCityFromText } from "./resolveCity";
+import { resolveUsaRegionFromUserMessage } from "./resolveRegion";
 import type { HelpLink } from "./validateLinks";
 
 /** Rotates with the calendar day so fallback copy is not tied to one center. */
@@ -33,6 +34,30 @@ export function fallbackReply(userText: string): ChatReply {
     q.includes("browse") ||
     q.includes("where to find");
   const onlyCityName = cityInQuestion != null && q.trim() === cityInQuestion.toLowerCase();
+
+  const regionResolved = resolveUsaRegionFromUserMessage(userText);
+  const regionFindIntent =
+    findSevaIntent ||
+    q.includes("usa region") ||
+    /\bregion\s*\d/.test(userText) ||
+    /region\s*7\s*\/\s*8/i.test(userText) ||
+    (q.includes("region") && (q.includes("find") || q.includes("browse") || q.includes("volunteer") || q.includes("activit")));
+
+  if (regionResolved && regionFindIntent) {
+    return {
+      message:
+        `To browse activities in **${regionResolved}**, open **Find Seva** with that USA region already selected. You can narrow by **Sri Sathya Sai Center/Group** or category, then press **Apply** to refresh.\n\n` +
+        `After logging in, **My Seva Dashboard** shows your sign-ups if you need to withdraw.`,
+      links: [
+        {
+          label: `Find Seva — ${regionResolved}`,
+          href: `/find-seva?usaRegion=${encodeURIComponent(regionResolved)}`,
+        },
+        { label: "Find Seva (all regions)", href: "/find-seva" },
+        { label: "My Seva Dashboard", href: "/dashboard" },
+      ],
+    };
+  }
 
   if (cityInQuestion && mentionsCity && (findSevaIntent || onlyCityName)) {
     return {
@@ -189,7 +214,7 @@ export function fallbackReply(userText: string): ChatReply {
   ) {
     return {
       message:
-        "Public **Events** are listed under **Events** in the main menu. Coordinators and admins manage them from **Event Admin Dashboard** (add event, manage, view sign-ups with Yes/No/Maybe).",
+        "Public **Events** are listed under **Events** in the main menu. RSVP (**Yes / No / Maybe**) sends a confirmation with calendar links; **Yes** and **Maybe** also get a **~24h before** reminder email. Coordinators and admins manage events from **Event Admin Dashboard** (add event, manage, view sign-ups).",
       links: [
         { label: "Events", href: "/events" },
         { label: "Event Admin Dashboard", href: "/admin/events-dashboard" },

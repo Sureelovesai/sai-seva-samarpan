@@ -1,5 +1,48 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionFromCookie } from "@/lib/auth";
+
+/**
+ * GET /api/log-hours
+ * Logged-in user's Log Hours rows (by session email), newest first. Used for dashboard + viewing certificates later.
+ * Query: limit (default 20, max 50).
+ */
+export async function GET(req: Request) {
+  try {
+    const session = getSessionFromCookie(req.headers.get("cookie"));
+    if (!session?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const email = session.email.trim().toLowerCase();
+    const { searchParams } = new URL(req.url);
+    const limitRaw = parseInt(searchParams.get("limit") || "20", 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, limitRaw)) : 20;
+
+    const entries = await prisma.loggedHours.findMany({
+      where: { email },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      take: limit,
+      select: {
+        id: true,
+        volunteerName: true,
+        location: true,
+        activityCategory: true,
+        hours: true,
+        date: true,
+        comments: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json({ entries });
+  } catch (e: unknown) {
+    console.error("Log hours GET error:", e);
+    return NextResponse.json(
+      { error: "Failed to load log hours", detail: (e as Error)?.message },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * POST /api/log-hours

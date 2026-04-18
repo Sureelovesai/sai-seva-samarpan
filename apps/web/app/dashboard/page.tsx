@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { certificatePathFromLoggedHoursRow } from "@/lib/logHoursCertificate";
 
 type UpcomingActivity = {
   id: string;
@@ -29,6 +30,19 @@ function DashboardContent() {
   const [authChecked, setAuthChecked] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [signupModalSignupId, setSignupModalSignupId] = useState<string | null>(null);
+
+  type LogHoursListRow = {
+    id: string;
+    volunteerName: string;
+    location: string | null;
+    activityCategory: string;
+    hours: number;
+    date: string;
+    comments: string | null;
+  };
+  const [loggedHoursList, setLoggedHoursList] = useState<LogHoursListRow[]>([]);
+  const [loggedHoursLoading, setLoggedHoursLoading] = useState(true);
+  const [loggedHoursError, setLoggedHoursError] = useState<string | null>(null);
 
   // My Seva Dashboard: show "To view this you should login" when not signed in
   useEffect(() => {
@@ -102,6 +116,44 @@ function DashboardContent() {
     return () => { cancelled = true; };
   }, [authChecked, loadUpcoming]);
 
+  useEffect(() => {
+    if (!authChecked || !isLoggedIn) return;
+    let cancelled = false;
+    setLoggedHoursLoading(true);
+    setLoggedHoursError(null);
+    fetch("/api/log-hours?limit=25", { credentials: "include", cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) {
+          if (!cancelled) {
+            setLoggedHoursList([]);
+            setLoggedHoursError(
+              res.status === 401
+                ? "Could not verify your session for log history."
+                : "Could not load your log history. Try refreshing the page."
+            );
+          }
+          return null;
+        }
+        return res.json() as Promise<{ entries?: LogHoursListRow[] }>;
+      })
+      .then((data) => {
+        if (cancelled || !data) return;
+        setLoggedHoursList(Array.isArray(data.entries) ? data.entries : []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoggedHoursList([]);
+          setLoggedHoursError("Could not load your log history.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoggedHoursLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authChecked, isLoggedIn]);
+
   if (!authChecked) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center bg-[#FFF2A8]">
@@ -155,6 +207,79 @@ function DashboardContent() {
             value={loading ? "…" : totalSevaActivities}
             label="Total Seva Activities"
           />
+        </div>
+
+        {/* GET /api/log-hours uses session email only — each user sees only their own rows */}
+        <div
+          id="dashboard-your-logged-hours"
+          className="mx-auto mt-10 max-w-4xl scroll-mt-24 rounded-xl border-2 border-indigo-300/80 bg-white/60 px-4 py-8 shadow-md md:px-6"
+        >
+          <h2 className="text-center text-2xl font-extrabold text-indigo-800 md:text-3xl">
+            Your Log Hours history
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-zinc-800">
+            This grid lists <strong>only your</strong> submissions from the{" "}
+            <Link href="/log-hours" className="font-semibold text-indigo-800 underline">
+              Log Hours
+            </Link>{" "}
+            page while signed in as <strong>this account</strong> (filtered by your email in the database). Other people’s hours never appear here. This is separate from{" "}
+            <strong>Upcoming Seva Activities</strong> below, which shows activities you joined.
+          </p>
+          {loggedHoursLoading ? (
+            <div className="mx-auto mt-6 h-24 max-w-2xl animate-pulse rounded-lg bg-indigo-200/50" />
+          ) : loggedHoursError ? (
+            <div className="mx-auto mt-6 rounded-md bg-red-50 px-6 py-4 text-center text-sm text-red-900 shadow-sm">
+              {loggedHoursError}
+            </div>
+          ) : loggedHoursList.length === 0 ? (
+            <div className="mx-auto mt-6 rounded-md bg-amber-50/90 px-6 py-6 text-center text-zinc-800 shadow-sm ring-1 ring-amber-200">
+              No Log Hours rows yet for <strong>this</strong> account. Use the <strong>Log Hours</strong> button below, submit while signed in, and rows will appear here with{" "}
+              <strong>View certificate</strong>.
+            </div>
+          ) : (
+            <div className="mt-6 overflow-x-auto rounded-lg border border-indigo-200/60 bg-white/50 shadow-sm">
+              <table className="w-full min-w-[640px] text-left text-sm text-zinc-800">
+                <thead>
+                  <tr className="border-b border-indigo-200/80 bg-indigo-50/90 text-xs font-bold uppercase tracking-wide text-indigo-900">
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Activity</th>
+                    <th className="px-4 py-3">Hours</th>
+                    <th className="px-4 py-3 text-right">Certificate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loggedHoursList.map((row) => {
+                    const d = new Date(row.date);
+                    const dateLabel = Number.isNaN(d.getTime())
+                      ? "—"
+                      : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+                    return (
+                      <tr key={row.id} className="border-b border-indigo-100/80 last:border-0">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium">{dateLabel}</td>
+                        <td className="px-4 py-3">{row.activityCategory}</td>
+                        <td className="whitespace-nowrap px-4 py-3">{row.hours}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Link
+                            href={certificatePathFromLoggedHoursRow({
+                              volunteerName: row.volunteerName,
+                              location: row.location,
+                              activityCategory: row.activityCategory,
+                              hours: row.hours,
+                              date: row.date,
+                              comments: row.comments,
+                            })}
+                            className="inline-block rounded-full bg-emerald-800 px-4 py-2 text-xs font-bold tracking-wide text-white shadow hover:bg-emerald-900"
+                          >
+                            View certificate
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Log Hours button - same style as Home page */}

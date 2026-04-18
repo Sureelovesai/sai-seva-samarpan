@@ -5,7 +5,21 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SEVA_CATEGORIES, SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
-import { SevaAdminCalendarSection } from "@/app/_components/SevaAdminCalendarSection";
+import {
+  canSeeSevaActivityTiles,
+  hasSevaActivityAdminRole,
+} from "@/lib/sevaActivityAdminRoles";
+
+/** Same image-strip height on every tile so the bottom edges line up across the row. */
+const ADMIN_TILE_IMAGE_STRIP_CLASS = "h-[160px]";
+
+/**
+ * Roles artwork is portrait; scale up slightly from the bottom so it uses more width.
+ * Raise toward 1.12 for a larger look; lower toward 1.04 if anything clips. Transform origin
+ * keeps the “ADMIN” band at the bottom of the strip.
+ */
+const ROLES_TILE_IMAGE_CLASS =
+  "object-contain object-bottom origin-bottom scale-[1.08]";
 
 /** Dedupe by id so React never sees duplicate keys (first occurrence wins). */
 function uniqById<T extends { id: string }>(arr: T[]): T[] {
@@ -113,7 +127,7 @@ export default function SevaAdminDashboardPage() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [role, setRole] = useState<"ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   // Analytics filters (form state)
   const [filterCenter, setFilterCenter] = useState("All");
@@ -166,7 +180,7 @@ export default function SevaAdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (role !== "ADMIN" && role !== "SEVA_COORDINATOR") return;
+    if (!hasSevaActivityAdminRole(userRoles)) return;
     let cancelled = false;
     async function load() {
       try {
@@ -180,7 +194,7 @@ export default function SevaAdminDashboardPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, [role]);
+  }, [userRoles]);
 
   const fetchPendingBlogPosts = useCallback(() => {
     if (role !== "ADMIN" && role !== "BLOG_ADMIN") return;
@@ -403,7 +417,7 @@ export default function SevaAdminDashboardPage() {
   }, [appliedFilters]);
 
   useEffect(() => {
-    if (role !== "ADMIN" && role !== "SEVA_COORDINATOR") return;
+    if (!hasSevaActivityAdminRole(userRoles)) return;
     let cancelled = false;
     setAnalyticsLoading(true);
     fetchAnalytics()
@@ -415,7 +429,7 @@ export default function SevaAdminDashboardPage() {
         if (!cancelled) setAnalyticsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [role, fetchAnalytics]);
+  }, [userRoles, fetchAnalytics]);
 
   const handleApplyFilters = () => {
     setAppliedFilters({
@@ -539,25 +553,30 @@ export default function SevaAdminDashboardPage() {
                 imgSrc="/tile-add-seva.jpg"
                 imgAlt="Add Seva"
                 buttonText="Add Seva"
+                imageStripClassName={ADMIN_TILE_IMAGE_STRIP_CLASS}
               />
               <AdminTile
                 href="/admin/manage-seva"
                 imgSrc="/tile-manage-seva.jpg"
                 imgAlt="Manage Seva"
                 buttonText="Manage Seva"
+                imageStripClassName={ADMIN_TILE_IMAGE_STRIP_CLASS}
               />
               <AdminTile
                 href="/admin/seva-signups"
                 imgSrc="/tile-signups.jpg"
                 imgAlt="View Sign Ups"
                 buttonText="View Sign Ups"
+                imageStripClassName={ADMIN_TILE_IMAGE_STRIP_CLASS}
               />
               {role === "ADMIN" && (
                 <AdminTile
                   href="/admin/roles"
+                  imgSrc="/Roles_Image.jpeg"
+                  imgAlt="Roles"
                   buttonText="Roles"
-                  titleText="Roles"
-                  titleBackgroundClass="bg-indigo-800"
+                  imageStripClassName={ADMIN_TILE_IMAGE_STRIP_CLASS}
+                  imgClassName={ROLES_TILE_IMAGE_CLASS}
                 />
               )}
             </div>
@@ -573,7 +592,7 @@ export default function SevaAdminDashboardPage() {
               <span className="text-amber-900/70"> — AI summaries by date, center, or USA region</span>
             </p>
           )}
-          {(role === "ADMIN" || role === "SEVA_COORDINATOR") && (
+          {canSeeSevaActivityTiles(userRoles) && (
             <p className="mt-3 text-center text-sm">
               <Link
                 href="/admin/seva-dashboard#pending-community-outreach"
@@ -821,9 +840,6 @@ export default function SevaAdminDashboardPage() {
             />
           </div>
         </section>
-
-        {/* ================= ACTIVITY CALENDAR (ADMIN / SEVA COORDINATOR) ================= */}
-        <SevaAdminCalendarSection role={role} />
 
         {/* ================= ANALYTICS ================= */}
         <section className="mt-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-lg">
@@ -1682,15 +1698,20 @@ function AdminTile(props: {
   href: string;
   imgSrc?: string;
   imgAlt?: string;
+  /** Tailwind height classes for the image strip (default h-[160px]) */
+  imageStripClassName?: string;
+  /** Extra classes for the image (e.g. object-bottom so bottom of a portrait asset stays in frame) */
+  imgClassName?: string;
   buttonText: string;
   /** When set, show text + background instead of an image in the top block */
   titleText?: string;
   titleBackgroundClass?: string;
 }) {
   const useTextBlock = Boolean(props.titleText);
+  const stripH = props.imageStripClassName ?? "h-[160px]";
   return (
     <div className="overflow-hidden bg-yellow-200/85 shadow-[0_10px_25px_rgba(0,0,0,0.20)]">
-      <div className={`relative h-[160px] w-full ${useTextBlock ? "" : "bg-white"}`}>
+      <div className={`relative w-full ${stripH} ${useTextBlock ? "" : "bg-white"}`}>
         {useTextBlock ? (
           <div
             className={`flex h-full w-full items-center justify-center ${props.titleBackgroundClass ?? "bg-slate-700"}`}
@@ -1704,7 +1725,8 @@ function AdminTile(props: {
             src={props.imgSrc!}
             alt={props.imgAlt ?? ""}
             fill
-            className="object-cover"
+            className={props.imgClassName?.trim() ? props.imgClassName : "object-cover"}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
           />
         )}
       </div>

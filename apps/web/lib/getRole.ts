@@ -1,10 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth";
+import { parseCoordinatorRegionsList } from "@/lib/usaRegions";
+import type { UsaRegionLabel } from "@/lib/usaRegions";
 
-export type AppRole = "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | "EVENT_ADMIN";
+export type AppRole =
+  | "ADMIN"
+  | "BLOG_ADMIN"
+  | "VOLUNTEER"
+  | "SEVA_COORDINATOR"
+  | "REGIONAL_SEVA_COORDINATOR"
+  | "NATIONAL_SEVA_COORDINATOR"
+  | "EVENT_ADMIN";
 
 /** Primary role order (highest first). Used to pick a single "role" for backward compatibility. */
-const ROLE_ORDER: AppRole[] = ["ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR", "EVENT_ADMIN", "VOLUNTEER"];
+const ROLE_ORDER: AppRole[] = [
+  "ADMIN",
+  "BLOG_ADMIN",
+  "NATIONAL_SEVA_COORDINATOR",
+  "REGIONAL_SEVA_COORDINATOR",
+  "SEVA_COORDINATOR",
+  "EVENT_ADMIN",
+  "VOLUNTEER",
+];
 
 export type SessionWithRole = {
   sub: string;
@@ -14,6 +31,8 @@ export type SessionWithRole = {
   /** Primary role (highest-precedence assigned role, or VOLUNTEER if none). */
   role: AppRole;
   coordinatorCities: string[] | null;
+  /** Canonical USA region labels for REGIONAL_SEVA_COORDINATOR (e.g. Region 3). */
+  coordinatorRegions: UsaRegionLabel[] | null;
 };
 
 /**
@@ -27,7 +46,7 @@ export async function getSessionWithRole(
   const session = getSessionFromCookie(cookieHeader);
   if (!session) return null;
 
-  let assignments: { role: string; cities: string | null }[] = [];
+  let assignments: { role: string; cities: string | null; regions: string | null }[] = [];
   try {
     const rows = await prisma.roleAssignment.findMany({
       where: { email: { equals: session.email, mode: "insensitive" } },
@@ -53,12 +72,20 @@ export async function getSessionWithRole(
         .filter(Boolean)
     : null;
 
+  const regionalAssignment = assignments.find(
+    (a) => a.role === "REGIONAL_SEVA_COORDINATOR" && a.regions
+  );
+  const coordinatorRegions: UsaRegionLabel[] | null = regionalAssignment?.regions
+    ? parseCoordinatorRegionsList(regionalAssignment.regions)
+    : null;
+
   return {
     sub: session.sub,
     email: session.email,
     roles,
     role,
     coordinatorCities,
+    coordinatorRegions,
   };
 }
 
@@ -70,16 +97,31 @@ export function hasRole(session: SessionWithRole | null, ...allowed: AppRole[]):
 
 /** Seva / blog / full admin surfaces (not event-only). */
 export function canAccessSevaAdminSurfaces(session: SessionWithRole | null): boolean {
-  return hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR");
+  return hasRole(
+    session,
+    "ADMIN",
+    "BLOG_ADMIN",
+    "SEVA_COORDINATOR",
+    "REGIONAL_SEVA_COORDINATOR",
+    "NATIONAL_SEVA_COORDINATOR"
+  );
 }
 
 /** Portal events APIs and event admin pages. */
 export function canManagePortalEvents(session: SessionWithRole | null): boolean {
-  return hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR", "EVENT_ADMIN");
+  return hasRole(
+    session,
+    "ADMIN",
+    "BLOG_ADMIN",
+    "SEVA_COORDINATOR",
+    "REGIONAL_SEVA_COORDINATOR",
+    "NATIONAL_SEVA_COORDINATOR",
+    "EVENT_ADMIN"
+  );
 }
 
 /**
- * User has EVENT_ADMIN and no ADMIN / BLOG_ADMIN / SEVA_COORDINATOR — restrict UI to event admin only.
+ * User has EVENT_ADMIN and no ADMIN / BLOG_ADMIN / seva coordinator roles — restrict UI to event admin only.
  */
 export function isEventAdminOnlyUser(session: SessionWithRole | null): boolean {
   if (!session) return false;

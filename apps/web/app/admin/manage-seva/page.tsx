@@ -13,7 +13,34 @@ type Activity = {
   status: string;
   startDate: string | null;
   endDate: string | null;
+  /** CENTER | REGIONAL | NATIONAL — omitted on legacy rows treated as center */
+  scope?: string;
+  sevaUsaRegion?: string | null;
 };
+
+type LevelFilter = "All" | "CENTER" | "REGIONAL" | "NATIONAL";
+
+function activityLevel(a: Activity): "CENTER" | "REGIONAL" | "NATIONAL" {
+  const s = a.scope;
+  if (s === "REGIONAL" || s === "NATIONAL") return s;
+  return "CENTER";
+}
+
+function levelBadgeClass(level: "CENTER" | "REGIONAL" | "NATIONAL"): string {
+  if (level === "NATIONAL") return "bg-amber-100 text-amber-950 ring-amber-400/60";
+  if (level === "REGIONAL") return "bg-indigo-100 text-indigo-950 ring-indigo-400/60";
+  return "bg-emerald-100 text-emerald-950 ring-emerald-400/60";
+}
+
+function levelDisplayLine(a: Activity): string {
+  const level = activityLevel(a);
+  if (level === "REGIONAL" && a.sevaUsaRegion?.trim()) {
+    return `Regional · ${a.sevaUsaRegion.trim()}`;
+  }
+  if (level === "REGIONAL") return "Regional level";
+  if (level === "NATIONAL") return "National level";
+  return "Center level";
+}
 
 /** Last calendar day of the activity (UTC date key); same logic as public listings. */
 function isPastBySchedule(a: Pick<Activity, "startDate" | "endDate">): boolean {
@@ -41,6 +68,7 @@ function uniqById<T extends { id: string }>(arr: T[]): T[] {
 
 export default function ManageSevaPage() {
   const [status, setStatus] = useState<"All" | "Active" | "Inactive">("All");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("All");
   const [q, setQ] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,14 +129,16 @@ export default function ManageSevaPage() {
           : status === "Active"
             ? label === "Active"
             : label === "Inactive" || label === "Completed";
-      const meta = [a.category, a.city, a.description].filter(Boolean).join(" ");
+      const okLevel =
+        levelFilter === "All" ? true : activityLevel(a) === levelFilter;
+      const meta = [a.category, a.city, a.description, a.sevaUsaRegion].filter(Boolean).join(" ");
       const okText =
         !text ||
         a.title.toLowerCase().includes(text) ||
         meta.toLowerCase().includes(text);
-      return okStatus && okText;
+      return okStatus && okLevel && okText;
     });
-  }, [activities, status, q]);
+  }, [activities, status, levelFilter, q]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_35%_15%,rgba(255,255,255,0.75),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(90,140,240,0.75),rgba(200,210,235,0.7),rgba(190,170,210,0.75))]">
@@ -195,7 +225,26 @@ export default function ManageSevaPage() {
         )}
 
         <div className="mt-10 rounded-none bg-white/90 px-8 py-8 shadow-[0_10px_25px_rgba(0,0,0,0.18)]">
-          <div className="grid gap-10 md:grid-cols-[1fr_1fr] md:items-end">
+          <div className="grid gap-8 md:grid-cols-3 md:items-end">
+            <div>
+              <label className="block text-lg font-semibold text-zinc-900">
+                Level
+              </label>
+              <p className="mt-1 text-xs text-zinc-600">
+                Filter by center, regional, or national seva activities.
+              </p>
+              <select
+                value={levelFilter}
+                onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
+                className="mt-2 w-full rounded-none border border-zinc-700 bg-white px-5 py-4 text-zinc-900 outline-none"
+              >
+                <option value="All">All levels</option>
+                <option value="CENTER">Center level</option>
+                <option value="REGIONAL">Regional level</option>
+                <option value="NATIONAL">National level</option>
+              </select>
+            </div>
+
             <div>
               <label className="block text-lg font-semibold text-zinc-900">
                 Seva Activity – Status
@@ -218,7 +267,7 @@ export default function ManageSevaPage() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search title / category / city"
+                placeholder="Search title / category / city / region"
                 className="mt-3 w-full rounded-none border border-zinc-700 bg-white px-5 py-4 text-zinc-900 outline-none"
               />
             </div>
@@ -235,10 +284,24 @@ export default function ManageSevaPage() {
             >
               <div className="grid gap-6 md:grid-cols-[1fr_minmax(0,420px)_minmax(0,280px)] md:items-center">
                 <div>
-                  <div className="text-3xl font-extrabold text-zinc-800">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ring-1 ${levelBadgeClass(activityLevel(a))}`}
+                    >
+                      {activityLevel(a) === "CENTER"
+                        ? "Center"
+                        : activityLevel(a) === "REGIONAL"
+                          ? "Regional"
+                          : "National"}
+                    </span>
+                  </div>
+                  <div className="mt-3 text-3xl font-extrabold text-zinc-800">
                     {a.title}
                   </div>
-                  <div className="mt-6 text-2xl font-extrabold text-amber-800">
+                  <div className="mt-2 text-sm font-semibold text-zinc-600">
+                    {levelDisplayLine(a)}
+                  </div>
+                  <div className="mt-4 text-2xl font-extrabold text-amber-800">
                     {a.category} · {a.city}
                   </div>
                 </div>

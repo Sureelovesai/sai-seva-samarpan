@@ -7,9 +7,15 @@ function isEventAdminPath(pathname: string): boolean {
   );
 }
 
+/** Volunteer certificate (print view): immersive page — no global header (back link in route layout). */
+function isLogHoursCertificatePath(pathname: string): boolean {
+  return pathname === "/log-hours/certificate" || pathname.startsWith("/log-hours/certificate/");
+}
+
 /** Public /events and Event Admin: no main site header (logo + menu). */
 export function shouldHideSiteHeader(pathname: string | null): boolean {
   if (!pathname) return false;
+  if (isLogHoursCertificatePath(pathname)) return true;
   if (pathname === "/events" || pathname.startsWith("/events/")) return true;
   return isEventAdminPath(pathname);
 }
@@ -19,6 +25,7 @@ export function shouldHideSiteHeader(pathname: string | null): boolean {
  */
 export function shouldHideFooterAndChatbot(pathname: string | null): boolean {
   if (!pathname) return false;
+  if (isLogHoursCertificatePath(pathname)) return true;
   if (pathname === "/events" || pathname.startsWith("/events/")) return true;
   return isEventAdminPath(pathname);
 }

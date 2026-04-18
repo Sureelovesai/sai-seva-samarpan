@@ -6,9 +6,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CENTERS_FOR_FILTER, CITIES, FIND_SEVA_LAST_CENTER_STORAGE_KEY } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
-import { USA_REGIONS_FOR_FILTER, parseUsaRegionParam } from "@/lib/usaRegions";
-
-const ACTIVITY_STATUS_OPTIONS = ["All", "DRAFT", "PUBLISHED", "ARCHIVED"] as const;
+import { USA_REGIONS_FOR_FILTER, usaRegionFromUrlParams } from "@/lib/usaRegions";
+import { SevaLevelTabInfoIcon, SEVA_LEVEL_TAB_INFO } from "@/app/_components/SevaLevelTabInfoIcon";
 
 function persistLastFindSevaCenter(center: string) {
   try {
@@ -20,12 +19,18 @@ function persistLastFindSevaCenter(center: string) {
   }
 }
 
+type LevelTab = "center" | "regional" | "national";
+
 type SevaActivity = {
   id: string;
   title: string;
   category: string;
   description: string | null;
   city: string;
+  scope?: string;
+  sevaUsaRegion?: string | null;
+  /** Present when activity belongs to a published program group */
+  group?: { id: string; title: string } | null;
   organizationName: string | null;
   startDate: string | null; // ISO string
   endDate: string | null;
@@ -147,6 +152,91 @@ function formatDateOnly(iso: string | null | undefined): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function FindSevaActivityRow({
+  item,
+  levelTab,
+  nestedUnderProgram = false,
+}: {
+  item: SevaActivity;
+  levelTab: LevelTab;
+  /** When true, this row sits under a program heading — only the activity title is shown here, not the program name. */
+  nestedUnderProgram?: boolean;
+}) {
+  return (
+    <div
+      className={`mx-auto grid w-full min-w-0 grid-cols-1 items-stretch shadow-[0_10px_25px_rgba(0,0,0,0.22)] md:grid-cols-[minmax(0,180px)_minmax(0,1fr)] md:overflow-hidden ${nestedUnderProgram ? "ring-1 ring-indigo-900/10" : ""}`}
+    >
+      <div className="flex min-h-[140px] w-full items-center justify-center overflow-hidden bg-zinc-200 md:min-h-0 md:h-full md:w-[180px] md:shrink-0">
+        <div className="relative aspect-[9/8] w-full max-w-[min(100%,280px)] overflow-hidden md:max-w-[180px]">
+          {(() => {
+            const src = item.imageUrl ?? "/swami-circle.jpeg";
+            const isRelativeOrBlob = src.startsWith("/") || src.includes("blob.vercel-storage.com");
+            if (isRelativeOrBlob) {
+              return (
+                <Image
+                  src={src}
+                  alt={item.title}
+                  fill
+                  className="object-contain object-center"
+                  sizes="(max-width: 767px) 90vw, 180px"
+                />
+              );
+            }
+            return (
+              <img
+                src={src}
+                alt={item.title}
+                className="absolute inset-0 h-full w-full object-contain object-center"
+              />
+            );
+          })()}
+        </div>
+      </div>
+
+      <div
+        className={`${tileBg(item.category)} min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10`}
+      >
+        <div className="break-words text-2xl font-semibold tracking-wide text-zinc-900 sm:text-3xl">
+          {item.title}
+        </div>
+
+        <div className="mt-3 break-words text-base font-semibold leading-snug text-zinc-800 sm:text-lg">
+          {formatWhenWhere(item)}
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2 break-words text-sm font-semibold text-zinc-700">
+          <span>{item.category}</span>
+          {levelTab === "regional" && item.sevaUsaRegion && (
+            <span className="rounded border border-indigo-400 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-900">
+              {item.sevaUsaRegion}
+            </span>
+          )}
+          {levelTab === "national" && (
+            <span className="rounded border border-amber-600 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950">
+              National
+            </span>
+          )}
+        </div>
+
+        {item.organizationName && (
+          <div className="mt-2 break-words text-base font-semibold text-indigo-900">
+            {item.organizationName}
+          </div>
+        )}
+
+        <div className="mt-6 md:mt-8">
+          <Link
+            href={`/seva-activities?id=${encodeURIComponent(item.id)}`}
+            className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
+          >
+            View Details
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatWhenWhere(a: SevaActivity) {
   const city = a.city || "";
   const startStr = formatDateOnly(a.startDate);
@@ -172,21 +262,31 @@ function formatWhenWhere(a: SevaActivity) {
   return [parts, city].filter(Boolean).join(" — ");
 }
 
-function initialActivityStatus(sp: ReturnType<typeof useSearchParams>) {
-  const st = sp.get("activityStatus");
-  if (st === "DRAFT" || st === "PUBLISHED" || st === "ARCHIVED") return st;
-  return "All";
+function initialFromDate(sp: ReturnType<typeof useSearchParams>) {
+  const f = sp.get("fromDate");
+  if (f && /^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
+  const legacy = sp.get("date");
+  if (legacy && /^\d{4}-\d{2}-\d{2}$/.test(legacy)) return legacy;
+  return "";
 }
 
-function initialDate(sp: ReturnType<typeof useSearchParams>) {
-  const date = sp.get("date");
-  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
+function initialToDate(sp: ReturnType<typeof useSearchParams>) {
+  const t = sp.get("toDate");
+  if (t && /^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const legacy = sp.get("date");
+  if (legacy && /^\d{4}-\d{2}-\d{2}$/.test(legacy)) return legacy;
+  return "";
 }
 
 function initialUsaRegion(sp: ReturnType<typeof useSearchParams>) {
-  const r = sp.get("usaRegion") || "";
-  const canon = parseUsaRegionParam(r);
-  return canon ?? "All";
+  return usaRegionFromUrlParams((k) => sp.get(k)) ?? "All";
+}
+
+function initialLevelTab(sp: ReturnType<typeof useSearchParams>): LevelTab {
+  const raw = (sp.get("level") || "").toLowerCase();
+  if (raw === "regional") return "regional";
+  if (raw === "national") return "national";
+  return "center";
 }
 
 /** Remount when query string changes so state matches deep links (e.g. admin calendar). */
@@ -202,19 +302,30 @@ function FindSevaContent() {
   const [center, setCenter] = useState(() => sp.get("city") || "All");
   const [usaRegion, setUsaRegion] = useState(() => initialUsaRegion(sp));
   const [q, setQ] = useState("");
-  const [eventDate, setEventDate] = useState(() => initialDate(sp));
-  const [activityStatus, setActivityStatus] = useState(() => initialActivityStatus(sp));
-
-  const [appliedCategory, setAppliedCategory] = useState(() => sp.get("category") || "All");
-  const [appliedCenter, setAppliedCenter] = useState(() => sp.get("city") || "All");
-  const [appliedUsaRegion, setAppliedUsaRegion] = useState(() => initialUsaRegion(sp));
-  const [appliedQ, setAppliedQ] = useState("");
-  const [appliedDate, setAppliedDate] = useState(() => initialDate(sp));
-  const [appliedActivityStatus, setAppliedActivityStatus] = useState(() => initialActivityStatus(sp));
+  const [fromDate, setFromDate] = useState(() => initialFromDate(sp));
+  const [toDate, setToDate] = useState(() => initialToDate(sp));
+  const [levelTab, setLevelTab] = useState<LevelTab>(() => initialLevelTab(sp));
 
   const [items, setItems] = useState<SevaActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+
+  /**
+   * `useSearchParams()` is often empty on the first client render, then updates after hydration.
+   * Without this sync, deep links like `?usaRegion=Region%203` never reach filter state.
+   */
+  const urlSyncKey = sp.toString();
+  useEffect(() => {
+    const cat = sp.get("category") || "All";
+    const city = sp.get("city") || "All";
+    const region = initialUsaRegion(sp);
+    setCategory(cat);
+    setCenter(city);
+    setUsaRegion(region);
+    setFromDate(initialFromDate(sp));
+    setToDate(initialToDate(sp));
+    setLevelTab(initialLevelTab(sp));
+  }, [urlSyncKey]);
 
   useEffect(() => {
     const fromUrl = sp.get("city")?.trim();
@@ -223,7 +334,13 @@ function FindSevaContent() {
     }
   }, [sp]);
 
-  // Fetch from DB whenever applied filters change
+  useEffect(() => {
+    if (levelTab === "center" && center && center !== "All" && (CITIES as readonly string[]).includes(center)) {
+      persistLastFindSevaCenter(center);
+    }
+  }, [center, levelTab]);
+
+  // Fetch from DB whenever server-side filters change (search text is client-only fuzzy filter)
   useEffect(() => {
     let cancelled = false;
 
@@ -233,16 +350,37 @@ function FindSevaContent() {
 
       try {
         const params = new URLSearchParams();
-        if (appliedCategory) params.set("category", appliedCategory);
-        if (appliedCenter) params.set("city", appliedCenter);
-        if (appliedUsaRegion && appliedUsaRegion !== "All") {
-          params.set("usaRegion", appliedUsaRegion);
+        if (category && category !== "All") {
+          params.set("category", category);
         }
-        if (appliedDate && /^\d{4}-\d{2}-\d{2}$/.test(appliedDate)) {
-          params.set("date", appliedDate);
+        if (levelTab === "center") {
+          if (center && center !== "All") {
+            params.set("city", center);
+          }
+          if (usaRegion && usaRegion !== "All") {
+            params.set("usaRegion", usaRegion);
+          }
+          params.set("sevaScope", "CENTER");
+        } else if (levelTab === "regional") {
+          if (usaRegion && usaRegion !== "All") {
+            params.set("usaRegion", usaRegion);
+          }
+          params.set("sevaScope", "REGIONAL");
+        } else {
+          params.set("sevaScope", "NATIONAL");
         }
-        if (appliedActivityStatus && appliedActivityStatus !== "All") {
-          params.set("activityStatus", appliedActivityStatus);
+        const dk = /^\d{4}-\d{2}-\d{2}$/;
+        const fOk = fromDate && dk.test(fromDate);
+        const tOk = toDate && dk.test(toDate);
+        if (fOk && tOk) {
+          params.set("fromDate", fromDate);
+          params.set("toDate", toDate);
+        } else if (fOk && !toDate) {
+          params.set("fromDate", fromDate);
+          params.set("toDate", fromDate);
+        } else if (tOk && !fromDate) {
+          params.set("fromDate", toDate);
+          params.set("toDate", toDate);
         }
 
         const res = await fetch(`/api/seva-activities?${params.toString()}`, {
@@ -271,11 +409,11 @@ function FindSevaContent() {
     return () => {
       cancelled = true;
     };
-  }, [appliedCategory, appliedCenter, appliedUsaRegion, appliedDate, appliedActivityStatus]);
+  }, [category, center, usaRegion, fromDate, toDate, levelTab]);
 
   // Fuzzy search is applied client-side to whatever came from DB
   const filtered = useMemo(() => {
-    const query = appliedQ.trim();
+    const query = q.trim();
     if (!query) return items;
 
     return items.filter((a) => {
@@ -287,14 +425,136 @@ function FindSevaContent() {
         a.organizationName || "",
         a.locationName || "",
         a.address || "",
+        a.group?.title || "",
       ].join(" ");
       return fuzzyMatch(query, blob);
     });
-  }, [items, appliedQ]);
+  }, [items, q]);
+
+  /** Merge activities into one program block per *title*, not per DB row id — coordinators may create multiple group rows with the same name (e.g. two "Retreat" groups). */
+  const groupedForDisplay = useMemo(() => {
+    const normalizeProgramKey = (title: string) =>
+      title
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+
+    const byProgramTitle = new Map<string, { displayTitle: string; items: SevaActivity[] }>();
+    const ungrouped: SevaActivity[] = [];
+    const sortKey = (a: SevaActivity) => {
+      const d = a.startDate ? String(a.startDate).slice(0, 10) : "";
+      return [d, a.title || ""].join("\0");
+    };
+    const sortItems = (arr: SevaActivity[]) =>
+      [...arr].sort((a, b) => sortKey(a).localeCompare(sortKey(b), undefined, { sensitivity: "base" }));
+
+    for (const a of filtered) {
+      const g = a.group;
+      if (g?.title) {
+        const key = normalizeProgramKey(g.title);
+        const displayTitle = g.title.trim();
+        const ex = byProgramTitle.get(key);
+        if (ex) {
+          ex.items.push(a);
+        } else {
+          byProgramTitle.set(key, { displayTitle, items: [a] });
+        }
+      } else {
+        ungrouped.push(a);
+      }
+    }
+    const groupEntries = [...byProgramTitle.entries()]
+      .map(([mergeKey, v]) => ({
+        mergeKey,
+        title: v.displayTitle,
+        items: sortItems(v.items),
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+    return { groupEntries, ungrouped: sortItems(ungrouped) };
+  }, [filtered]);
 
   return (
     <div className="min-h-screen pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
       <div className="mx-auto max-w-6xl px-4 py-10">
+        {/* LEVEL TABS */}
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <div className="inline-flex w-full max-w-3xl overflow-visible rounded-lg border-2 border-indigo-800/80 bg-white/90 shadow-md">
+            {(
+              [
+                { id: "center" as const, label: "Center level", info: SEVA_LEVEL_TAB_INFO.center },
+                { id: "regional" as const, label: "Regional level", info: SEVA_LEVEL_TAB_INFO.regional },
+                { id: "national" as const, label: "National level", info: SEVA_LEVEL_TAB_INFO.national },
+              ] as const
+            ).map((tab, i) => {
+              const active = levelTab === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 py-2 pl-1 pr-0.5 sm:gap-1 sm:py-3 sm:pl-2 sm:pr-1 md:pl-3 md:pr-2 ${
+                    i === 0 ? "rounded-l-[calc(0.5rem-2px)]" : ""
+                  } ${i === 2 ? "rounded-r-[calc(0.5rem-2px)]" : ""} ${
+                    i > 0 ? "border-l border-indigo-300" : ""
+                  } ${active ? "bg-indigo-800 text-white" : "bg-white text-indigo-900 hover:bg-indigo-50"}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLevelTab(tab.id)}
+                    className="min-w-0 flex-1 px-1 text-center text-sm font-semibold transition-colors sm:px-2 sm:text-base"
+                  >
+                    {tab.label}
+                  </button>
+                  <SevaLevelTabInfoIcon
+                    text={tab.info}
+                    variant={active ? "findSevaActive" : "findSevaInactive"}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Narrow portrait phones only — jump to list; hidden in landscape and on md+ */}
+        <div className="mb-5 hidden max-md:portrait:flex flex-col items-center gap-1">
+          <button
+            type="button"
+            className="inline-flex max-w-[min(100%,17rem)] items-center justify-center rounded-full border border-indigo-700 bg-indigo-800 px-4 py-2 text-center text-xs font-bold tracking-wide text-white shadow-sm transition hover:bg-indigo-900 active:scale-[0.98]"
+            aria-controls="find-seva-results"
+            onClick={() => {
+              document.getElementById("find-seva-results")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
+          >
+            Jump to activities list ↓
+          </button>
+          <span className="max-w-[16rem] text-center text-[10px] leading-tight text-zinc-500">
+            Or scroll down to set category, center, dates, then browse results.
+          </span>
+        </div>
+
+        <p className="mb-6 text-center text-sm text-zinc-700">
+          {levelTab === "center" && (
+            <>
+              Center-level seva is tied to a Sai center / city. This is the usual local Find Seva list.
+            </>
+          )}
+          {levelTab === "regional" && (
+            <>
+              Activities posted by <strong>Regional Seva Coordinators</strong> for a USA region. Use{" "}
+              <strong>USA Region</strong> below to narrow to your area.
+            </>
+          )}
+          {levelTab === "national" && (
+            <>
+              Activities posted by <strong>National Seva Coordinators</strong> for the whole organization.
+            </>
+          )}
+        </p>
+        <p className="mb-6 text-center text-xs text-zinc-600">
+          Category, center, region, and dates update the list as soon as you change them.
+        </p>
+
         {/* FILTERS */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
           <div>
@@ -314,206 +574,192 @@ function FindSevaContent() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">
-              Sri Sathya Sai Center/ Group
-            </label>
-            <select
-              value={center}
-              onChange={(e) => setCenter(e.target.value)}
-              className="mt-2 w-full rounded-none border-b-2 border-b-indigo-600 border-transparent bg-white px-4 py-3 text-zinc-900 outline-none"
-            >
-              {CENTERS_FOR_FILTER.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          {levelTab === "center" && (
+            <div>
+              <label className="block text-sm font-semibold text-zinc-800">
+                Sri Sathya Sai Center/ Group
+              </label>
+              <select
+                value={center}
+                onChange={(e) => setCenter(e.target.value)}
+                className="mt-2 w-full rounded-none border-b-2 border-b-indigo-600 border-transparent bg-white px-4 py-3 text-zinc-900 outline-none"
+              >
+                {CENTERS_FOR_FILTER.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {(levelTab === "center" || levelTab === "regional") && (
+            <div>
+              <label className="block text-sm font-semibold text-zinc-800">
+                USA Region
+              </label>
+              <select
+                value={usaRegion}
+                onChange={(e) => setUsaRegion(e.target.value)}
+                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              >
+                {USA_REGIONS_FOR_FILTER.map((r) => (
+                  <option key={r} value={r}>
+                    {r === "All" ? "All regions" : r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-zinc-800">
-              USA Region
-            </label>
-            <select
-              value={usaRegion}
-              onChange={(e) => setUsaRegion(e.target.value)}
-              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
-            >
-              {USA_REGIONS_FOR_FILTER.map((r) => (
-                <option key={r} value={r}>
-                  {r === "All" ? "All regions" : r}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">
-              Event date (optional)
+              From Date
             </label>
             <input
               type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
               className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">
-              Activity status
-            </label>
-            <select
-              value={activityStatus}
-              onChange={(e) => setActivityStatus(e.target.value)}
-              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
-            >
-              {ACTIVITY_STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s === "All" ? "All (default)" : s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">Search</label>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setAppliedCategory(category);
-                  setAppliedCenter(center);
-                  persistLastFindSevaCenter(center);
-                  setAppliedUsaRegion(usaRegion);
-                  setAppliedQ(q);
-                  setAppliedDate(eventDate);
-                  setAppliedActivityStatus(activityStatus);
-                }
-              }}
-              placeholder="Search Seva"
-              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
-            />
-          </div>
-
-          <div className="md:pb-[2px]">
-            <button
-              type="button"
-              onClick={() => {
-                setAppliedCategory(category);
-                setAppliedCenter(center);
-                persistLastFindSevaCenter(center);
-                setAppliedUsaRegion(usaRegion);
-                setAppliedQ(q);
-                setAppliedDate(eventDate);
-                setAppliedActivityStatus(activityStatus);
-              }}
-              className="mt-6 w-full bg-emerald-800 px-6 py-3 text-lg font-semibold italic text-white shadow hover:bg-emerald-900 md:mt-0"
-            >
-              Apply
-            </button>
+          <div className="grid min-w-0 grid-cols-2 gap-4 sm:col-span-2 sm:gap-6 md:items-end">
+            <div className="min-w-0">
+              <label className="block text-sm font-semibold text-zinc-800">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="block text-sm font-semibold text-zinc-800">
+                Search
+              </label>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Filter titles & descriptions below…"
+                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              />
+            </div>
           </div>
         </div>
 
         {/* STATUS LINE */}
         <div className="mt-6 space-y-1 text-center text-sm font-semibold text-zinc-800">
-          {appliedUsaRegion !== "All" && (
+          {levelTab === "center" && usaRegion !== "All" && (
             <p className="text-indigo-800">
-              Filtered by region: <span className="font-semibold">{appliedUsaRegion}</span>
-              {appliedCenter !== "All" ? (
+              Filtered by region: <span className="font-semibold">{usaRegion}</span>
+              {center !== "All" ? (
                 <>
                   {" "}
-                  and center <span className="font-semibold">{appliedCenter}</span>
+                  and center <span className="font-semibold">{center}</span>
                 </>
               ) : null}
               .
             </p>
           )}
-          {appliedDate && (
+          {levelTab === "regional" && usaRegion !== "All" && (
             <p className="text-indigo-800">
-              Showing activities that include{" "}
-              <span className="whitespace-nowrap">{appliedDate}</span> (past events included).
+              Regional activities for{" "}
+              <span className="font-semibold">{usaRegion}</span>.
+            </p>
+          )}
+          {levelTab === "regional" && usaRegion === "All" && (
+            <p className="text-indigo-800">Showing regional activities for all USA regions (use filters to narrow).</p>
+          )}
+          {fromDate && toDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate) && /^\d{4}-\d{2}-\d{2}$/.test(toDate) && (
+            <p className="text-indigo-800">
+              Showing activities scheduled on at least one day from{" "}
+              <span className="whitespace-nowrap">{fromDate}</span> through{" "}
+              <span className="whitespace-nowrap">{toDate}</span> (inclusive).
+            </p>
+          )}
+          {fromDate && !toDate && /^\d{4}-\d{2}-\d{2}$/.test(fromDate) && (
+            <p className="text-indigo-800">
+              Showing activities that include <span className="whitespace-nowrap">{fromDate}</span>.
+            </p>
+          )}
+          {!fromDate && toDate && /^\d{4}-\d{2}-\d{2}$/.test(toDate) && (
+            <p className="text-indigo-800">
+              Showing activities that include <span className="whitespace-nowrap">{toDate}</span>.
             </p>
           )}
           {loading && "Loading activities..."}
           {!loading && error && <span className="text-red-700">{error}</span>}
         </div>
 
-        {/* RESULTS */}
-        <div className="mt-8 space-y-6">
-          {filtered.map((item) => (
-            <div
-              key={item.id}
-              className="mx-auto grid w-full min-w-0 grid-cols-1 items-stretch shadow-[0_10px_25px_rgba(0,0,0,0.22)] md:grid-cols-[minmax(0,180px)_minmax(0,1fr)] md:overflow-hidden"
+        {/* RESULTS — program name (e.g. Retreat) appears once; activities below are the individual sevas in that program */}
+        <div
+          id="find-seva-results"
+          className="mt-8 space-y-10 scroll-mt-6 md:scroll-mt-4"
+        >
+          {groupedForDisplay.groupEntries.map((ge) => (
+            <section
+              key={ge.mergeKey}
+              className="rounded-2xl border border-indigo-300/50 bg-white/35 p-4 shadow-[0_8px_28px_rgba(30,50,120,0.08)] backdrop-blur-sm md:p-7"
+              aria-labelledby={`find-seva-program-${ge.mergeKey.replace(/\s+/g, "-")}`}
             >
-              {/* LEFT IMAGE — full-width row on narrow phones; fixed 180px from md up */}
-              <div className="flex min-h-[140px] w-full items-center justify-center overflow-hidden bg-zinc-200 md:min-h-0 md:h-full md:w-[180px] md:shrink-0">
-                <div className="relative aspect-[9/8] w-full max-w-[min(100%,280px)] overflow-hidden md:max-w-[180px]">
-                  {(() => {
-                    const src = item.imageUrl ?? "/swami-circle.jpeg";
-                    const isRelativeOrBlob =
-                      src.startsWith("/") || src.includes("blob.vercel-storage.com");
-                    if (isRelativeOrBlob) {
-                      return (
-                        <Image
-                          src={src}
-                          alt={item.title}
-                          fill
-                          className="object-contain object-center"
-                          sizes="(max-width: 767px) 90vw, 180px"
-                        />
-                      );
-                    }
-                    return (
-                      <img
-                        src={src}
-                        alt={item.title}
-                        className="absolute inset-0 h-full w-full object-contain object-center"
-                      />
-                    );
-                  })()}
-                </div>
+              <header className="mb-5 border-b border-indigo-200/70 pb-4 text-center md:text-left">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700/90">Program</p>
+                <h2
+                  id={`find-seva-program-${ge.mergeKey.replace(/\s+/g, "-")}`}
+                  className="mt-1 text-2xl font-bold tracking-tight text-indigo-950 sm:text-3xl"
+                >
+                  {ge.title}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
+                  {ge.items.length === 1
+                    ? "One seva activity in this program (details and sign-up are on the card below)."
+                    : `${ge.items.length} seva activities in this program — each card is its own activity with its own details.`}
+                </p>
+              </header>
+              <div className="space-y-6 border-l-[3px] border-indigo-400/55 pl-4 md:pl-6">
+                {ge.items.map((item) => (
+                  <FindSevaActivityRow
+                    key={item.id}
+                    item={item}
+                    levelTab={levelTab}
+                    nestedUnderProgram
+                  />
+                ))}
               </div>
+            </section>
+          ))}
 
-              {/* RIGHT PANEL — min-w-0 lets long lines wrap instead of clipping (narrow / foldable) */}
-              <div
-                className={`${tileBg(item.category)} min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10`}
-              >
-                <div className="break-words text-2xl font-semibold tracking-wide text-zinc-900 sm:text-3xl">
-                  {item.title}
-                </div>
-
-                <div className="mt-3 break-words text-base font-semibold leading-snug text-zinc-800 sm:text-lg">
-                  {formatWhenWhere(item)}
-                </div>
-
-                <div className="mt-2 break-words text-sm font-semibold text-zinc-700">
-                  {item.category}
-                </div>
-
-                {item.organizationName && (
-                  <div className="mt-2 break-words text-base font-semibold text-indigo-900">
-                    {item.organizationName}
-                  </div>
-                )}
-
-                <div className="mt-6 md:mt-8">
-                  <Link
-                    href={`/seva-activities?id=${encodeURIComponent(item.id)}`}
-                    className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
-                  >
-                    View Details
-                  </Link>
-                </div>
+          {groupedForDisplay.ungrouped.length > 0 && (
+            <div
+              className={
+                groupedForDisplay.groupEntries.length > 0
+                  ? "space-y-4 border-t border-indigo-200/50 pt-10"
+                  : "space-y-4"
+              }
+            >
+              {groupedForDisplay.groupEntries.length > 0 && (
+                <h2 className="border-b border-zinc-300/60 pb-2 text-center text-lg font-bold text-zinc-800 md:text-left">
+                  Other activities
+                </h2>
+              )}
+              <div className="space-y-6">
+                {groupedForDisplay.ungrouped.map((item) => (
+                  <FindSevaActivityRow key={item.id} item={item} levelTab={levelTab} />
+                ))}
               </div>
             </div>
-          ))}
+          )}
 
           {!loading && !error && filtered.length === 0 && (
             <div className="rounded-lg bg-white/70 p-6 text-center text-zinc-800">
-              No seva activities found.
+              {levelTab === "center" && "No center-level seva activities match your filters."}
+              {levelTab === "regional" &&
+                "No regional-level activities match your filters. Regional coordinators post these under Add Seva Activity → Regional."}
+              {levelTab === "national" &&
+                "No national-level activities match your filters. National coordinators post these under Add Seva Activity → National."}
             </div>
           )}
         </div>

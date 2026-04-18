@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { sendEmail } from "@/lib/email";
+import { getPortalEventsEmailFrom, sendEmail } from "@/lib/email";
 import { buildEventIcs, buildGoogleCalendarTemplateUrl } from "@/lib/portalEventCalendar";
 
 function escapeHtml(s: string): string {
@@ -78,8 +78,11 @@ export async function sendPortalEventRsvpEmails(params: {
     <p style="font-size:12px;color:#555">Google Calendar reminders (e.g. 1 day or 1 hour before) apply after you add the event, using each person’s reminder settings in Google.</p>
   `;
 
+  const fromEvents = getPortalEventsEmailFrom();
+
   if (event.organizerEmail?.trim()) {
     await sendEmail({
+      from: fromEvents,
       to: event.organizerEmail.trim(),
       subject: `[Event RSVP] ${responseLabel(signup.response)} · ${event.title}`,
       html: orgHtml,
@@ -100,6 +103,7 @@ export async function sendPortalEventRsvpEmails(params: {
   `;
 
   await sendEmail({
+    from: fromEvents,
     to: signup.email.trim(),
     subject: `RSVP recorded: ${event.title}`,
     html: volHtml,

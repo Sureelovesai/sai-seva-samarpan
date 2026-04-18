@@ -7,7 +7,14 @@ function asPostIdArray(raw: unknown): string[] {
 }
 
 export function canGenerateBlogReport(session: SessionWithRole | null): boolean {
-  return hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR");
+  return hasRole(
+    session,
+    "ADMIN",
+    "BLOG_ADMIN",
+    "SEVA_COORDINATOR",
+    "REGIONAL_SEVA_COORDINATOR",
+    "NATIONAL_SEVA_COORDINATOR"
+  );
 }
 
 /** Admins, blog admins, seva coordinators, creator, or any author of a source post. */
@@ -16,7 +23,17 @@ export async function canViewBlogReport(
   report: { createdById: string | null; sourcePostIds: unknown }
 ): Promise<boolean> {
   if (!session) return false;
-  if (hasRole(session, "ADMIN", "BLOG_ADMIN", "SEVA_COORDINATOR")) return true;
+  if (
+    hasRole(
+      session,
+      "ADMIN",
+      "BLOG_ADMIN",
+      "SEVA_COORDINATOR",
+      "REGIONAL_SEVA_COORDINATOR",
+      "NATIONAL_SEVA_COORDINATOR"
+    )
+  )
+    return true;
   if (report.createdById === session.sub) return true;
   const ids = asPostIdArray(report.sourcePostIds);
   if (ids.length === 0) return false;

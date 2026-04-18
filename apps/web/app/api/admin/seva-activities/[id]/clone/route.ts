@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SevaContributionItem } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
+import { sessionCanAccessAdminSevaActivity } from "@/lib/sevaCoordinatorActivityAccess";
 import { syncSevaContributionItems, type ContributionItemInput } from "@/lib/syncSevaContributionItems";
 
 function utcDateKey(d: Date): string {
@@ -82,11 +83,8 @@ export async function POST(
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (source.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!sessionCanAccessAdminSevaActivity(session, source)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const city = source.city?.trim() || "";
@@ -164,6 +162,8 @@ export async function POST(
         startTime,
         endTime,
         durationHours,
+        scope: source.scope,
+        sevaUsaRegion: source.sevaUsaRegion,
         city,
         locationName: source.locationName?.trim() || null,
         address,
@@ -175,6 +175,7 @@ export async function POST(
         isActive: true,
         isFeatured: false,
         status: "PUBLISHED",
+        groupId: source.groupId,
       },
     });
 

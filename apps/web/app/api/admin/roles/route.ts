@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 
-const VALID_ROLES = ["ADMIN", "BLOG_ADMIN", "VOLUNTEER", "SEVA_COORDINATOR", "EVENT_ADMIN"] as const;
+const VALID_ROLES = [
+  "ADMIN",
+  "BLOG_ADMIN",
+  "VOLUNTEER",
+  "SEVA_COORDINATOR",
+  "REGIONAL_SEVA_COORDINATOR",
+  "NATIONAL_SEVA_COORDINATOR",
+  "EVENT_ADMIN",
+] as const;
 
 export async function GET(req: Request) {
   try {
@@ -33,11 +41,15 @@ export async function POST(req: Request) {
     const email = body?.email?.trim?.();
     const role = body?.role?.trim?.();
     const cities = body?.cities?.trim?.() || null;
+    const regions = body?.regions?.trim?.() || null;
 
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
     if (!role || !VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
       return NextResponse.json(
-        { error: "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR, EVENT_ADMIN" },
+        {
+          error:
+            "Role must be one of: ADMIN, BLOG_ADMIN, VOLUNTEER, SEVA_COORDINATOR, REGIONAL_SEVA_COORDINATOR, NATIONAL_SEVA_COORDINATOR, EVENT_ADMIN",
+        },
         { status: 400 }
       );
     }
@@ -47,6 +59,7 @@ export async function POST(req: Request) {
         email,
         role: role as (typeof VALID_ROLES)[number],
         cities: role === "SEVA_COORDINATOR" ? cities : null,
+        regions: role === "REGIONAL_SEVA_COORDINATOR" ? regions : null,
       },
     });
     return NextResponse.json(created, { status: 201 });

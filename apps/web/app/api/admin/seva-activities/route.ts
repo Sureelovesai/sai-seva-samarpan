@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole } from "@/lib/getRole";
 import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
+import {
+  adminSevaActivityListWhere,
+  parseScopeFromBody,
+  validateSevaScopeForSession,
+} from "@/lib/sevaCoordinatorActivityAccess";
+import { resolveGroupIdForActivity } from "@/lib/resolveSevaActivityGroupId";
 
 function toIntOrNull(v: any): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -19,20 +25,17 @@ export async function GET(req: Request) {
   const status = searchParams.get("status"); // DRAFT | PUBLISHED
   const active = searchParams.get("active"); // true | false
 
-  const where: any = {};
+  const andParts: object[] = [];
+  const scopeWhere = adminSevaActivityListWhere(session);
+  if (scopeWhere) andParts.push(scopeWhere);
 
-  if (session.role === "SEVA_COORDINATOR") {
-    const cities = session.coordinatorCities?.length
-      ? session.coordinatorCities
-      : [];
-    where.AND = [activityCityWhere(cities)];
-  }
+  const where: Record<string, unknown> = {};
   if (status && (status === "DRAFT" || status === "PUBLISHED")) where.status = status;
   if (active === "true") where.isActive = true;
   if (active === "false") where.isActive = false;
 
   if (q) {
-    const textClause = {
+    andParts.push({
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
@@ -40,8 +43,11 @@ export async function GET(req: Request) {
         { city: { contains: q, mode: "insensitive" } },
         { locationName: { contains: q, mode: "insensitive" } },
       ],
-    };
-    where.AND = where.AND ? [...where.AND, textClause] : [textClause];
+    });
+  }
+
+  if (andParts.length) {
+    where.AND = [...andParts];
   }
 
   const items = await prisma.sevaActivity.findMany({
@@ -69,7 +75,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Category is required" }, { status: 400 });
     }
 
-    const city = body.city?.trim?.();
+    const scope = parseScopeFromBody(body);
+    const sevaUsaRegionRaw = body.sevaUsaRegion != null ? String(body.sevaUsaRegion).trim() : "";
+    const sevaUsaRegion = sevaUsaRegionRaw || null;
+
+    let city = body.city?.trim?.() ?? "";
+    if (scope === "NATIONAL" && !city) {
+      city = "National";
+    }
+
+    const scopeCheck = validateSevaScopeForSession(session, {
+      scope,
+      city,
+      sevaUsaRegion,
+    });
+    if (!scopeCheck.ok) {
+      return NextResponse.json(
+        { error: scopeCheck.error },
+        { status: scopeCheck.status ?? 400 }
+      );
+    }
+
     if (!city) {
       return NextResponse.json({ error: "City is required" }, { status: 400 });
     }
@@ -119,16 +145,19 @@ export async function POST(req: Request) {
       );
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === city.toLowerCase()
+    let resolvedGroupId: string | null = null;
+    try {
+      resolvedGroupId = await resolveGroupIdForActivity(session, body.groupId, {
+        scope,
+        city,
+        sevaUsaRegion: scope === "REGIONAL" ? sevaUsaRegion : null,
+      });
+    } catch (e: unknown) {
+      const status = (e as Error & { status?: number }).status ?? 400;
+      return NextResponse.json(
+        { error: (e as Error).message || "Invalid activity group" },
+        { status }
       );
-      if (!allowed) {
-        return NextResponse.json(
-          { error: "You can only add activities for your registered location(s)" },
-          { status: 403 }
-        );
-      }
     }
 
     const created = await prisma.sevaActivity.create({
@@ -143,6 +172,8 @@ export async function POST(req: Request) {
         endTime: String(body.endTime).trim(),
         durationHours,
 
+        scope,
+        sevaUsaRegion: scope === "REGIONAL" ? sevaUsaRegion : null,
         city,
         organizationName: body.organizationName?.trim?.() || null,
         locationName: body.locationName?.trim?.() || null,
@@ -159,6 +190,7 @@ export async function POST(req: Request) {
         isActive: body.isActive === false ? false : true,
         isFeatured: Boolean(body.isFeatured),
         status: body.status === "DRAFT" ? "DRAFT" : "PUBLISHED",
+        groupId: resolvedGroupId,
       },
     });
 

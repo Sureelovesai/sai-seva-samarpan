@@ -22,6 +22,8 @@ model User {
   blogPosts    BlogPost[]
   blogAnalyticsReports BlogAnalyticsReport[]
   communityOutreachProfile CommunityOutreachProfile?
+  /// Seva activities this user posted via Community Outreach (Manage Activity is filtered by this).
+  communityOutreachPostedActivities SevaActivity[] @relation("CommunityOutreachPostedBy")
 
   @@index([email])
 }
@@ -168,6 +170,8 @@ enum AppRole {
   BLOG_ADMIN
   VOLUNTEER
   SEVA_COORDINATOR
+  REGIONAL_SEVA_COORDINATOR
+  NATIONAL_SEVA_COORDINATOR
   EVENT_ADMIN
 }
 
@@ -176,6 +180,8 @@ model RoleAssignment {
   email     String
   role      AppRole
   cities    String?  // Comma-separated cities for SEVA_COORDINATOR (e.g. "Charlotte, Raleigh")
+  /// Comma-separated USA region labels for REGIONAL_SEVA_COORDINATOR (e.g. "Region 3, Region 7/8")
+  regions   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -184,11 +190,41 @@ model RoleAssignment {
   @@index([role])
 }
 
+enum SevaActivityScope {
+  CENTER
+  REGIONAL
+  NATIONAL
+}
+
+/// Optional program / festival grouping (e.g. Mahashivarathri) — multiple activities can share one group per scope + location.
+model SevaActivityGroup {
+  id            String             @id @default(cuid())
+  title         String
+  description   String?
+  scope         SevaActivityScope  @default(CENTER)
+  city          String
+  sevaUsaRegion String?
+  status        SevaActivityStatus @default(DRAFT)
+  sortOrder     Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  activities    SevaActivity[]
+
+  @@index([scope])
+  @@index([city])
+  @@index([sevaUsaRegion])
+  @@index([status])
+}
+
 model SevaActivity {
   id               String             @id @default(cuid())
   title            String
   category         String
   city             String
+  /// CENTER = center/city seva; REGIONAL / NATIONAL = multi-center listings managed by regional/national coordinators.
+  scope            SevaActivityScope  @default(CENTER)
+  /// When scope is REGIONAL, canonical USA region label (e.g. "Region 3"). Ignored for CENTER/NATIONAL.
+  sevaUsaRegion    String?
   /// Partner / org name (Community Outreach); shown on Find Community Activity.
   organizationName String?
   /// When true, activity is listed only on Find Community Activity, not on Find Seva / home featured / public calendar.
@@ -214,8 +250,17 @@ model SevaActivity {
   status           SevaActivityStatus @default(DRAFT)
   signups          SevaSignup[]
   contributionItems SevaContributionItem[]
+  /// Set when the activity is created via Community Outreach; used to show only "my" postings in Manage Activity.
+  communityOutreachPostedByUserId String?
+  communityOutreachPostedBy      User?    @relation("CommunityOutreachPostedBy", fields: [communityOutreachPostedByUserId], references: [id], onDelete: SetNull)
+  groupId                        String?
+  group                          SevaActivityGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   @@index([listedAsCommunityOutreach])
+  @@index([communityOutreachPostedByUserId])
+  @@index([scope])
+  @@index([sevaUsaRegion])
+  @@index([groupId])
 }
 
 /// Items volunteers can sign up to bring (e.g. food drive, supplies).
@@ -329,6 +374,8 @@ model PortalEvent {
   /// When false, public page hides the RSVP form
   signupsEnabled Boolean           @default(true)
   status         PortalEventStatus @default(DRAFT)
+  /// Set when the ~24h-before reminder batch was sent (cron); cleared when startsAt changes in admin.
+  reminderSentAt DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   signups        EventSignup[]

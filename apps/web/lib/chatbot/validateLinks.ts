@@ -1,3 +1,4 @@
+import { usaRegionFromUrlParams } from "@/lib/usaRegions";
 import { resolveCityFromText } from "./resolveCity";
 
 const ALLOWED_PATHNAMES = new Set([
@@ -67,6 +68,10 @@ export function sanitizeHelpLinks(items: unknown): HelpLink[] {
         if (resolved) params.set("city", resolved);
         else params.delete("city");
       }
+      const resolvedRegion = usaRegionFromUrlParams((k) => params.get(k));
+      params.delete("region");
+      if (resolvedRegion) params.set("usaRegion", resolvedRegion);
+      else params.delete("usaRegion");
       const qs = params.toString();
       out.push({ label, href: qs ? `${pathname}?${qs}` : pathname });
       continue;

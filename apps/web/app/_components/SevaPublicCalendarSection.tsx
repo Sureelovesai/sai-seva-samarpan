@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { USA_REGIONS_FOR_FILTER } from "@/lib/usaRegions";
+import { SevaLevelTabInfoIcon, SEVA_LEVEL_TAB_INFO } from "@/app/_components/SevaLevelTabInfoIcon";
 
 const MONTH_LABELS = [
   "January", "February", "March", "April", "May", "June",
@@ -12,13 +13,17 @@ const MONTH_LABELS = [
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+type LevelTab = "center" | "regional" | "national";
+
 /**
  * Public seva activity calendar (home page). Uses /api/seva-calendar — no login required.
+ * Level tabs and filters mirror Find Seva.
  */
 export function SevaPublicCalendarSection() {
   const now = useMemo(() => new Date(), []);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [levelTab, setLevelTab] = useState<LevelTab>("center");
   const [center, setCenter] = useState("All");
   const [usaRegion, setUsaRegion] = useState("All");
 
@@ -33,8 +38,16 @@ export function SevaPublicCalendarSection() {
       const params = new URLSearchParams();
       params.set("year", String(year));
       params.set("month", String(month));
-      if (center !== "All") params.set("center", center);
-      if (usaRegion !== "All") params.set("usaRegion", usaRegion);
+      if (levelTab === "center") {
+        params.set("sevaScope", "CENTER");
+        if (center !== "All") params.set("center", center);
+        if (usaRegion !== "All") params.set("usaRegion", usaRegion);
+      } else if (levelTab === "regional") {
+        params.set("sevaScope", "REGIONAL");
+        if (usaRegion !== "All") params.set("usaRegion", usaRegion);
+      } else {
+        params.set("sevaScope", "NATIONAL");
+      }
       const res = await fetch(`/api/seva-calendar?${params}`, {
         cache: "no-store",
       });
@@ -50,7 +63,7 @@ export function SevaPublicCalendarSection() {
     } finally {
       setLoading(false);
     }
-  }, [year, month, center, usaRegion]);
+  }, [year, month, levelTab, center, usaRegion]);
 
   useEffect(() => {
     load();
@@ -77,9 +90,18 @@ export function SevaPublicCalendarSection() {
 
   const buildFindSevaHref = (dateKey: string) => {
     const params = new URLSearchParams();
-    if (center !== "All") params.set("city", center);
-    if (usaRegion !== "All") params.set("usaRegion", usaRegion);
-    params.set("date", dateKey);
+    if (levelTab === "center") {
+      params.set("level", "center");
+      if (center !== "All") params.set("city", center);
+      if (usaRegion !== "All") params.set("usaRegion", usaRegion);
+    } else if (levelTab === "regional") {
+      params.set("level", "regional");
+      if (usaRegion !== "All") params.set("usaRegion", usaRegion);
+    } else {
+      params.set("level", "national");
+    }
+    params.set("fromDate", dateKey);
+    params.set("toDate", dateKey);
     return `/find-seva?${params.toString()}`;
   };
 
@@ -95,41 +117,98 @@ export function SevaPublicCalendarSection() {
             <span className="h-px w-full max-w-[60px] bg-gradient-to-l from-transparent to-sky-400/60 sm:block" aria-hidden />
           </div>
           <p className="mt-2 text-center text-sm text-sky-200/80">
-            Published activities by day. Choose a center or USA region, then click a date to open{" "}
-            <strong className="text-sky-100">Find Seva</strong> with the same filters. No account required.
+            Published activities by day. Pick a level (same as{" "}
+            <strong className="text-sky-100">Find Seva</strong>), set filters, then click a date to open
+            Find Seva with matching scope. No account required.
           </p>
         </div>
 
         <div className="border-b border-sky-800/80 px-4 py-4 sm:px-6">
+          <div className="mb-4 flex flex-col items-stretch gap-3 sm:items-center">
+            <div className="inline-flex w-full max-w-3xl overflow-visible rounded-lg border-2 border-sky-600/80 bg-slate-900/80 shadow-md">
+              {(
+                [
+                  { id: "center" as const, label: "Center level", info: SEVA_LEVEL_TAB_INFO.center },
+                  { id: "regional" as const, label: "Regional level", info: SEVA_LEVEL_TAB_INFO.regional },
+                  { id: "national" as const, label: "National level", info: SEVA_LEVEL_TAB_INFO.national },
+                ] as const
+              ).map((tab, i) => {
+                const active = levelTab === tab.id;
+                return (
+                  <div
+                    key={tab.id}
+                    className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 py-2 pl-1 pr-0.5 sm:gap-1 sm:py-2.5 sm:px-2 md:px-3 ${
+                      i === 0 ? "rounded-l-[calc(0.5rem-2px)]" : ""
+                    } ${i === 2 ? "rounded-r-[calc(0.5rem-2px)]" : ""} ${
+                      i > 0 ? "border-l border-sky-700/80" : ""
+                    } ${
+                      active ? "bg-sky-600 text-white" : "bg-slate-900/90 text-sky-100 hover:bg-slate-800"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setLevelTab(tab.id)}
+                      className="min-w-0 flex-1 px-1 text-center text-xs font-semibold transition-colors sm:px-2 sm:text-sm"
+                    >
+                      {tab.label}
+                    </button>
+                    <SevaLevelTabInfoIcon
+                      text={tab.info}
+                      variant={active ? "calendarActive" : "calendarInactive"}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="max-w-3xl text-center text-xs text-sky-200/90">
+              {levelTab === "center" && (
+                <>Center-level seva is tied to a Sai center / city (usual local listings).</>
+              )}
+              {levelTab === "regional" && (
+                <>
+                  Regional coordinators post by USA region — use <strong className="text-sky-50">USA Region</strong>{" "}
+                  below.
+                </>
+              )}
+              {levelTab === "national" && (
+                <>National coordinators post organization-wide activities (no center or region filters).</>
+              )}
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-end gap-3 sm:gap-4">
-            <div className="min-w-[140px] flex-1 sm:flex-none">
-              <label className="block text-xs font-semibold text-sky-200">Center</label>
-              <select
-                value={center}
-                onChange={(e) => setCenter(e.target.value)}
-                className="mt-1 w-full rounded border border-sky-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
-              >
-                {CENTERS_FOR_FILTER.map((c) => (
-                  <option key={c} value={c}>
-                    {c === "All" ? "All centers" : c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="min-w-[160px] flex-1 sm:flex-none">
-              <label className="block text-xs font-semibold text-sky-200">USA Region</label>
-              <select
-                value={usaRegion}
-                onChange={(e) => setUsaRegion(e.target.value)}
-                className="mt-1 w-full rounded border border-sky-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
-              >
-                {USA_REGIONS_FOR_FILTER.map((r) => (
-                  <option key={r} value={r}>
-                    {r === "All" ? "All regions" : r}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {levelTab === "center" && (
+              <div className="min-w-[140px] flex-1 sm:flex-none">
+                <label className="block text-xs font-semibold text-sky-200">Center</label>
+                <select
+                  value={center}
+                  onChange={(e) => setCenter(e.target.value)}
+                  className="mt-1 w-full rounded border border-sky-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
+                >
+                  {CENTERS_FOR_FILTER.map((c) => (
+                    <option key={c} value={c}>
+                      {c === "All" ? "All centers" : c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(levelTab === "center" || levelTab === "regional") && (
+              <div className="min-w-[160px] flex-1 sm:flex-none">
+                <label className="block text-xs font-semibold text-sky-200">USA Region</label>
+                <select
+                  value={usaRegion}
+                  onChange={(e) => setUsaRegion(e.target.value)}
+                  className="mt-1 w-full rounded border border-sky-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-sky-400"
+                >
+                  {USA_REGIONS_FOR_FILTER.map((r) => (
+                    <option key={r} value={r}>
+                      {r === "All" ? "All regions" : r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="min-w-[120px]">
               <label className="block text-xs font-semibold text-sky-200">Month</label>
               <select

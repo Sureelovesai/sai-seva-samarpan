@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
+import { sessionCanAccessAdminSevaActivity } from "@/lib/sevaCoordinatorActivityAccess";
 import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
 
 /**
@@ -25,15 +26,12 @@ export async function DELETE(
 
     const signup = await prisma.sevaSignup.findUnique({
       where: { id },
-      include: { activity: { select: { city: true } } },
+      include: { activity: { select: { city: true, scope: true, sevaUsaRegion: true } } },
     });
     if (!signup) return NextResponse.json({ error: "Signup not found" }, { status: 404 });
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (signup.activity?.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!signup.activity || !sessionCanAccessAdminSevaActivity(session, signup.activity)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const activityId = signup.activityId;
@@ -86,15 +84,12 @@ export async function PATCH(
 
     const existing = await prisma.sevaSignup.findUnique({
       where: { id },
-      include: { activity: { select: { city: true } } },
+      include: { activity: { select: { city: true, scope: true, sevaUsaRegion: true } } },
     });
     if (!existing) return NextResponse.json({ error: "Signup not found" }, { status: 404 });
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (existing.activity?.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!existing.activity || !sessionCanAccessAdminSevaActivity(session, existing.activity)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const allowed = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];

@@ -87,7 +87,7 @@ export default function ManageCommunityActivitiesPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Manage Activity</h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Edit or remove listings your organization posted to Find Community Activity.
+              Edit or remove listings you posted to Find Community Activity.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

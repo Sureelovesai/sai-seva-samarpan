@@ -1,9 +1,15 @@
 import type { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
-import { activitySpansDateKey, dateKeyUTC } from "@/lib/sevaActivityDates";
-import { parseUsaRegionParam, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
+import { getSessionWithRole, hasRole } from "@/lib/getRole";
+import { activityOverlapsDateRange, activitySpansDateKey, dateKeyUTC } from "@/lib/sevaActivityDates";
+import { adminSevaActivityListWhere } from "@/lib/sevaCoordinatorActivityAccess";
+import {
+  prismaCityInUsaRegionOr,
+  prismaSevaActivityInUsaRegionListing,
+  type UsaRegionLabel,
+  usaRegionFromUrlParams,
+} from "@/lib/usaRegions";
 
 /**
  * Public listings (Find Seva, featured on Home, Join page): hide activities whose last day has passed.
@@ -42,11 +48,32 @@ const activityPublicSelect = {
   isActive: true,
   isFeatured: true,
   status: true,
+  scope: true,
+  sevaUsaRegion: true,
   createdAt: true,
   updatedAt: true,
+  groupId: true,
+  group: {
+    select: {
+      id: true,
+      title: true,
+      status: true,
+    },
+  },
 } satisfies Prisma.SevaActivitySelect;
 
 type ActivityPublicRow = Prisma.SevaActivityGetPayload<{ select: typeof activityPublicSelect }>;
+
+function toPublicActivityJson(a: ActivityPublicRow) {
+  const { group, groupId: _g, ...rest } = a;
+  return {
+    ...rest,
+    group:
+      group && group.status === "PUBLISHED"
+        ? { id: group.id, title: group.title }
+        : null,
+  };
+}
 
 /**
  * GET /api/seva-activities
@@ -54,30 +81,59 @@ type ActivityPublicRow = Prisma.SevaActivityGetPayload<{ select: typeof activity
  * Optional query params:
  *   - category, city, q, featured (true)
  *   - usaRegion — Sri Sathya Sai USA region (Region 1 … Region 10, Region 7/8); limits to cities in lib/data/sai-centers-city-usa-region.json. Legacy "Reg N (...)" values still accepted.
- *   - date=YYYY-MM-DD — only activities spanning that calendar day (includes past dates)
- *   - activityStatus — only for logged-in ADMIN / SEVA_COORDINATOR (ignored otherwise).
- *     DRAFT / ARCHIVED may include inactive activities; PUBLISHED keeps isActive true.
+ *   - region — shorthand alias for usaRegion (e.g. region=3 → Region 3). Ignored if usaRegion is set.
+ *   - date=YYYY-MM-DD — legacy: only activities spanning that calendar day
+ *   - fromDate & toDate=YYYY-MM-DD — activities whose schedule overlaps that inclusive range (either alone defaults to a single day)
+ *   - activityStatus — only for logged-in ADMIN / seva coordinators (ignored otherwise).
+ *   - sevaScope — CENTER | REGIONAL | NATIONAL (Find Seva tabs). When omitted, region filter uses the legacy “mixed” listing (centers + regional + national in that USA region).
  *
- * Without `date`, past activities (last day before today) are omitted.
+ * Without date / fromDate+toDate, past activities (last day before today) are omitted.
  */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
+    const sevaScopeRaw = (searchParams.get("sevaScope") || "").trim().toUpperCase();
+    const sevaScope =
+      sevaScopeRaw === "CENTER" || sevaScopeRaw === "REGIONAL" || sevaScopeRaw === "NATIONAL"
+        ? (sevaScopeRaw as "CENTER" | "REGIONAL" | "NATIONAL")
+        : null;
+
     const category = searchParams.get("category") || "All";
     const city = searchParams.get("city") || "All";
-    const usaRegionRaw = (searchParams.get("usaRegion") || "").trim();
-    const usaRegion =
-      usaRegionRaw && usaRegionRaw !== "All" ? parseUsaRegionParam(usaRegionRaw) : null;
+    const usaRegion = usaRegionFromUrlParams((k) => searchParams.get(k));
     const q = (searchParams.get("q") || "").trim();
     const featuredOnly = searchParams.get("featured") === "true";
     const dateDay = (searchParams.get("date") || "").trim();
     const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(dateDay);
 
+    const fromRaw = (searchParams.get("fromDate") || "").trim();
+    const toRaw = (searchParams.get("toDate") || "").trim();
+    const dateKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+    const fromOk = dateKeyRe.test(fromRaw);
+    const toOk = dateKeyRe.test(toRaw);
+    let rangeFrom = fromOk ? fromRaw : "";
+    let rangeTo = toOk ? toRaw : "";
+    if (fromOk && !toOk) rangeTo = fromRaw;
+    if (!fromOk && toOk) rangeFrom = toRaw;
+    const rangeOk = dateKeyRe.test(rangeFrom) && dateKeyRe.test(rangeTo);
+    if (rangeOk && rangeFrom > rangeTo) {
+      const x = rangeFrom;
+      rangeFrom = rangeTo;
+      rangeTo = x;
+    }
+
     const activityStatusRaw = searchParams.get("activityStatus")?.trim() || "";
     const session = await getSessionWithRole(req.headers.get("cookie"));
     const canStatus =
-      session && (session.role === "ADMIN" || session.role === "SEVA_COORDINATOR");
+      session &&
+      hasRole(
+        session,
+        "ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      );
     const statusFilter =
       canStatus &&
       activityStatusRaw &&
@@ -101,10 +157,21 @@ export async function GET(req: Request) {
     if (featuredOnly) base.isFeatured = true;
     if (category !== "All") base.category = category;
     if (city !== "All") base.city = city;
+    if (sevaScope) {
+      base.scope = sevaScope;
+    }
 
     const andClauses: object[] = [];
     if (usaRegion) {
-      andClauses.push(prismaCityInUsaRegionOr(usaRegion));
+      if (sevaScope === "REGIONAL") {
+        andClauses.push({ sevaUsaRegion: usaRegion });
+      } else if (sevaScope === "NATIONAL") {
+        /* National listings are not limited by USA region */
+      } else if (sevaScope === "CENTER") {
+        andClauses.push(prismaCityInUsaRegionOr(usaRegion));
+      } else {
+        andClauses.push(prismaSevaActivityInUsaRegionListing(usaRegion));
+      }
     }
     if (q) {
       andClauses.push({
@@ -117,12 +184,9 @@ export async function GET(req: Request) {
         ],
       });
     }
-    if (
-      session?.role === "SEVA_COORDINATOR" &&
-      session.coordinatorCities?.length &&
-      statusFilter
-    ) {
-      andClauses.push(activityCityWhere(session.coordinatorCities));
+    if (statusFilter && session) {
+      const scopeW = adminSevaActivityListWhere(session);
+      if (scopeW) andClauses.push(scopeW);
     }
 
     const where =
@@ -135,13 +199,17 @@ export async function GET(req: Request) {
     });
 
     let list: ActivityPublicRow[];
-    if (dateOk) {
+    if (rangeOk) {
+      list = activities.filter((a: ActivityPublicRow) =>
+        activityOverlapsDateRange(a, rangeFrom, rangeTo)
+      );
+    } else if (dateOk) {
       list = activities.filter((a: ActivityPublicRow) => activitySpansDateKey(a, dateDay));
     } else {
       list = activities.filter(isStillOpenForPublicListing);
     }
 
-    return NextResponse.json(list);
+    return NextResponse.json(list.map(toPublicActivityJson));
   } catch (e: unknown) {
     const err = e as Error & { error?: Error; message?: string };
     const detail = err?.error?.message ?? err?.message ?? (typeof e === "object" && e !== null ? String(e) : String(e));

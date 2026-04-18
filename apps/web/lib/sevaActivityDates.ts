@@ -33,3 +33,29 @@ export function activitySpansDateKey(
   const ek = dateKeyUTC(e);
   return sk <= dayKey && ek >= dayKey;
 }
+
+/**
+ * True if the activity's inclusive date range overlaps [fromKey, toKey] (YYYY-MM-DD, UTC keys).
+ * Undated activities return false.
+ */
+export function activityOverlapsDateRange(
+  a: { startDate: Date | null; endDate: Date | null },
+  fromKey: string,
+  toKey: string
+): boolean {
+  if (!a.startDate && !a.endDate) return false;
+  const s0 = a.startDate ?? a.endDate!;
+  const e0 = a.endDate ?? a.startDate ?? s0;
+  const s = s0 <= e0 ? s0 : e0;
+  const e = e0 >= s0 ? e0 : s0;
+  const sk = dateKeyUTC(s);
+  const ek = dateKeyUTC(e);
+  let f = fromKey;
+  let t = toKey;
+  if (f > t) {
+    const x = f;
+    f = t;
+    t = x;
+  }
+  return sk <= t && ek >= f;
+}

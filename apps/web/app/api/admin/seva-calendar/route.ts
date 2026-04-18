@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionWithRole, activityCityWhere } from "@/lib/getRole";
+import { getSessionWithRole } from "@/lib/getRole";
 import { activitySpansDateKey, eachDateKeyInMonth } from "@/lib/sevaActivityDates";
-import { parseUsaRegionParam, prismaCityInUsaRegionOr } from "@/lib/usaRegions";
+import { adminSevaActivityListWhere } from "@/lib/sevaCoordinatorActivityAccess";
+import { parseUsaRegionParam, prismaSevaActivityInUsaRegionListing } from "@/lib/usaRegions";
 
 /**
  * GET /api/admin/seva-calendar
@@ -41,18 +42,15 @@ export async function GET(req: Request) {
 
     const andParts: object[] = [];
     if (usaRegion) {
-      andParts.push(prismaCityInUsaRegionOr(usaRegion));
+      andParts.push(prismaSevaActivityInUsaRegionListing(usaRegion));
     }
 
-    const cityFilter =
-      session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length
-        ? activityCityWhere(session.coordinatorCities)
-        : undefined;
+    const scopeFilter = adminSevaActivityListWhere(session);
 
     let activityWhere: Record<string, unknown> = baseWhere;
-    if (cityFilter) {
+    if (scopeFilter) {
       activityWhere =
-        Object.keys(baseWhere).length > 0 ? { AND: [baseWhere, cityFilter] } : cityFilter;
+        Object.keys(baseWhere).length > 0 ? { AND: [baseWhere, scopeFilter] } : scopeFilter;
     }
     if (andParts.length > 0) {
       activityWhere =

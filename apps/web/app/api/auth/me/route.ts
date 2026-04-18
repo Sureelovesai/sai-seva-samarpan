@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         role: sessionWithRole.role,
         roles: sessionWithRole.roles,
         coordinatorCities: sessionWithRole.coordinatorCities,
+        coordinatorRegions: sessionWithRole.coordinatorRegions,
         eventAdminOnly: isEventAdminOnlyUser(sessionWithRole),
       },
     });

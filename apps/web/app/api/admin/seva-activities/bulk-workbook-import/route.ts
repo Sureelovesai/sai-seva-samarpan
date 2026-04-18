@@ -19,7 +19,15 @@ export async function POST(req: Request) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!hasRole(session, "ADMIN", "SEVA_COORDINATOR")) {
+    if (
+      !hasRole(
+        session,
+        "ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

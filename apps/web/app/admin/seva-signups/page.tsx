@@ -4,7 +4,18 @@ import Image from "next/image";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-type ActivityOption = { id: string; title: string };
+type ActivityOption = { id: string; title: string; levelTag: string };
+
+function levelTagFromActivity(a: {
+  title: string;
+  scope?: string;
+  sevaUsaRegion?: string | null;
+}): string {
+  const s = a.scope;
+  if (s === "NATIONAL") return "National";
+  if (s === "REGIONAL") return a.sevaUsaRegion?.trim() ? `Regional · ${a.sevaUsaRegion.trim()}` : "Regional";
+  return "Center";
+}
 type SignupItem = {
   id: string;
   volunteerName: string;
@@ -75,7 +86,15 @@ function SevaSignUpsContent() {
         if (!res.ok) throw new Error("Failed to load activities");
         const data = await res.json();
         if (!cancelled) {
-          const list = data?.length ? data.map((a: { id: string; title: string }) => ({ id: a.id, title: a.title })) : [];
+          const list = data?.length
+            ? data.map(
+                (a: { id: string; title: string; scope?: string; sevaUsaRegion?: string | null }) => ({
+                  id: a.id,
+                  title: a.title,
+                  levelTag: levelTagFromActivity(a),
+                })
+              )
+            : [];
           setActivities(list);
           if (list.length) {
             const fromUrl = searchParams.get("activityId");
@@ -303,7 +322,9 @@ function SevaSignUpsContent() {
             >
               <option value="">All activities</option>
               {activities.map((a) => (
-                <option key={a.id} value={a.id}>{a.title}</option>
+                <option key={a.id} value={a.id}>
+                  [{a.levelTag}] {a.title}
+                </option>
               ))}
             </select>
           </div>

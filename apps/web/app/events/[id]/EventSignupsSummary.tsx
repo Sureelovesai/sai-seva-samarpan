@@ -33,8 +33,8 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
       <h2 className="text-xl font-bold text-slate-900">Attendance summary</h2>
       <p className="mt-1 text-sm text-slate-600">
         Everyone who submitted an RSVP (emails are not shown). <strong className="text-slate-800">Name</strong> is the
-        &quot;Your name&quot; value from the sign-up form. Party size counts the respondent plus their guest adults and
-        kids for <strong className="text-slate-800">Yes</strong> and <strong className="text-slate-800">Maybe</strong>;
+        &quot;Your name&quot; value from the sign-up form. Total (incl. you) counts the respondent plus their guest adults
+        and kids for <strong className="text-slate-800">Yes</strong> and <strong className="text-slate-800">Maybe</strong>;
         {" "}
         <strong className="text-slate-800">No</strong> is shown as 0.
       </p>
@@ -53,7 +53,7 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
                 <th className="px-3 py-2.5 font-bold text-teal-950">Response</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Guest adults</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Guest kids</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Party (incl. you)</th>
+                <th className="px-3 py-2.5 font-bold text-teal-950">Total (incl. you)</th>
               </tr>
             </thead>
             <tbody>
@@ -82,8 +82,8 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
             </tfoot>
           </table>
           <p className="border-t border-teal-100 px-3 py-2 text-xs text-slate-600">
-            Guest adult/kid columns sum only <strong>Yes</strong> and <strong>Maybe</strong> rows. Party total is the
-            same rule (expected attendance).
+            Guest adult/kid columns sum only <strong>Yes</strong> and <strong>Maybe</strong> rows. Total (incl. you) uses
+            the same rule (expected attendance).
           </p>
         </div>
       )}

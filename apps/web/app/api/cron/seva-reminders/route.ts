@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { formatActivityDateTime } from "@/lib/formatSevaDateTime";
+import { getSevaActivityStartInstant, getSevaReminderTimezone } from "@/lib/sevaActivityStartInstant";
+import { runPortalEvent24hReminders } from "@/lib/portalEventRemindersCron";
 
 function escapeHtml(s: string): string {
   return s
@@ -13,11 +15,13 @@ function escapeHtml(s: string): string {
 
 /**
  * GET/POST /api/cron/seva-reminders
- * Call this from a cron job (e.g. every hour). Sends reminder emails ~24 hours before each activity starts:
+ * Call this from a cron job every hour (see apps/web/vercel.json). Sends:
+ * - **Seva:** reminder emails ~24 hours before each activity starts:
  * - **Join Seva (APPROVED)** volunteers: reminder about attending.
  * - **Item-only** contributors (Register): reminder about supplies — only if their email is not already an APPROVED on-site signup (avoids duplicate emails).
  * - **Coordinator**: one email per activity with approved participants and/or all item contributions listed.
  * PENDING (waitlist) sign-ups do not receive the 24h reminder until approved.
+ * - **Portal events:** reminder emails ~24 hours before each published event’s `startsAt` to YES/MAYBE RSVPs (see `lib/portalEventRemindersCron.ts`).
  * Optional: set CRON_SECRET in env and pass ?secret=... or Authorization: Bearer <secret> to protect the endpoint.
  */
 export async function GET(req: Request) {
@@ -41,17 +45,19 @@ async function runReminders(req: Request) {
 
   try {
     const now = new Date();
-    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    const windowStartMs = now.getTime() + 23 * 60 * 60 * 1000;
+    const windowEndMs = now.getTime() + 25 * 60 * 60 * 1000;
+    const tz = getSevaReminderTimezone();
 
-    const activities = await prisma.sevaActivity.findMany({
+    /** Coarse DB filter only (true start uses startDate + startTime in tz). */
+    const coarsePast = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    const coarseFuture = new Date(now.getTime() + 96 * 60 * 60 * 1000);
+
+    const candidates = await prisma.sevaActivity.findMany({
       where: {
         isActive: true,
         reminderSentAt: null,
-        AND: [
-          { startDate: { not: null } },
-          { startDate: { gte: windowStart, lte: windowEnd } },
-        ],
+        startDate: { not: null, gte: coarsePast, lte: coarseFuture },
       },
       include: {
         signups: {
@@ -66,6 +72,14 @@ async function runReminders(req: Request) {
         },
       },
     });
+
+    const activities = candidates.filter(
+      (a: { startDate: Date | null; startTime: string | null }) => {
+        if (!a.startDate) return false;
+        const startMs = getSevaActivityStartInstant(a.startDate, a.startTime, tz).getTime();
+        return startMs >= windowStartMs && startMs <= windowEndMs;
+      }
+    );
 
     const results: {
       activityId: string;
@@ -215,13 +229,16 @@ async function runReminders(req: Request) {
       });
     }
 
+    const portal = await runPortalEvent24hReminders(now);
+
     return NextResponse.json({
       ok: true,
-      message: `Processed ${activities.length} activity(ies)`,
+      message: `Seva: ${activities.length} activity(ies); portal events: ${portal.results.length} event(s)`,
       results,
+      portalEventResults: portal.results,
     });
   } catch (e) {
-    console.error("Seva reminders cron error:", e);
+    console.error("Reminders cron error:", e);
     return NextResponse.json(
       { error: "Cron failed", detail: (e as Error)?.message },
       { status: 500 }

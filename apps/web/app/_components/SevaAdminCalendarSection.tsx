@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { USA_REGIONS_FOR_FILTER } from "@/lib/usaRegions";
+import { canSeeSevaActivityTiles } from "@/lib/sevaActivityAdminRoles";
 
 const MONTH_LABELS = [
   "January", "February", "March", "April", "May", "June",
@@ -15,10 +16,10 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const STATUS_OPTIONS = ["All", "DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
 type Props = {
-  role: "ADMIN" | "BLOG_ADMIN" | "VOLUNTEER" | "SEVA_COORDINATOR" | null;
+  userRoles: string[];
 };
 
-export function SevaAdminCalendarSection({ role }: Props) {
+export function SevaAdminCalendarSection({ userRoles }: Props) {
   const now = useMemo(() => new Date(), []);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -30,7 +31,7 @@ export function SevaAdminCalendarSection({ role }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canUse = role === "ADMIN" || role === "SEVA_COORDINATOR";
+  const canUse = canSeeSevaActivityTiles(userRoles);
 
   const load = useCallback(async () => {
     if (!canUse) return;
@@ -88,8 +89,8 @@ export function SevaAdminCalendarSection({ role }: Props) {
     const params = new URLSearchParams();
     if (center !== "All") params.set("city", center);
     if (usaRegion !== "All") params.set("usaRegion", usaRegion);
-    if (status !== "All") params.set("activityStatus", status);
-    params.set("date", dateKey);
+    params.set("fromDate", dateKey);
+    params.set("toDate", dateKey);
     return `/find-seva?${params.toString()}`;
   };
 

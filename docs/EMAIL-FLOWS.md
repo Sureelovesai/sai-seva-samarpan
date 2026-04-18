@@ -22,7 +22,7 @@ This document describes when emails are sent and how to enable/schedule them.
 
 ## 2. 24 hours before the activity
 
-**Trigger:** Cron job calls the reminder endpoint (e.g. every hour). The endpoint finds activities whose start is in the next 23–25 hours and whose reminder has not been sent yet.  
+**Trigger:** Cron job calls the reminder endpoint **every hour**. The endpoint finds activities whose **true start** (`startDate` calendar day + `startTime` in `SEVA_REMINDER_TIMEZONE`, or `NEXT_PUBLIC_EVENT_TIMEZONE`, default `America/New_York`) falls between **23 and 25 hours from now** (UTC), and whose reminder has not been sent yet.  
 **API:** `GET` or `POST /api/cron/seva-reminders`
 
 **Emails sent:**
@@ -34,6 +34,25 @@ This document describes when emails are sent and how to enable/schedule them.
 
 **Implementation:** `apps/web/app/api/cron/seva-reminders/route.ts`  
 **Deduplication:** Each activity has `reminderSentAt`. When reminders are sent, it is set so the same activity is not processed again.
+
+---
+
+## 3. Portal events — 24 hours before start
+
+**Trigger:** Same cron as seva (`GET` or `POST /api/cron/seva-reminders`, hourly).  
+**Implementation:** `apps/web/lib/portalEventRemindersCron.ts` (invoked from the same route after seva processing).
+
+**Rules:**
+
+- Only **Published** events with `reminderSentAt` null are considered.
+- Event **`startsAt`** (UTC in DB) must fall between **23 and 25 hours** from the cron run time.
+- Emails go to each **YES** or **MAYBE** RSVP (one email per address). **NO** responses do not receive this reminder.
+- **`PortalEvent.reminderSentAt`** is set after the batch so the event is not processed again.
+- If an admin **changes `startsAt`** on an event, `reminderSentAt` is cleared so a new reminder can be sent for the new time (`apps/web/app/api/admin/portal-events/[id]/route.ts`).
+
+**Email content:** Title, formatted start (`NEXT_PUBLIC_EVENT_TIMEZONE`), venue, link to `/events/[id]`, optional organizer email, guest counts.
+
+RSVP confirmation emails (with calendar links) are unchanged; see `lib/portalEventRsvpEmails.ts`.
 
 ---
 
@@ -65,14 +84,13 @@ The 24h reminders only run when something calls `/api/cron/seva-reminders`.
   "crons": [
     {
       "path": "/api/cron/seva-reminders",
-      "schedule": "0 0 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
 ```
 
-- `0 0 * * *` = once per day at midnight (UTC).  
-- For finer 24h windows (e.g. activities starting at different times), you can change to **hourly**: `"schedule": "0 * * * *"` (every hour at minute 0).  
+- `0 * * * *` = **every hour** at minute 0 (UTC). This is required: the handler only selects activities whose start is in a **2-hour** window about 24h ahead; a **once-daily** cron would almost never hit that window.  
 - Vercel calls `https://your-domain.com/api/cron/seva-reminders` on that schedule.  
 - With Root Directory = `apps/web`, this `vercel.json` is used automatically.
 
@@ -89,9 +107,11 @@ If `CRON_SECRET` is set and the request does not match, the endpoint returns 401
 
 ## Summary
 
-| Event              | Volunteer email | Coordinator email |
+| Event              | Volunteer / participant email | Coordinator / organizer email |
 |--------------------|-----------------|--------------------|
 | **Join Seva**      | Yes (confirmation) | Yes (new signup notice) |
-| **24h before start** | Yes (reminder)  | Yes (reminder + volunteer list) |
+| **Seva 24h before** | Yes (reminder)  | Yes (reminder + volunteer list) |
+| **Portal event RSVP** | Yes (confirmation + calendar links) | Yes if `organizerEmail` set |
+| **Portal event 24h before** | Yes for YES/MAYBE (reminder) | Not duplicated (organizer already gets RSVP notices) |
 
 Content of these emails can be adjusted later; the logic for when to send and to whom is in place.

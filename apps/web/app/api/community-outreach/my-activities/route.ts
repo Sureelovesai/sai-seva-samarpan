@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 import {
-  allCommunityOutreachActivitiesWhere,
   getApprovedCommunityProfile,
   isCommunityOutreachSiteAdmin,
-  orgActivityWhere,
+  myPostedCommunityActivitiesWhere,
+  postedBySessionWhere,
 } from "@/lib/communityOutreachOwnership";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/community-outreach/my-activities
- * Lists seva activities posted by this org (Community Outreach), for Manage Activity.
+ * Lists Community Outreach activities posted by the signed-in user only. Approved org members are scoped to their org/city; site admins without a profile still see only their own postings here.
  */
 export async function GET(request: Request) {
   try {
@@ -31,7 +31,10 @@ export async function GET(request: Request) {
     }
 
     const activities = await prisma.sevaActivity.findMany({
-      where: isAdmin ? allCommunityOutreachActivitiesWhere() : orgActivityWhere(profile!),
+      where:
+        profile != null
+          ? myPostedCommunityActivitiesWhere(profile, session)
+          : postedBySessionWhere(session),
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

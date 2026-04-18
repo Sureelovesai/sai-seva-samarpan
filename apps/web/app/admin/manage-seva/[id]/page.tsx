@@ -35,6 +35,17 @@ type ActivityData = {
   category: string;
   description: string | null;
   city: string;
+  scope?: "CENTER" | "REGIONAL" | "NATIONAL";
+  sevaUsaRegion?: string | null;
+  groupId?: string | null;
+  group?: {
+    id: string;
+    title: string;
+    status?: string;
+    scope?: string;
+    city?: string;
+    sevaUsaRegion?: string | null;
+  } | null;
   startDate: string | null;
   endDate: string | null;
   startTime: string | null;
@@ -231,7 +242,24 @@ export default function EditSevaActivityPage() {
   /** Volunteer "I will bring" sign-ups (from API; refreshed on load & after save). */
   const [itemContributionSignups, setItemContributionSignups] = useState<ContributionItemWithClaims[]>([]);
 
+  const [activityScope, setActivityScope] = useState<"CENTER" | "REGIONAL" | "NATIONAL">("CENTER");
+  const [sevaUsaRegionField, setSevaUsaRegionField] = useState("");
+  const [programGroups, setProgramGroups] = useState<{ id: string; title: string }[]>([]);
+  const [groupChoice, setGroupChoice] = useState("");
+  const [newGroupTitle, setNewGroupTitle] = useState("");
+  /** Shown in the dropdown if the linked group is not in the fetched list (e.g. rare edge cases). */
+  const [groupExtraOption, setGroupExtraOption] = useState<{ id: string; title: string } | null>(null);
+
   const canSave = useMemo(() => title.trim() && category.trim() && city.trim(), [title, category, city]);
+
+  const programGroupSelectOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const g of programGroups) byId.set(g.id, g.title);
+    if (groupExtraOption && !byId.has(groupExtraOption.id)) {
+      byId.set(groupExtraOption.id, `${groupExtraOption.title} (current)`);
+    }
+    return [...byId.entries()].map(([id, title]) => ({ id, title }));
+  }, [programGroups, groupExtraOption]);
 
   const itemBringStats = useMemo(() => {
     let claimRows = 0;
@@ -386,6 +414,19 @@ export default function EditSevaActivityPage() {
       setLocationName(a.locationName ?? "");
       setAddress(a.address ?? "");
 
+      const sc = a.scope === "REGIONAL" || a.scope === "NATIONAL" || a.scope === "CENTER" ? a.scope : "CENTER";
+      setActivityScope(sc);
+      setSevaUsaRegionField(a.sevaUsaRegion?.trim() ?? "");
+
+      const gid = a.groupId != null && String(a.groupId).trim() !== "" ? String(a.groupId) : "";
+      setGroupChoice(gid);
+      setNewGroupTitle("");
+      if (a.group?.id && a.group?.title) {
+        setGroupExtraOption({ id: String(a.group.id), title: String(a.group.title) });
+      } else {
+        setGroupExtraOption(null);
+      }
+
       setCoordinatorName(a.coordinatorName ?? "");
       setCoordinatorEmail(a.coordinatorEmail ?? "");
       setCoordinatorPhone(a.coordinatorPhone ?? "");
@@ -408,6 +449,49 @@ export default function EditSevaActivityPage() {
   useEffect(() => {
     loadActivity();
   }, [loadActivity]);
+
+  useEffect(() => {
+    const c =
+      activityScope === "NATIONAL" ? (city.trim() || "National") : city.trim();
+    if (activityScope === "REGIONAL") {
+      if (!sevaUsaRegionField.trim()) {
+        setProgramGroups([]);
+        return;
+      }
+    } else if (!c) {
+      setProgramGroups([]);
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("scope", activityScope);
+    if (activityScope === "REGIONAL") {
+      params.set("sevaUsaRegion", sevaUsaRegionField.trim());
+    } else {
+      params.set("city", c);
+    }
+    let cancelled = false;
+    fetch(`/api/admin/seva-activity-groups?${params.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: unknown) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows)
+          ? rows.map((x: { id?: string; title?: string }) => ({
+              id: String(x.id ?? ""),
+              title: String(x.title ?? ""),
+            })).filter((x) => x.id && x.title)
+          : [];
+        setProgramGroups(list);
+      })
+      .catch(() => {
+        if (!cancelled) setProgramGroups([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activityScope, city, sevaUsaRegionField]);
 
   useEffect(() => {
     setCloneSeeded(false);
@@ -451,9 +535,55 @@ export default function EditSevaActivityPage() {
       setMsg({ kind: "err", text: "Please fill required fields: Seva Activity, Category, and City." });
       return;
     }
+    if (groupChoice === "__new__" && !newGroupTitle.trim()) {
+      setMsg({ kind: "err", text: "Enter a program title, or choose “No grouping”." });
+      return;
+    }
     setSaving(true);
     try {
-      const payload = {
+      let resolvedGroupId: string | null = null;
+      if (groupChoice === "__new__" && newGroupTitle.trim()) {
+        const cityVal = activityScope === "NATIONAL" && !city.trim() ? "National" : city.trim();
+        const gr = await fetch("/api/admin/seva-activity-groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: newGroupTitle.trim(),
+            scope: activityScope,
+            city: cityVal,
+            sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegionField.trim() : undefined,
+            status,
+          }),
+        });
+        const gd = (await gr.json().catch(() => ({}))) as {
+          id?: string;
+          title?: string;
+          error?: string;
+          detail?: string;
+        };
+        if (!gr.ok) {
+          throw new Error(gd?.error || gd?.detail || "Could not create program group.");
+        }
+        if (typeof gd?.id === "string") {
+          resolvedGroupId = gd.id;
+          const gTitle =
+            typeof gd.title === "string" && gd.title.trim() ? gd.title.trim() : newGroupTitle.trim();
+          setProgramGroups((prev) => {
+            if (prev.some((p) => p.id === gd.id)) return prev;
+            return [...prev, { id: gd.id!, title: gTitle }].sort((a, b) =>
+              a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+            );
+          });
+          setGroupChoice(gd.id);
+          setNewGroupTitle("");
+          setGroupExtraOption({ id: gd.id, title: gTitle });
+        }
+      } else if (groupChoice && groupChoice !== "__new__") {
+        resolvedGroupId = groupChoice;
+      }
+
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         category: category.trim(),
         description: description.trim() || undefined,
@@ -482,6 +612,12 @@ export default function EditSevaActivityPage() {
             neededLabel: r.neededLabel.trim(),
             maxQuantity: r.maxQuantity,
           })),
+        groupId:
+          groupChoice === "__new__"
+            ? resolvedGroupId
+            : groupChoice && groupChoice !== "__new__"
+              ? groupChoice
+              : null,
       };
       const res = await fetch(`/api/admin/seva-activities/${id}`, {
         method: "PATCH",
@@ -489,14 +625,10 @@ export default function EditSevaActivityPage() {
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.detail || data?.error || "Save failed.");
-      setMsg({ kind: "ok", text: `Saved: ${data.title}` });
-      if (Array.isArray(data.contributionItems)) {
-        const { editorRows, withClaims } = mapContributionItemsFromApi(data.contributionItems);
-        setContributionItems(editorRows);
-        setItemContributionSignups(withClaims);
-      }
+      const data = (await res.json().catch(() => ({}))) as ActivityData & { contributionItems?: unknown };
+      if (!res.ok) throw new Error((data as { detail?: string; error?: string })?.detail || (data as { error?: string })?.error || "Save failed.");
+      setMsg({ kind: "ok", text: `Saved: ${typeof data.title === "string" ? data.title : title.trim()}` });
+      await loadActivity();
     } catch (e: unknown) {
       setMsg({ kind: "err", text: (e as Error)?.message || "Internal error." });
     } finally {
@@ -822,6 +954,48 @@ export default function EditSevaActivityPage() {
               <input value={locationName} onChange={(e) => setLocationName(e.target.value)} className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45" />
               <label className="mt-5 block text-sm font-semibold text-zinc-800">Address</label>
               <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={6} className="mt-2 w-full resize-none rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45" />
+
+              <div className="mt-8 border-t border-violet-200/80 pt-6">
+                <label className="block text-sm font-semibold text-zinc-800">Program / festival grouping (optional)</label>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Link this activity to a named program for Find Seva. Each activity is still listed and registered
+                  separately.
+                  {activityScope === "REGIONAL" ? (
+                    <span className="block pt-1">
+                      Programs load by this activity&apos;s <strong>USA region</strong> (same as scope on this
+                      activity).
+                    </span>
+                  ) : (
+                    <span className="block pt-1">
+                      Programs are filtered by this activity&apos;s <strong>level</strong> and <strong>city</strong>.
+                    </span>
+                  )}
+                </p>
+                <select
+                  value={groupChoice}
+                  onChange={(e) => {
+                    setGroupChoice(e.target.value);
+                    if (e.target.value !== "__new__") setNewGroupTitle("");
+                  }}
+                  className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                >
+                  <option value="">No grouping</option>
+                  {programGroupSelectOptions.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.title}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new program…</option>
+                </select>
+                {groupChoice === "__new__" ? (
+                  <input
+                    value={newGroupTitle}
+                    onChange={(e) => setNewGroupTitle(e.target.value)}
+                    placeholder="Program title (e.g. Mahashivarathri — Charlotte)"
+                    className="mt-3 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         </section>

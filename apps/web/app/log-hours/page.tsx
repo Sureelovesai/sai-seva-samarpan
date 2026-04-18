@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CITIES } from "@/lib/cities";
+import { certificatePathFromLoggedHoursRow } from "@/lib/logHoursCertificate";
 
 export default function LogHoursPage() {
   const router = useRouter();
@@ -57,10 +59,36 @@ export default function LogHoursPage() {
   const [submitMsg, setSubmitMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
-  const submitSuccess = submitMsg?.kind === "ok";
+  /** Saved rows for this login (so certificate works after leaving and coming back). */
+  type SavedLogEntry = {
+    id: string;
+    volunteerName: string;
+    location: string | null;
+    activityCategory: string;
+    hours: number;
+    date: string;
+    comments: string | null;
+  };
+  const [savedEntries, setSavedEntries] = useState<SavedLogEntry[]>([]);
 
-  // View Certificate enabled only after a successful submit (not just when form is filled)
-  const canViewCertificate = submitSuccess;
+  const loadSavedEntries = () => {
+    fetch("/api/log-hours?limit=10", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { entries?: SavedLogEntry[] } | null) => {
+        if (data?.entries) setSavedEntries(data.entries);
+      })
+      .catch(() => setSavedEntries([]));
+  };
+
+  useEffect(() => {
+    loadSavedEntries();
+  }, []);
+
+  const submitSuccess = submitMsg?.kind === "ok";
+  const latestSaved = savedEntries[0];
+
+  /** Current submission on the page, or any past submission from the server when returning later. */
+  const canViewCertificate = submitSuccess || Boolean(latestSaved);
 
   const todayYyyyMmDd = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -104,6 +132,7 @@ export default function LogHoursPage() {
         kind: "ok",
         text: "Sai Ram!\nYour Seva hours have been successfully recorded.\nThank you for your loving service.\n\n\"Hands that serve are holier than lips that pray.\"\n— Sri Sathya Sai Baba",
       });
+      loadSavedEntries();
     } catch (e: unknown) {
       setSubmitMsg({ kind: "err", text: (e as Error)?.message || "Failed to submit hours." });
     } finally {
@@ -122,16 +151,29 @@ export default function LogHoursPage() {
   }
 
   function onViewCertificate() {
-    // Pass data via querystring (simple + works immediately)
-    const params = new URLSearchParams();
-    params.set("name", volunteerName.trim());
-    params.set("activity", activity.trim());
-    params.set("hours", hours.trim());
-    params.set("date", date.trim());
-    params.set("location", (location || "").trim());
-    params.set("comments", (comments || "").trim());
-
-    router.push(`/log-hours/certificate?${params.toString()}`);
+    if (submitSuccess) {
+      const params = new URLSearchParams();
+      params.set("name", volunteerName.trim());
+      params.set("activity", activity.trim());
+      params.set("hours", hours.trim());
+      params.set("date", date.trim());
+      params.set("location", (location || "").trim());
+      params.set("comments", (comments || "").trim());
+      router.push(`/log-hours/certificate?${params.toString()}`);
+      return;
+    }
+    if (latestSaved) {
+      router.push(
+        certificatePathFromLoggedHoursRow({
+          volunteerName: latestSaved.volunteerName,
+          location: latestSaved.location,
+          activityCategory: latestSaved.activityCategory,
+          hours: latestSaved.hours,
+          date: latestSaved.date,
+          comments: latestSaved.comments,
+        })
+      );
+    }
   }
 
   return (
@@ -319,8 +361,12 @@ export default function LogHoursPage() {
                     className="flex items-center overflow-hidden rounded-none shadow-[0_10px_22px_rgba(0,0,0,0.18)] disabled:opacity-50 disabled:cursor-not-allowed"
                     title={
                       canViewCertificate
-                        ? "View Certificate"
-                        : "Submit hours successfully first to view certificate"
+                        ? submitSuccess
+                          ? "Certificate for this submission"
+                          : latestSaved
+                            ? "Certificate for your most recent logged hours (from My Seva Dashboard you can pick any past entry)"
+                            : "View Certificate"
+                        : "Log hours while signed in to generate a certificate anytime"
                     }
                   >
                     <span className="relative flex h-12 w-12 shrink-0 items-center justify-center bg-amber-50">
@@ -346,6 +392,17 @@ export default function LogHoursPage() {
                     Clear
                   </button>
                 </div>
+
+                {latestSaved && !submitSuccess && (
+                  <p className="max-w-md text-center text-sm text-zinc-700">
+                    <strong>View Certificate</strong> uses your{" "}
+                    <strong>most recent</strong> saved entry. For older entries, open{" "}
+                    <Link href="/dashboard" className="font-semibold text-indigo-800 underline">
+                      My Seva Dashboard
+                    </Link>{" "}
+                    → Your logged hours.
+                  </p>
+                )}
 
                 <div className="text-lg font-semibold text-zinc-800">
                   Jai Sai Ram!

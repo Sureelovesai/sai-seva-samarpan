@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 import { syncSevaContributionItems } from "@/lib/syncSevaContributionItems";
+import {
+  parseScopeFromBody,
+  sessionCanAccessAdminSevaActivity,
+  validateSevaScopeForSession,
+} from "@/lib/sevaCoordinatorActivityAccess";
+import { resolveGroupIdForActivity } from "@/lib/resolveSevaActivityGroupId";
 import { sendEmail } from "@/lib/email";
 import { promotePendingSignupsForActivity } from "@/lib/sevaSignupPromotion";
 
@@ -61,18 +67,18 @@ export async function GET(
 
     const activity = await prisma.sevaActivity.findUnique({
       where: { id },
-      include: contributionInclude,
+      include: {
+        ...contributionInclude,
+        group: { select: { id: true, title: true, status: true, scope: true, city: true, sevaUsaRegion: true } },
+      },
     });
 
     if (!activity) {
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (activity.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!sessionCanAccessAdminSevaActivity(session, activity)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(activity);
@@ -112,14 +118,53 @@ export async function PATCH(
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (existing.city ?? "").toLowerCase()
+    if (!sessionCanAccessAdminSevaActivity(session, existing)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const nextScope = body.scope !== undefined ? parseScopeFromBody(body) : existing.scope;
+    let nextCity =
+      body.city !== undefined ? String(body.city).trim() : (existing.city ?? "").trim();
+    const nextSevaUsaRegion =
+      body.sevaUsaRegion !== undefined
+        ? body.sevaUsaRegion == null || String(body.sevaUsaRegion).trim() === ""
+          ? null
+          : String(body.sevaUsaRegion).trim()
+        : existing.sevaUsaRegion;
+    if (nextScope === "NATIONAL" && !nextCity) {
+      nextCity = "National";
+    }
+
+    const scopeCheck = validateSevaScopeForSession(session, {
+      scope: nextScope,
+      city: nextCity,
+      sevaUsaRegion: nextSevaUsaRegion,
+    });
+    if (!scopeCheck.ok) {
+      return NextResponse.json(
+        { error: scopeCheck.error },
+        { status: scopeCheck.status ?? 400 }
       );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const oldCapacity = existing.capacity;
+
+    const geoPatch =
+      body.scope !== undefined || body.city !== undefined || body.sevaUsaRegion !== undefined;
+
+    let patchGroupId: string | null | undefined = undefined;
+    if (body.groupId !== undefined) {
+      try {
+        patchGroupId = await resolveGroupIdForActivity(session, body.groupId, {
+          scope: nextScope,
+          city: nextCity,
+          sevaUsaRegion: nextScope === "REGIONAL" ? nextSevaUsaRegion : null,
+        });
+      } catch (e: unknown) {
+        const status = (e as Error & { status?: number }).status ?? 400;
+        return NextResponse.json({ error: (e as Error).message }, { status });
+      }
+    }
 
     const updated = await prisma.sevaActivity.update({
       where: { id },
@@ -139,7 +184,13 @@ export async function PATCH(
             ? null
             : undefined,
 
-        city: body.city != null ? String(body.city).trim() : undefined,
+        scope: geoPatch ? nextScope : undefined,
+        sevaUsaRegion: geoPatch
+          ? nextScope === "REGIONAL"
+            ? nextSevaUsaRegion
+            : null
+          : undefined,
+        city: geoPatch ? nextCity : undefined,
         organizationName:
           body.organizationName != null ? String(body.organizationName).trim() || undefined : undefined,
         locationName: body.locationName != null ? String(body.locationName).trim() || undefined : undefined,
@@ -165,6 +216,8 @@ export async function PATCH(
           body.status === "DRAFT" || body.status === "PUBLISHED" || body.status === "ARCHIVED"
             ? body.status
             : undefined,
+
+        ...(patchGroupId !== undefined ? { groupId: patchGroupId } : {}),
       },
     });
 
@@ -201,7 +254,12 @@ export async function PATCH(
 
     const withItems = await prisma.sevaActivity.findUnique({
       where: { id },
-      include: contributionInclude,
+      include: {
+        ...contributionInclude,
+        group: {
+          select: { id: true, title: true, status: true, scope: true, city: true, sevaUsaRegion: true },
+        },
+      },
     });
 
     return NextResponse.json(withItems ?? updated);
@@ -248,11 +306,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Activity not found" }, { status: 404 });
     }
 
-    if (session.role === "SEVA_COORDINATOR" && session.coordinatorCities?.length) {
-      const allowed = session.coordinatorCities.some(
-        (c) => c.trim().toLowerCase() === (activity.city ?? "").toLowerCase()
-      );
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!sessionCanAccessAdminSevaActivity(session, activity)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const title = activity.title ?? "Seva Activity";

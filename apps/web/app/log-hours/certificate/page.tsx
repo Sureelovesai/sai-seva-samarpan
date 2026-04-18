@@ -38,27 +38,34 @@ function CertificateContent() {
   }, [sp]);
 
   return (
-    <>
+    <div className="certificate-page-root flex w-full flex-col items-stretch">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: 8.5in 14in; margin: 0.2in; }
-          html, body { width: 8.5in !important; height: 14in !important; margin: 0 !important; padding: 0 !important; background: #f6eadc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: hidden !important; }
-          .certificate-print-wrap {
-            width: 8.5in !important;
-            height: 14in !important;
-            max-width: 8.5in !important;
-            padding: 0 !important;
+          /* US Letter (8.5×11) — the usual certificate size for US print/PDF; fits standard frames & printers. */
+          @page { size: letter; margin: 0.3in; }
+          html, body {
             margin: 0 !important;
+            padding: 0 !important;
             background: #f6eadc !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .certificate-print-wrap {
+            width: 100% !important;
+            max-width: 7.75in !important;
+            min-height: auto !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            background: #f6eadc !important;
+            display: block !important;
+            align-items: unset !important;
+            justify-content: unset !important;
             box-sizing: border-box !important;
           }
           .certificate-print-wrap .mx-auto {
-            width: 8.1in !important;
-            max-width: 8.1in !important;
-            margin: 0 !important;
+            width: 100% !important;
+            max-width: 7.75in !important;
+            margin: 0 auto !important;
           }
           .certificate-sheet {
             box-shadow: none !important;
@@ -66,8 +73,8 @@ function CertificateContent() {
             break-inside: avoid;
             width: 100% !important;
             max-width: 100% !important;
-            transform: scale(0.78, 1.092);
-            transform-origin: top center;
+            /* No transform:scale — scaling was making Save-as-PDF previews tiny */
+            transform: none !important;
             margin: 0 !important;
             box-sizing: border-box !important;
             overflow: visible !important;
@@ -75,29 +82,32 @@ function CertificateContent() {
           .certificate-sheet .certificate-inner {
             width: 100% !important;
             box-sizing: border-box !important;
-            padding: 24px 28px 20px !important;
+            padding: 18px 22px 14px !important;
           }
-          /* Top row images - fixed sizes so they display correctly */
-          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:first-child .relative { height: 48px !important; min-height: 48px !important; width: 48px !important; min-width: 48px !important; }
-          .certificate-sheet .certificate-inner .certificate-center-image { height: 56px !important; width: 56px !important; min-height: 56px !important; min-width: 56px !important; }
-          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:last-child .relative { height: 48px !important; min-height: 48px !important; width: 48px !important; min-width: 48px !important; }
-          /* Font sizes for print - proportional so content fits */
-          .certificate-sheet .certificate-inner .text-5xl { font-size: 1.5rem !important; }
-          .certificate-sheet .certificate-inner .md\\:text-7xl { font-size: 1.75rem !important; }
-          .certificate-sheet .certificate-inner .text-xl { font-size: 0.95rem !important; }
-          .certificate-sheet .certificate-inner .md\\:text-3xl { font-size: 1.05rem !important; }
-          .certificate-sheet .certificate-inner .text-2xl { font-size: 1rem !important; }
-          .certificate-sheet .certificate-inner .text-base { font-size: 11px !important; line-height: 1.4 !important; }
-          .certificate-sheet .certificate-inner .md\\:text-lg { font-size: 11px !important; line-height: 1.4 !important; }
-          .certificate-sheet .certificate-inner .text-sm { font-size: 10px !important; }
-          .certificate-sheet .certificate-inner .text-xs { font-size: 9px !important; }
-          /* Let description and org text wrap within the page */
+          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:first-child .relative {
+            height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
+          }
+          .certificate-sheet .certificate-inner .certificate-center-image {
+            height: 76px !important; width: 76px !important; min-height: 76px !important; min-width: 76px !important;
+          }
+          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:last-child .relative {
+            height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
+          }
+          /* Readable print sizes (avoid 9–11px text) */
+          .certificate-sheet .certificate-inner .text-5xl { font-size: 2.1rem !important; line-height: 1.1 !important; }
+          .certificate-sheet .certificate-inner .md\\:text-7xl { font-size: 2.5rem !important; line-height: 1.05 !important; }
+          .certificate-sheet .certificate-inner .text-xl { font-size: 1.2rem !important; }
+          .certificate-sheet .certificate-inner .md\\:text-3xl { font-size: 1.35rem !important; }
+          .certificate-sheet .certificate-inner .text-2xl { font-size: 1.35rem !important; }
+          .certificate-sheet .certificate-inner .text-base { font-size: 0.95rem !important; line-height: 1.45 !important; }
+          .certificate-sheet .certificate-inner .md\\:text-lg { font-size: 1rem !important; line-height: 1.45 !important; }
+          .certificate-sheet .certificate-inner .text-sm { font-size: 0.875rem !important; }
+          .certificate-sheet .certificate-inner .text-xs { font-size: 0.8rem !important; }
           .certificate-sheet .certificate-inner .max-w-4xl { max-width: 100% !important; }
           .certificate-sheet .certificate-inner .max-w-3xl { max-width: 100% !important; }
         }
       `}} />
-    <div className="min-h-screen bg-[#f6eadc] py-8 px-4 certificate-print-wrap print:py-0 print:px-0">
-      <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.75in]">
         {/* Certificate sheet */}
         <div className="certificate-sheet relative overflow-hidden rounded-md bg-white shadow-2xl">
           {/* Border layer - clearly visible gold frame (responsive: thinner on mobile to match proportions) */}
@@ -113,9 +123,9 @@ function CertificateContent() {
             <div className="absolute bottom-2 right-2 h-8 w-8 border-b-2 border-r-2 border-[#a67c2e] sm:bottom-3 sm:right-3 sm:h-10 sm:w-10 md:bottom-4 md:right-4 md:h-12 md:w-12" style={{ borderColor: "#a67c2e", borderBottomWidth: "2px", borderRightWidth: "2px" }} />
           </div>
 
-          <div className="certificate-inner relative z-10 px-6 pt-14 pb-8 sm:px-8 sm:pt-16 sm:pb-10 md:px-14 md:pt-20 md:pb-12">
+          <div className="certificate-inner relative z-10 px-6 pt-14 pb-8 sm:px-8 sm:pt-16 sm:pb-10 md:px-14 md:pt-20 md:pb-12 print:px-5 print:pt-6 print:pb-5">
             {/* Top row: left logo - center swami - right logo (same 3-col layout on all sizes) */}
-            <div className="grid grid-cols-3 items-start gap-2 sm:gap-4 md:gap-6">
+            <div className="grid grid-cols-3 items-start gap-2 sm:gap-4 md:gap-6 print:gap-2">
               <div className="flex min-w-0 justify-start">
                 <div className="relative h-16 w-16 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
                   <Image src="/logo-left.jpeg" alt="Left logo" fill className="object-contain" />
@@ -136,26 +146,26 @@ function CertificateContent() {
             </div>
 
             {/* Headings */}
-            <div className="mt-8 text-center certificate-heading-block">
+            <div className="mt-8 text-center certificate-heading-block print:mt-4">
               <div className="text-5xl font-extrabold tracking-[0.12em] text-[#a67c2e] md:text-7xl">
                 VOLUNTEER
               </div>
-              <div className="mt-2 text-xl font-bold tracking-[0.10em] text-[#c99a3b] md:text-3xl">
+              <div className="mt-2 text-xl font-bold tracking-[0.10em] text-[#c99a3b] md:text-3xl print:mt-1">
                 CERTIFICATION OF APPRECIATION
               </div>
-              <div className="mt-4 text-sm font-semibold text-zinc-700 md:text-base">
+              <div className="mt-4 text-sm font-semibold text-zinc-700 md:text-base print:mt-2">
                 This certificate is awarded with great pride to
               </div>
 
               {/* Name line */}
-              <div className="mt-10 flex items-center justify-center">
+              <div className="mt-10 flex items-center justify-center print:mt-5">
                 <div className="w-full max-w-3xl border-b-2 border-[#b68a33]/70 pb-3 text-center text-2xl font-semibold text-zinc-900 md:text-3xl">
                   {data.volunteerName}
                 </div>
               </div>
 
               {/* Description */}
-              <div className="mx-auto mt-10 max-w-4xl text-center text-base leading-relaxed text-zinc-700 md:text-lg">
+              <div className="mx-auto mt-10 max-w-4xl text-center text-base leading-relaxed text-zinc-700 md:text-lg print:mt-5 print:leading-snug">
                 In recognition of the dedication and commitment shown in offering{" "}
                 <span className="font-semibold text-zinc-900">{data.hours}</span>{" "}
                 hour(s) of service through{" "}
@@ -166,7 +176,11 @@ function CertificateContent() {
                 <span className="font-semibold text-zinc-900">{data.serviceType}</span>{" "}
                 <span className="font-semibold text-zinc-900">{data.location}</span>
                 {data.serviceDateFormatted && (
-                  <> on <span className="font-semibold text-zinc-900">{data.serviceDateFormatted}</span></>
+                  <span>
+                    {" "}
+                    on{" "}
+                    <span className="font-semibold text-zinc-900">{data.serviceDateFormatted}</span>
+                  </span>
                 )}
                 .
                 <br />
@@ -175,7 +189,7 @@ function CertificateContent() {
             </div>
 
             {/* Footer area: Issued on + Coordinator (same 2-col layout as desktop on all sizes) */}
-            <div className="mt-10 grid grid-cols-2 items-end gap-4 sm:mt-12 sm:gap-6 md:mt-16 md:gap-10">
+            <div className="mt-10 grid grid-cols-2 items-end gap-4 sm:mt-12 sm:gap-6 md:mt-16 md:gap-10 print:mt-5 print:gap-3">
               <div className="text-left">
                 <div className="text-xs font-semibold text-zinc-600 sm:text-sm">Issued on</div>
                 <div className="mt-1 text-sm font-semibold text-zinc-900 sm:text-base">{data.issuedOn}</div>
@@ -190,7 +204,7 @@ function CertificateContent() {
             </div>
 
             {/* Organization footer - full width above Print */}
-            <div className="certificate-org-block mt-10 border-t border-[#c9a861]/40 pt-6">
+            <div className="certificate-org-block mt-10 border-t border-[#c9a861]/40 pt-6 print:mt-4 print:pt-3">
               <div className="text-center text-sm font-semibold text-zinc-600">Organization</div>
               <div className="mt-2 text-center text-sm leading-relaxed text-zinc-700">
                 {data.orgName}
@@ -209,18 +223,28 @@ function CertificateContent() {
           </div>
         </div>
 
-        <div className="mt-4 text-center text-xs text-zinc-600 print:hidden">
-          Tip: Use the Print button to save as PDF.
+        <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
+          <p>
+            <strong>Print / Save as PDF:</strong> Output is sized for <strong>US Letter</strong> (8.5×11 in), the usual
+            certificate paper in the U.S. Use the button above, then <strong>Save as PDF</strong> (or Microsoft Print to
+            PDF). Set <strong>Scale to 100%</strong> — if the preview looks tiny, turn off &quot;Fit to page&quot; /
+            &quot;Shrink oversized pages&quot; so the certificate fills the page.
+          </p>
         </div>
       </div>
     </div>
-    </>
   );
 }
 
 export default function CertificatePage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-[#f6eadc]"><p>Loading…</p></div>}>
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col items-center justify-center bg-[#f6eadc] py-16">
+          <p>Loading…</p>
+        </div>
+      }
+    >
       <CertificateContent />
     </Suspense>
   );

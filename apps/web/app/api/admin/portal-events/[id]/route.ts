@@ -43,6 +43,8 @@ export async function PATCH(
       description?: string;
       venue?: string;
       startsAt?: Date;
+      /** Clear so the ~24h cron can run again for the new start time. */
+      reminderSentAt?: null;
       heroImageUrl?: string | null;
       flyerUrl?: string | null;
       signupsEnabled?: boolean;
@@ -61,6 +63,9 @@ export async function PATCH(
       const d = new Date(body.startsAt);
       if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "Invalid startsAt" }, { status: 400 });
       data.startsAt = d;
+      if (existing.startsAt.getTime() !== d.getTime()) {
+        data.reminderSentAt = null;
+      }
     }
     if (body.heroImageUrl !== undefined) {
       data.heroImageUrl =

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SevaPublicCalendarSection } from "./_components/SevaPublicCalendarSection";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -53,10 +53,11 @@ function uniqById<T extends { id: string }>(arr: T[]): T[] {
 
 const FEATURED_SLIDER_AUTOPLAY_MS = 2000;
 
-const MOBILE_BREAKPOINT = 640;
-
 /** Shown when a featured activity has no uploaded image (same asset as hero SVG fallback). */
 const FEATURED_ACTIVITY_DEFAULT_IMAGE = "/manage-hero-swami.svg";
+
+/** Mobile portrait: one slide so text + image use full width; landscape / sm+: two slides. */
+const FEATURED_MOBILE_PORTRAIT_MQ = "(max-width: 639px) and (orientation: portrait)";
 
 function FeaturedSevaSection() {
   const [activities, setActivities] = useState<FeaturedActivity[]>([]);
@@ -66,14 +67,18 @@ function FeaturedSevaSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const updateCardsPerView = () => {
-      setCardsPerView(typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT ? 1 : 2);
-    };
-    updateCardsPerView();
-    window.addEventListener("resize", updateCardsPerView);
-    return () => window.removeEventListener("resize", updateCardsPerView);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(FEATURED_MOBILE_PORTRAIT_MQ);
+    const apply = () => setCardsPerView(mq.matches ? 1 : 2);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, []);
+
+  useEffect(() => {
+    const max = Math.max(0, activities.length - cardsPerView);
+    setSlideIndex((i) => Math.min(i, max));
+  }, [cardsPerView, activities.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,34 +174,46 @@ function FeaturedSevaSection() {
               {activities.map((c) => (
                 <div
                   key={c.id}
-                  className="flex shrink-0 flex-col px-1 sm:px-2"
+                  className="flex shrink-0 flex-col px-0.5 sm:px-2"
                   style={{ width: `${cardWidthPercentOfTrack}%`, minWidth: `${cardWidthPercentOfTrack}%` }}
                 >
-                  <div className="mx-auto grid h-[380px] w-full max-w-[420px] grid-cols-1 overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] sm:h-[440px] sm:max-w-none sm:grid-cols-[1fr_1.4fr]">
-                    <div className={`flex min-h-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-6 text-white sm:p-8`}>
-                      <div className="text-xl font-bold leading-tight sm:text-2xl">
+                  <div
+                    className={`mx-auto grid w-full max-w-none grid-cols-[1fr_1.15fr] overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] ${
+                      cardsPerView === 1
+                        ? "h-[300px] min-[400px]:h-[360px] sm:h-[400px] md:h-[440px]"
+                        : "h-[280px] min-[400px]:h-[320px] sm:h-[380px] md:h-[440px]"
+                    }`}
+                  >
+                    <div
+                      className={`flex min-h-0 min-w-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-3 text-white min-[400px]:p-4 sm:p-6 md:p-8`}
+                    >
+                      <div className="text-sm font-bold leading-tight min-[400px]:text-base sm:text-xl md:text-2xl">
                         {c.title}
                         <br />
-                        {c.city}
+                        <span className="font-semibold opacity-95">{c.city}</span>
                       </div>
-                      <div className="mt-6 max-w-[14rem] flex-1 overflow-hidden text-base leading-7 line-clamp-4 sm:mt-8 sm:text-lg">
+                      <div className="mt-2 max-w-none flex-1 overflow-hidden text-xs leading-snug line-clamp-3 min-[400px]:mt-3 min-[400px]:line-clamp-4 min-[400px]:text-sm sm:mt-6 sm:text-base md:mt-8 md:text-lg">
                         {c.description || "No description."}
                       </div>
                       <Link
                         href={`/seva-activities?id=${encodeURIComponent(c.id)}`}
-                        className="mt-8 inline-block shrink-0 bg-white px-6 py-2.5 text-base font-semibold text-slate-700 hover:bg-slate-100 sm:mt-10 sm:px-8 sm:py-3 sm:text-lg"
+                        className="mt-auto inline-block shrink-0 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 min-[400px]:px-4 min-[400px]:py-2 min-[400px]:text-sm sm:mt-8 sm:px-6 sm:py-2.5 sm:text-base md:mt-10 md:px-8 md:py-3 md:text-lg"
                       >
                         View More
                       </Link>
                     </div>
-                    <div className="relative h-full min-h-0 bg-slate-100">
+                    <div className="relative h-full min-h-0 min-w-0 bg-slate-100">
                       {c.imageUrl ? (
                         <Image
                           src={c.imageUrl}
                           alt={c.title}
                           fill
                           className="object-contain object-center"
-                          sizes="(max-width: 640px) 100vw, 50vw"
+                          sizes={
+                            cardsPerView === 1
+                              ? "(max-width: 639px) 42vw, (max-width: 1024px) 34vw, 400px"
+                              : "(max-width: 639px) 22vw, (max-width: 1024px) 30vw, 380px"
+                          }
                         />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element -- local SVG default; matches home hero fallback
@@ -235,7 +252,7 @@ function FeaturedSevaSection() {
             </>
           )}
 
-          {/* Dots — one per view on mobile, two on desktop */}
+          {/* Dots — one per “page” when more featured activities than fit in view */}
           {total > cardsPerView && (
             <div className="mt-6 flex justify-center gap-2">
               {Array.from({ length: maxIndex + 1 }, (_, i) => (
@@ -449,13 +466,26 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* HERO — full-width image under the menu. */}
-      <section
-        className="-mt-2 w-full overflow-hidden py-0"
-        style={{
-          background: "linear-gradient(180deg, #f8fcff 0%, #e8f7fe 20%, #d4f0fd 45%, #b0e5fc 70%, #7dd3fa 100%)",
-        }}
-      >
-        <div className="w-full px-0 py-0">
+      <section className="relative -mt-2 w-full overflow-hidden py-0">
+        {/* Default / tablet / landscape: original sky gradient */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 block max-sm:portrait:hidden"
+          style={{
+            background:
+              "linear-gradient(180deg, #f8fcff 0%, #e8f7fe 20%, #d4f0fd 45%, #b0e5fc 70%, #7dd3fa 100%)",
+          }}
+        />
+        {/* Narrow phones in portrait only: softer bottom so object-contain letterboxing is not a bright blue band */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 hidden max-sm:portrait:block"
+          style={{
+            background:
+              "linear-gradient(180deg, #f8fcff 0%, #eef6fb 28%, #f4fafc 55%, #f9fbfc 82%, #fcfdfd 100%)",
+          }}
+        />
+        <div className="relative w-full px-0 py-0">
           <div className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px]">
             <div className="relative h-full w-full min-h-0">
               <HomeHeroBanner />

@@ -768,9 +768,11 @@ export function BlogPostFormModal({
                   Full article *
                 </label>
                 <p className="mt-1 mb-2 text-xs text-[#7a6b65]">
-                  Toolbar: fonts, sizes, bold, lists, links,{" "}
-                  <strong className="font-semibold text-[#6b5344]">Insert template</strong> (starter layouts),{" "}
-                  <strong className="font-semibold text-[#6b5344]">Highlight</strong> swatches and custom color.
+                  The article body uses the <strong className="text-[#6b5344]">TipTap</strong> editor (toolbar
+                  styling matches the previous version). Toolbar: fonts, sizes, bold, lists, links, Excel-style{" "}
+                  <strong className="font-semibold text-[#6b5344]">Fill</strong> and{" "}
+                  <strong className="font-semibold text-[#6b5344]">Font</strong> color,{" "}
+                  <strong className="font-semibold text-[#6b5344]">Insert template</strong> (starter layouts).
                   Place the cursor where you want a template before choosing one.
                 </p>
                 <RichTextEditor
