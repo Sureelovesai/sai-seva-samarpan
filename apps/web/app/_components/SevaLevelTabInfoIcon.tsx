@@ -103,7 +103,7 @@ export const SEVA_LEVEL_TAB_INFO = {
   center:
     "Center Level tab displays all the activities conducted at the center level.",
   regional:
-    "The Regional Level tab displays activities conducted at regional level - Example- Seva activities at regional Retreat.",
+    "Regional Level tab displays activities conducted at regional level - Example- Seva activities at regional Retreat.",
   national:
-    "The National Level tab displays activities conducted at National Level. Example - Activities conducted by US members in Parthi like Grama Seva.",
+    "National Level tab displays activities conducted at National Level. Example - Activities conducted by US members in Parthi like Grama Seva.",
 } as const;

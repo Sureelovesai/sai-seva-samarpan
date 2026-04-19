@@ -1,6 +1,9 @@
 /**
  * Rasterizes a DOM subtree to a multi-page PDF (same idea as “Print to PDF” in the browser).
  * Uses html2pdf.js (html2canvas + jsPDF) so backgrounds, borders, and floated images match the screen.
+ *
+ * html2canvas cannot parse CSS Color 4 functions (`lab()`, `oklch()`, etc.) that Tailwind v4 emits in stylesheets.
+ * We copy computed styles from the live DOM onto the clone so values resolve to `rgb()` / hex before rasterizing.
  */
 export type DownloadElementAsPdfOptions = {
   /** Margin in the same unit as `jsPDF.unit` (default mm). */
@@ -16,6 +19,32 @@ export type DownloadElementAsPdfOptions = {
 };
 
 const DEFAULT_MARGIN_MM: [number, number, number, number] = [10, 10, 10, 10];
+
+/**
+ * Walks two parallel DOM trees (original + html2canvas clone) and copies every resolved
+ * computed CSS property onto the clone as inline styles. Prevents html2canvas from re-parsing
+ * stylesheet rules that use `lab()` / `oklch()` (mobile + Tailwind v4).
+ */
+function copyComputedStylesOntoClone(originalRoot: HTMLElement, clonedRoot: HTMLElement) {
+  function walk(orig: Element, clone: Element) {
+    if (orig instanceof HTMLElement && clone instanceof HTMLElement) {
+      const cs = window.getComputedStyle(orig);
+      for (let i = 0; i < cs.length; i++) {
+        const name = cs[i];
+        try {
+          clone.style.setProperty(name, cs.getPropertyValue(name), cs.getPropertyPriority(name));
+        } catch {
+          /* skip unsupported property names in strict engines */
+        }
+      }
+    }
+    const n = Math.min(orig.children.length, clone.children.length);
+    for (let i = 0; i < n; i++) {
+      walk(orig.children[i], clone.children[i]);
+    }
+  }
+  walk(originalRoot, clonedRoot);
+}
 
 export async function downloadElementAsPdf(
   element: HTMLElement,
@@ -55,6 +84,10 @@ export async function downloadElementAsPdf(
         useCORS: true,
         logging: false,
         letterRendering: true,
+        foreignObjectRendering: false,
+        onclone: (_clonedDocument: Document, clonedElement: HTMLElement) => {
+          copyComputedStylesOntoClone(element, clonedElement);
+        },
       },
       jsPDF,
       pagebreak: { mode: ["css", "legacy"] },

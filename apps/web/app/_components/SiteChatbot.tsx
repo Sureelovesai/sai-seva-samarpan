@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { resolveCityFromText } from "@/lib/chatbot/resolveCity";
+import { useSpeechRecognitionChat } from "@/lib/chatbot/useSpeechRecognition";
 import { CITIES, FIND_SEVA_LAST_CENTER_STORAGE_KEY } from "@/lib/cities";
 
 type HelpLink = { label: string; href: string };
@@ -194,6 +195,25 @@ export function SiteChatbot() {
       }
   }, [loading]);
 
+  const onVoiceTranscript = useCallback(
+    (text: string) => {
+      void send(text);
+    },
+    [send]
+  );
+
+  const {
+    supported: voiceSupported,
+    listening: voiceListening,
+    error: voiceError,
+    setError: setVoiceError,
+    toggle: toggleVoice,
+  } = useSpeechRecognitionChat(onVoiceTranscript);
+
+  useEffect(() => {
+    if (open) setVoiceError(null);
+  }, [open, setVoiceError]);
+
   return (
     <>
       <button
@@ -329,7 +349,50 @@ export function SiteChatbot() {
               send(input);
             }}
           >
+            {voiceSupported && (
+              <p className="mb-2 text-[11px] leading-snug text-zinc-500">
+                <span className="font-medium text-zinc-600">Voice:</span> tap the mic, speak your question, then pause —
+                it is sent like a typed message; the reply appears as text below. Tap again to stop early.
+              </p>
+            )}
             <div className="flex gap-2">
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={() => toggleVoice()}
+                  disabled={loading && !voiceListening}
+                  aria-pressed={voiceListening}
+                  aria-label={voiceListening ? "Stop listening" : "Ask by voice"}
+                  title={voiceListening ? "Stop listening" : "Ask by voice"}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-indigo-900 outline-none transition focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-40 ${
+                    voiceListening
+                      ? "border-red-400 bg-red-50 ring-2 ring-red-300/80"
+                      : "border-zinc-300 bg-white hover:bg-zinc-50"
+                  }`}
+                >
+                  {voiceListening ? (
+                    <span className="relative flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+                    </span>
+                  ) : (
+                    <svg
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                      />
+                    </svg>
+                  )}
+                </button>
+              )}
               <input
                 ref={inputRef}
                 value={input}
@@ -348,6 +411,11 @@ export function SiteChatbot() {
                 Send
               </button>
             </div>
+            {voiceError ? (
+              <p className="mt-2 text-xs text-red-600" role="alert">
+                {voiceError}
+              </p>
+            ) : null}
           </form>
         </div>
       )}
