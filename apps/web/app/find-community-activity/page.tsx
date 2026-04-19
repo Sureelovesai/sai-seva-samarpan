@@ -36,6 +36,7 @@ function fuzzy(q: string, blob: string) {
 
 function tileBg(category: string) {
   const c = (category || "").toLowerCase();
+  if (c.includes("online")) return "bg-sky-200/80";
   if (c.includes("food") || c.includes("narayana")) return "bg-green-200/80";
   if (c.includes("medicare")) return "bg-blue-200/80";
   if (c.includes("sociocare")) return "bg-orange-200/80";

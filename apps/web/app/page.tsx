@@ -15,6 +15,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Homeless Shelters": "bg-slate-600",
   "Medicare": "bg-blue-700",
   "Narayana Seva/Food": "bg-orange-700",
+  "Online": "bg-sky-700",
   "Other": "bg-zinc-600",
   "Senior Citizens": "bg-rose-700",
   "Sociocare": "bg-orange-900",

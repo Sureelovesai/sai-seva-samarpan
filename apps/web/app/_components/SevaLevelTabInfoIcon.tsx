@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useId, useRef, useState } from "react";
+
 /**
- * Standard “information” circle icon with a hover/focus tooltip (Find Seva + Activity Calendar level tabs).
+ * “Information” circle with tooltip:
+ * - Desktop / fine pointer: hover or keyboard focus shows the panel (CSS).
+ * - Touch / no reliable hover: tap the icon to toggle; tap outside or Escape to dismiss.
  */
 export function SevaLevelTabInfoIcon({
   text,
@@ -15,6 +19,10 @@ export function SevaLevelTabInfoIcon({
     | "calendarInactive"
     | "calendarActive";
 }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const panelId = useId();
+
   const panel =
     variant === "findSevaInactive" || variant === "findSevaActive"
       ? "border border-zinc-600 bg-zinc-900 text-white shadow-lg"
@@ -29,13 +37,46 @@ export function SevaLevelTabInfoIcon({
           ? "text-white/95 hover:text-white focus-visible:ring-white/80 focus-visible:ring-offset-sky-600"
           : "text-sky-300/90 hover:text-sky-100 focus-visible:ring-sky-400 focus-visible:ring-offset-slate-900";
 
+  useEffect(() => {
+    if (!open) return;
+    function closeIfOutside(e: MouseEvent | TouchEvent) {
+      const el = wrapRef.current;
+      const t = e.target;
+      if (!el || !(t instanceof Node) || el.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", closeIfOutside);
+    document.addEventListener("touchstart", closeIfOutside, { passive: true });
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", closeIfOutside);
+      document.removeEventListener("touchstart", closeIfOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const tooltipBase =
+    "absolute left-1/2 top-full z-50 mt-1 w-max max-w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md px-2.5 py-2 text-left text-xs font-normal leading-snug shadow-md transition-opacity duration-150";
+
+  const tooltipVisibility = open
+    ? "visible opacity-100 pointer-events-auto"
+    : "invisible pointer-events-none opacity-0 group-hover/hint:visible group-hover/hint:pointer-events-none group-hover/hint:opacity-100 group-focus-within/hint:visible group-focus-within/hint:opacity-100";
+
   return (
-    <span className="group/hint relative inline-flex shrink-0">
+    <span ref={wrapRef} className="group/hint relative inline-flex shrink-0">
       <button
         type="button"
-        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full outline-none transition hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-1 ${iconBtn}`}
+        className={`inline-flex h-5 w-5 shrink-0 touch-manipulation items-center justify-center rounded-full outline-none transition hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-1 ${iconBtn}`}
         aria-label="About this level"
-        onClick={(e) => e.stopPropagation()}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -51,10 +92,7 @@ export function SevaLevelTabInfoIcon({
           />
         </svg>
       </button>
-      <span
-        role="tooltip"
-        className={`pointer-events-none invisible absolute left-1/2 top-full z-50 mt-1 w-max max-w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md px-2.5 py-2 text-left text-xs font-normal leading-snug opacity-0 shadow-md transition-opacity duration-150 group-hover/hint:visible group-hover/hint:opacity-100 group-focus-within/hint:visible group-focus-within/hint:opacity-100 ${panel}`}
-      >
+      <span id={panelId} role="tooltip" className={`${tooltipBase} ${tooltipVisibility} ${panel}`}>
         {text}
       </span>
     </span>

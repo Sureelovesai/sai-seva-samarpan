@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { formatActivityDateTime } from "@/lib/formatSevaDateTime";
+import { sevaSignupParticipantTotal } from "@/lib/sevaCapacity";
 
 function escapeHtml(s: string): string {
   return s
@@ -11,7 +12,7 @@ function escapeHtml(s: string): string {
 }
 
 export function participantCount(s: { adultsCount: number | null; kidsCount: number | null }): number {
-  return (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
+  return sevaSignupParticipantTotal(s);
 }
 
 /**
@@ -78,8 +79,9 @@ export async function promotePendingSignupsForActivity(activityId: string): Prom
 
     const volEmail = nextPending.email.trim();
     const volName = nextPending.volunteerName.trim() || "Volunteer";
-    const adults = nextPending.adultsCount ?? 1;
+    const adults = nextPending.adultsCount ?? 0;
     const kids = nextPending.kidsCount ?? 0;
+    const totalParticipants = participantCount(nextPending);
 
     const volResult = await sendEmail({
       to: volEmail,
@@ -89,7 +91,7 @@ export async function promotePendingSignupsForActivity(activityId: string): Prom
         <p>Good news: a spot has opened for <strong>${escapeHtml(title)}</strong>. Your sign-up is now <strong>approved</strong> and you may attend this seva activity.</p>
         <p><strong>When:</strong> ${escapeHtml(startStr)}</p>
         ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
-        <p><strong>Participants:</strong> ${adults} adult(s), ${kids} child(ren) — ${adults + kids} total</p>
+        <p><strong>Participants:</strong> ${adults} adult(s), ${kids} child(ren) — ${totalParticipants} total</p>
         ${coordEmailTo || coordPhone ? `<p><strong>Coordinator:</strong> ${escapeHtml(coordName)}${coordEmailTo ? ` — ${escapeHtml(coordEmailTo)}` : ""}${coordPhone ? ` — ${escapeHtml(coordPhone)}` : ""}</p>` : ""}
         <p>You will receive a reminder 24 hours before the activity starts.</p>
         <p>Jai Sai Ram.</p>

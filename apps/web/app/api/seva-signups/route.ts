@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createVolunteerSignup } from "@/lib/sevaVolunteerSignupCore";
 import { sendSevaJoinSignupEmails } from "@/lib/sendSevaJoinSignupEmails";
 
 /**
@@ -42,56 +43,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const activity = await prisma.sevaActivity.findFirst({
-      where: { id: activityId, isActive: true },
-      select: {
-        id: true,
-        title: true,
-        coordinatorName: true,
-        coordinatorEmail: true,
-        coordinatorPhone: true,
-        capacity: true,
-        startDate: true,
-        startTime: true,
-        endTime: true,
-        locationName: true,
-      },
-    });
-    if (!activity) {
-      return NextResponse.json(
-        { error: "Activity not found or not active" },
-        { status: 404 }
-      );
-    }
-
-    // Count only APPROVED toward capacity (PENDING = waitlist)
-    const existingSignups = await prisma.sevaSignup.findMany({
-      where: {
-        activityId,
-        status: "APPROVED",
-      },
-      select: { adultsCount: true, kidsCount: true },
-    });
-    const rows = existingSignups as Array<{ adultsCount?: number; kidsCount?: number }>;
-    let currentParticipants = 0;
-    for (const s of rows) {
-      currentParticipants += (s.adultsCount ?? 1) + (s.kidsCount ?? 0);
-    }
-    const newParticipants = adultsCount + kidsCount;
-    const capacity = activity.capacity != null && activity.capacity > 0 ? activity.capacity : null;
-    const overCapacity = capacity != null && currentParticipants + newParticipants > capacity;
-    const status = overCapacity ? "PENDING" : "APPROVED";
-
-    const signup = await prisma.sevaSignup.create({
-      data: {
-        activityId,
-        volunteerName: name,
-        email,
-        phone,
-        adultsCount,
-        kidsCount,
-        status,
-      },
+    const { signup, activity } = await createVolunteerSignup(prisma, {
+      activityId,
+      volunteerName: name,
+      email,
+      phone,
+      adultsCount,
+      kidsCount,
     });
 
     await sendSevaJoinSignupEmails({
@@ -101,15 +59,25 @@ export async function POST(req: Request) {
       phone,
       adultsCount,
       kidsCount,
-      status,
+      status: signup.status,
     });
 
-    return NextResponse.json(signup, { status: 201 });
-  } catch (e: any) {
+    return NextResponse.json(
+      { id: signup.id, status: signup.status, activityId },
+      { status: 201 }
+    );
+  } catch (e: unknown) {
     console.error("Seva signup error:", e);
-    const message = e?.message ?? String(e);
+    const message = e instanceof Error ? e.message : String(e);
+    const dupOrBiz =
+      typeof message === "string" &&
+      (message.includes("already registered") || message.includes("not found") || message.includes("not active"));
+    if (dupOrBiz) {
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
     const hint =
-      typeof message === "string" && (message.includes("sevaSignup") || message.includes("SevaSignup") || message.includes("does not exist"))
+      typeof message === "string" &&
+      (message.includes("sevaSignup") || message.includes("SevaSignup") || message.includes("does not exist"))
         ? " Run: npx prisma generate && npx prisma migrate dev"
         : "";
     return NextResponse.json(

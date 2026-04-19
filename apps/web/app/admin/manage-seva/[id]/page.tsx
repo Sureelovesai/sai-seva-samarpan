@@ -6,10 +6,19 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
+import { USA_REGION_LABELS } from "@/lib/usaRegions";
 import {
   ContributionItemsEditor,
   type ContributionRow,
 } from "@/app/_components/ContributionItemsEditor";
+
+type ActivityScopeUi = "CENTER" | "REGIONAL" | "NATIONAL";
+
+const LEVEL_LABELS: Record<ActivityScopeUi, string> = {
+  CENTER: "Center level",
+  REGIONAL: "Regional level",
+  NATIONAL: "National level",
+};
 
 type ContributionClaim = {
   id: string;
@@ -250,7 +259,44 @@ export default function EditSevaActivityPage() {
   /** Shown in the dropdown if the linked group is not in the fetched list (e.g. rare edge cases). */
   const [groupExtraOption, setGroupExtraOption] = useState<{ id: string; title: string } | null>(null);
 
-  const canSave = useMemo(() => title.trim() && category.trim() && city.trim(), [title, category, city]);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [coordinatorRegions, setCoordinatorRegions] = useState<string[] | null>(null);
+  const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
+  const [rolesHydrated, setRolesHydrated] = useState(false);
+
+  const scopeOptions = useMemo((): ActivityScopeUi[] => {
+    const r = userRoles;
+    if (!r.length) return ["CENTER"];
+    const admin = r.includes("ADMIN") || r.includes("BLOG_ADMIN");
+    const next: ActivityScopeUi[] = [];
+    if (admin || r.includes("SEVA_COORDINATOR")) next.push("CENTER");
+    if (admin || (r.includes("REGIONAL_SEVA_COORDINATOR") && coordinatorRegions && coordinatorRegions.length > 0)) {
+      next.push("REGIONAL");
+    }
+    if (admin || r.includes("NATIONAL_SEVA_COORDINATOR")) next.push("NATIONAL");
+    if (next.length === 0) {
+      if (r.includes("REGIONAL_SEVA_COORDINATOR")) next.push("REGIONAL");
+      else if (r.includes("NATIONAL_SEVA_COORDINATOR")) next.push("NATIONAL");
+      else next.push("CENTER");
+    }
+    return next;
+  }, [userRoles, coordinatorRegions]);
+
+  const regionalRegionChoices = useMemo(() => {
+    if (!coordinatorRegions?.length) return [...USA_REGION_LABELS];
+    const set = new Set(coordinatorRegions);
+    return USA_REGION_LABELS.filter((x) => set.has(x));
+  }, [coordinatorRegions]);
+
+  const scopeOk = useMemo(() => {
+    if (activityScope !== "REGIONAL") return true;
+    return sevaUsaRegionField.trim() !== "" && city.trim() !== "";
+  }, [activityScope, sevaUsaRegionField, city]);
+
+  const canSave = useMemo(
+    () => title.trim() && category.trim() && city.trim() && scopeOk,
+    [title, category, city, scopeOk]
+  );
 
   const programGroupSelectOptions = useMemo(() => {
     const byId = new Map<string, string>();
@@ -451,6 +497,44 @@ export default function EditSevaActivityPage() {
   }, [loadActivity]);
 
   useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => {
+        const cities = data?.user?.coordinatorCities;
+        const roles: string[] = Array.isArray(data?.user?.roles) ? data.user.roles : [];
+        setUserRoles(roles);
+        const regs = data?.user?.coordinatorRegions;
+        setCoordinatorRegions(Array.isArray(regs) && regs.length > 0 ? regs : null);
+        if (Array.isArray(cities) && cities.length > 0) {
+          setAllowedCities(cities);
+        } else {
+          setAllowedCities([]);
+        }
+      })
+      .catch(() => {
+        setAllowedCities([]);
+        setUserRoles([]);
+        setCoordinatorRegions(null);
+      })
+      .finally(() => setRolesHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!rolesHydrated || !scopeOptions.length) return;
+    if (scopeOptions.length === 1) {
+      setActivityScope(scopeOptions[0]!);
+    } else if (!scopeOptions.includes(activityScope)) {
+      setActivityScope(scopeOptions[0]!);
+    }
+  }, [rolesHydrated, scopeOptions, activityScope]);
+
+  useEffect(() => {
+    if (activityScope === "NATIONAL" && !city.trim()) {
+      setCity("National");
+    }
+  }, [activityScope, city]);
+
+  useEffect(() => {
     const c =
       activityScope === "NATIONAL" ? (city.trim() || "National") : city.trim();
     if (activityScope === "REGIONAL") {
@@ -529,10 +613,67 @@ export default function EditSevaActivityPage() {
     }
   }
 
+  async function resolveProgramGroupId(
+    groupActivityStatus: "DRAFT" | "PUBLISHED" | "ARCHIVED"
+  ): Promise<string | null> {
+    let resolvedGroupId: string | null = null;
+    if (groupChoice === "__new__" && newGroupTitle.trim()) {
+      const cityVal = activityScope === "NATIONAL" && !city.trim() ? "National" : city.trim();
+      const gr = await fetch("/api/admin/seva-activity-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: newGroupTitle.trim(),
+          scope: activityScope,
+          city: cityVal,
+          sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegionField.trim() : undefined,
+          status: groupActivityStatus,
+        }),
+      });
+      const gd = (await gr.json().catch(() => ({}))) as {
+        id?: string;
+        title?: string;
+        error?: string;
+        detail?: string;
+      };
+      if (!gr.ok) {
+        throw new Error(gd?.error || gd?.detail || "Could not create program group.");
+      }
+      if (typeof gd?.id === "string") {
+        resolvedGroupId = gd.id;
+        const gTitle =
+          typeof gd.title === "string" && gd.title.trim() ? gd.title.trim() : newGroupTitle.trim();
+        setProgramGroups((prev) => {
+          if (prev.some((p) => p.id === gd.id)) return prev;
+          return [...prev, { id: gd.id!, title: gTitle }].sort((a, b) =>
+            a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
+          );
+        });
+        setGroupChoice(gd.id);
+        setNewGroupTitle("");
+        setGroupExtraOption({ id: gd.id, title: gTitle });
+      }
+    } else if (groupChoice && groupChoice !== "__new__") {
+      resolvedGroupId = groupChoice;
+    }
+    return resolvedGroupId;
+  }
+
   async function saveChanges() {
     setMsg(null);
     if (!canSave) {
-      setMsg({ kind: "err", text: "Please fill required fields: Seva Activity, Category, and City." });
+      setMsg({
+        kind: "err",
+        text: "Please fill required fields: Seva Activity, Category, City / listing, and (for regional) USA region.",
+      });
+      return;
+    }
+    if (!scopeOk) {
+      setMsg({
+        kind: "err",
+        text: "For regional level, choose a USA region and enter the location / listing title.",
+      });
       return;
     }
     if (groupChoice === "__new__" && !newGroupTitle.trim()) {
@@ -541,48 +682,10 @@ export default function EditSevaActivityPage() {
     }
     setSaving(true);
     try {
-      let resolvedGroupId: string | null = null;
-      if (groupChoice === "__new__" && newGroupTitle.trim()) {
-        const cityVal = activityScope === "NATIONAL" && !city.trim() ? "National" : city.trim();
-        const gr = await fetch("/api/admin/seva-activity-groups", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            title: newGroupTitle.trim(),
-            scope: activityScope,
-            city: cityVal,
-            sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegionField.trim() : undefined,
-            status,
-          }),
-        });
-        const gd = (await gr.json().catch(() => ({}))) as {
-          id?: string;
-          title?: string;
-          error?: string;
-          detail?: string;
-        };
-        if (!gr.ok) {
-          throw new Error(gd?.error || gd?.detail || "Could not create program group.");
-        }
-        if (typeof gd?.id === "string") {
-          resolvedGroupId = gd.id;
-          const gTitle =
-            typeof gd.title === "string" && gd.title.trim() ? gd.title.trim() : newGroupTitle.trim();
-          setProgramGroups((prev) => {
-            if (prev.some((p) => p.id === gd.id)) return prev;
-            return [...prev, { id: gd.id!, title: gTitle }].sort((a, b) =>
-              a.title.localeCompare(b.title, undefined, { sensitivity: "base" })
-            );
-          });
-          setGroupChoice(gd.id);
-          setNewGroupTitle("");
-          setGroupExtraOption({ id: gd.id, title: gTitle });
-        }
-      } else if (groupChoice && groupChoice !== "__new__") {
-        resolvedGroupId = groupChoice;
-      }
+      const resolvedGroupId = await resolveProgramGroupId(status);
 
+      const cityOut =
+        activityScope === "NATIONAL" && !city.trim() ? "National" : city.trim();
       const payload: Record<string, unknown> = {
         title: title.trim(),
         category: category.trim(),
@@ -593,7 +696,9 @@ export default function EditSevaActivityPage() {
         startTime: startTime || undefined,
         endTime: endTime || undefined,
         durationHours: durationHours > 0 ? durationHours : undefined,
-        city: city.trim(),
+        scope: activityScope,
+        sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegionField.trim() : undefined,
+        city: cityOut,
         locationName: locationName.trim() || undefined,
         address: address.trim() || undefined,
         coordinatorName: coordinatorName.trim() || undefined,
@@ -639,7 +744,21 @@ export default function EditSevaActivityPage() {
   async function submitCloneFromForm() {
     setMsg(null);
     if (!title.trim() || !category.trim() || !city.trim()) {
-      setMsg({ kind: "err", text: "Please fill required fields: Seva Activity, Category, and City." });
+      setMsg({
+        kind: "err",
+        text: "Please fill required fields: Seva Activity, Category, and City / listing.",
+      });
+      return;
+    }
+    if (!scopeOk) {
+      setMsg({
+        kind: "err",
+        text: "For regional level, choose a USA region and enter the location / listing title.",
+      });
+      return;
+    }
+    if (groupChoice === "__new__" && !newGroupTitle.trim()) {
+      setMsg({ kind: "err", text: "Enter a program title, or choose “No grouping”." });
       return;
     }
     if (!startTime || !endTime) {
@@ -696,7 +815,10 @@ export default function EditSevaActivityPage() {
     }
     setCloneSubmitting(true);
     try {
-      const payload = {
+      const resolvedGroupId = await resolveProgramGroupId("PUBLISHED");
+      const cityOut =
+        activityScope === "NATIONAL" && !city.trim() ? "National" : city.trim();
+      const payload: Record<string, unknown> = {
         title: title.trim(),
         category: category.trim(),
         description: description.trim() || undefined,
@@ -706,7 +828,9 @@ export default function EditSevaActivityPage() {
         startTime: startTime || undefined,
         endTime: endTime || undefined,
         durationHours: durationHours > 0 ? durationHours : undefined,
-        city: city.trim(),
+        scope: activityScope,
+        sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegionField.trim() : undefined,
+        city: cityOut,
         locationName: locationName.trim() || undefined,
         address: address.trim() || undefined,
         coordinatorName: coordinatorName.trim() || undefined,
@@ -725,11 +849,12 @@ export default function EditSevaActivityPage() {
             maxQuantity: r.maxQuantity,
           })),
       };
+      if (resolvedGroupId) payload.groupId = resolvedGroupId;
       const res = await fetch("/api/admin/seva-activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload as Record<string, unknown>),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.detail || data?.error || "Clone failed.");
@@ -943,13 +1068,115 @@ export default function EditSevaActivityPage() {
               </div>
             </div>
             <div className="bg-gradient-to-b from-white to-violet-50/40 px-5 py-6">
-              <label className="block text-sm font-semibold text-zinc-800">City <span className="text-red-600">*</span></label>
-              <select value={city} onChange={(e) => setCity(e.target.value)} className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45">
-                <option value="">Select city</option>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+              <label className="block text-sm font-semibold text-zinc-800">
+                Level <span className="text-red-600">*</span>
+              </label>
+              <p className="mt-1 text-xs text-zinc-600">
+                Center, regional, or national listing — same as Add Seva Activity. Only levels your account may post
+                appear here.
+              </p>
+              <select
+                value={activityScope}
+                disabled={scopeOptions.length <= 1}
+                title={
+                  scopeOptions.length <= 1
+                    ? "Your role fixes this level. Ask an admin if you need a different level."
+                    : undefined
+                }
+                onChange={(e) => {
+                  const v = e.target.value as ActivityScopeUi;
+                  setActivityScope(v);
+                  if (v === "NATIONAL") setCity((c) => c.trim() || "National");
+                  if (v === "REGIONAL")
+                    setSevaUsaRegionField((r) => r || regionalRegionChoices[0] || "");
+                  if (v === "CENTER" && city.trim().toLowerCase() === "national") {
+                    setCity("");
+                  }
+                }}
+                className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+              >
+                {scopeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {LEVEL_LABELS[opt]}
+                  </option>
                 ))}
               </select>
+              {activityScope === "REGIONAL" && (
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-zinc-800">
+                    USA region <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={sevaUsaRegionField}
+                    onChange={(e) => setSevaUsaRegionField(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                  >
+                    <option value="">Select region</option>
+                    {regionalRegionChoices.map((reg) => (
+                      <option key={reg} value={reg}>
+                        {reg}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <label className="mt-6 block text-sm font-semibold text-zinc-800">
+                {activityScope === "CENTER"
+                  ? "City"
+                  : activityScope === "REGIONAL"
+                    ? "Location / title (listing)"
+                    : "Listing label"}{" "}
+                <span className="text-red-600">*</span>
+              </label>
+              {activityScope === "CENTER" &&
+                (allowedCities !== null && allowedCities.length > 0 ? (
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                  >
+                    <option value="">Select city</option>
+                    {allowedCities.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    required
+                    className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                  >
+                    <option value="">Select city</option>
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ))}
+              {activityScope === "REGIONAL" && (
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Regional food drive — Southeast"
+                  required
+                  className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                />
+              )}
+              {activityScope === "NATIONAL" && (
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="National"
+                  required
+                  className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45"
+                />
+              )}
               <label className="mt-5 block text-sm font-semibold text-zinc-800">Location Name</label>
               <input value={locationName} onChange={(e) => setLocationName(e.target.value)} className="mt-2 w-full rounded-lg border border-violet-200/90 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-violet-400/45" />
               <label className="mt-5 block text-sm font-semibold text-zinc-800">Address</label>

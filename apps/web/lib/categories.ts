@@ -14,6 +14,7 @@ const SEVA_CATEGORIES_SORTED = [
   "Homeless Shelters",
   "Medicare",
   "Narayana Seva/Food",
+  "Online",
   "Other",
   "Senior Citizens",
   "Sociocare",

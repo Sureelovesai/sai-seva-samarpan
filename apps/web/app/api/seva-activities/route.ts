@@ -10,6 +10,7 @@ import {
   type UsaRegionLabel,
   usaRegionFromUrlParams,
 } from "@/lib/usaRegions";
+import { sevaSignupParticipantTotal } from "@/lib/sevaCapacity";
 
 /**
  * Public listings (Find Seva, featured on Home, Join page): hide activities whose last day has passed.
@@ -64,10 +65,12 @@ const activityPublicSelect = {
 
 type ActivityPublicRow = Prisma.SevaActivityGetPayload<{ select: typeof activityPublicSelect }>;
 
-function toPublicActivityJson(a: ActivityPublicRow) {
+function toPublicActivityJson(a: ActivityPublicRow, spotsRemaining: number | null) {
   const { group, groupId: _g, ...rest } = a;
   return {
     ...rest,
+    /** When `capacity` is set: seats still available (capacity minus APPROVED participants, adults+kids). Otherwise null. */
+    spotsRemaining,
     group:
       group && group.status === "PUBLISHED"
         ? { id: group.id, title: group.title }
@@ -209,7 +212,46 @@ export async function GET(req: Request) {
       list = activities.filter(isStillOpenForPublicListing);
     }
 
-    return NextResponse.json(list.map(toPublicActivityJson));
+    const ids = list.map((a) => a.id);
+    const usedByActivity = new Map<string, number>();
+    if (ids.length > 0) {
+      const approvedRows = await prisma.sevaSignup.findMany({
+        where: { activityId: { in: ids }, status: "APPROVED" },
+        select: { activityId: true, adultsCount: true, kidsCount: true },
+      });
+      for (const s of approvedRows) {
+        const n = sevaSignupParticipantTotal(s);
+        usedByActivity.set(s.activityId, (usedByActivity.get(s.activityId) ?? 0) + n);
+      }
+    }
+
+    const hasContributionListById = new Set<string>();
+    if (ids.length > 0) {
+      const grouped = await prisma.sevaContributionItem.groupBy({
+        by: ["activityId"],
+        where: { activityId: { in: ids } },
+        _count: { _all: true },
+      });
+      for (const g of grouped) {
+        hasContributionListById.add(g.activityId);
+      }
+    }
+
+    const payload = list.map((a) => {
+      const cap = a.capacity;
+      let spotsRemaining: number | null = null;
+      if (cap != null && cap > 0) {
+        const used = usedByActivity.get(a.id) ?? 0;
+        spotsRemaining = Math.max(0, cap - used);
+      }
+      return {
+        ...toPublicActivityJson(a, spotsRemaining),
+        /** True if coordinators configured item / supply list — excluded from batch Join Seva on Seva Details. */
+        hasContributionList: hasContributionListById.has(a.id),
+      };
+    });
+
+    return NextResponse.json(payload);
   } catch (e: unknown) {
     const err = e as Error & { error?: Error; message?: string };
     const detail = err?.error?.message ?? err?.message ?? (typeof e === "object" && e !== null ? String(e) : String(e));

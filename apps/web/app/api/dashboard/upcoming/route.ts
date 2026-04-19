@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth";
+import { isActivityEnded } from "@/lib/activityEnded";
 
 /**
  * GET /api/dashboard/upcoming
@@ -8,7 +9,8 @@ import { getSessionFromCookie } from "@/lib/auth";
  * Returns upcoming Seva activities that this person has JOINED (signed up for).
  * When joining an activity, everyone is a volunteer (including Admin and Seva Coordinator).
  * Logic: match SevaSignup.email (email used when joining) to signed-in email; if both match
- * and (activity startDate >= today OR startDate is not set), the activity appears in Upcoming.
+ * and the activity has not ended yet (uses endDate, duration, times — not startDate alone),
+ * the activity appears in Upcoming. Multi-day ranges (e.g. Apr 7–19) stay listed until the last day.
  */
 export async function GET(req: Request) {
   try {
@@ -24,9 +26,6 @@ export async function GET(req: Request) {
       return NextResponse.json([]);
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     // Only activities where the user joined with the same email they're signed in with (exclude withdrawn)
     const signups = await prisma.sevaSignup.findMany({
       where: {
@@ -39,6 +38,10 @@ export async function GET(req: Request) {
             id: true,
             title: true,
             startDate: true,
+            endDate: true,
+            startTime: true,
+            endTime: true,
+            durationHours: true,
             city: true,
           },
         },
@@ -47,12 +50,15 @@ export async function GET(req: Request) {
 
     const upcoming = signups
       .filter((s: (typeof signups)[number]) => {
-        const start = s.activity?.startDate;
-        // Include if no start date (show as upcoming / Date TBD) or start date is today or in the future
-        if (!start) return true;
-        const d = new Date(start);
-        d.setHours(0, 0, 0, 0);
-        return d >= today;
+        const a = s.activity;
+        if (!a) return false;
+        return !isActivityEnded({
+          startDate: a.startDate,
+          endDate: a.endDate,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          durationHours: a.durationHours,
+        });
       })
       .map((s: (typeof signups)[number]) => ({
         id: s.activity!.id,

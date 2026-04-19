@@ -1,9 +1,14 @@
 "use client";
 
 import NextImage from "next/image";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isActivityEnded } from "@/lib/activityEnded";
+import {
+  filterIdsForCompatibleMultiTab,
+  parseSevaActivityIdsParam,
+  sevaActivitiesPageSearchParamsToApiQuery,
+} from "@/lib/sevaActivitiesBrowseQuery";
 
 type SevaActivity = {
   id: string;
@@ -24,6 +29,9 @@ type SevaActivity = {
   coordinatorEmail: string | null;
   coordinatorPhone: string | null;
   imageUrl: string | null;
+  spotsRemaining?: number | null;
+  /** Coordinator configured item/supply list — excluded from multi-activity batch join. */
+  hasContributionList?: boolean;
 };
 
 // Fallback when no activities from API
@@ -46,6 +54,8 @@ const defaultActivity: SevaActivity = {
   coordinatorEmail: null,
   coordinatorPhone: null,
   imageUrl: null,
+  spotsRemaining: null,
+  hasContributionList: false,
 };
 
 function formatDateOnly(date: string | null) {
@@ -100,6 +110,39 @@ const DetailIcons = {
   ),
 };
 
+/**
+ * Initial "Which activities are you joining?" state from the URL — must match Find Seva selection.
+ * Previously every eligible activity defaulted to checked, which was wrong when only one box was ticked on Find Seva.
+ */
+function defaultBatchSelectionFromUrl(
+  activities: SevaActivity[],
+  idParam: string | null,
+  idsRaw: string | null
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  const wantedRaw = parseSevaActivityIdsParam(idsRaw);
+
+  let checkedIds = new Set<string>();
+  if (wantedRaw.length >= 2) {
+    checkedIds = new Set(filterIdsForCompatibleMultiTab(wantedRaw, activities));
+  } else if (wantedRaw.length === 1) {
+    checkedIds = new Set(wantedRaw);
+  } else {
+    const focus = (idParam && idParam.trim()) || "";
+    if (focus) {
+      checkedIds = new Set([focus]);
+    } else if (activities[0]) {
+      checkedIds = new Set([activities[0].id]);
+    }
+  }
+
+  for (const a of activities) {
+    const eligible = !a.hasContributionList && !isActivityEnded(a);
+    out[a.id] = Boolean(eligible && checkedIds.has(a.id));
+  }
+  return out;
+}
+
 const TAB_WIDTH_PX = 140;
 const TAB_GAP_PX = 8;
 const ARROWS_AND_GAPS_PX = 104; // << button + gap + >> button + gap (approx)
@@ -108,6 +151,7 @@ function SevaActivitiesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("id");
+  const idsFromUrl = searchParams.get("ids");
   const tabsRowRef = useRef<HTMLDivElement>(null);
 
   const [activities, setActivities] = useState<SevaActivity[]>([]);
@@ -121,6 +165,11 @@ function SevaActivitiesContent() {
   const [signUpError, setSignUpError] = useState<string | null>(null);
   const [signUpInfo, setSignUpInfo] = useState<string | null>(null);
   const [signUpSubmitting, setSignUpSubmitting] = useState(false);
+  /** When several activities are open: which are included in a batch Join (eligible = no supply list, not ended). */
+  const [batchSelection, setBatchSelection] = useState<Record<string, boolean>>({});
+  const [batchJoinResults, setBatchJoinResults] = useState<
+    { activityId: string; title: string | null; status: string }[] | null
+  >(null);
   const [agreedToJoinTerms, setAgreedToJoinTerms] = useState(false);
   const [agreedToItemTerms, setAgreedToItemTerms] = useState(false);
   const [itemRegisterSubmitting, setItemRegisterSubmitting] = useState(false);
@@ -162,6 +211,14 @@ function SevaActivitiesContent() {
       .catch(() => setUser(null));
   }, []);
 
+  useEffect(() => {
+    if (activities.length === 0) {
+      setBatchSelection({});
+      return;
+    }
+    setBatchSelection(defaultBatchSelectionFromUrl(activities, idFromUrl, idsFromUrl));
+  }, [activities, idFromUrl, idsFromUrl]);
+
   // When user loads (e.g. after clicking View Details), pre-fill name and email; leave editable
   useEffect(() => {
     if (!user) return;
@@ -181,6 +238,7 @@ function SevaActivitiesContent() {
       prevSelectedIdRef.current = selectedId;
       setSignUpSubmitted(false);
       setSignUpPending(false);
+      setBatchJoinResults(null);
       setSignUpError(null);
       setSignUpInfo(null);
       if (prev != null && selectedId != null) {
@@ -226,7 +284,11 @@ function SevaActivitiesContent() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch("/api/seva-activities", { cache: "no-store" });
+        const apiQs = sevaActivitiesPageSearchParamsToApiQuery(searchParams);
+        const listUrl = apiQs
+          ? `/api/seva-activities?${apiQs.toString()}`
+          : "/api/seva-activities";
+        const res = await fetch(listUrl, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load");
         const data = (await res.json()) as SevaActivity[];
         const idToSelect = searchParams.get("id");
@@ -243,9 +305,23 @@ function SevaActivitiesContent() {
           }
         }
 
-        setActivities(data || []);
-        if (data?.length) {
-          const sid = inSevaList ? idToSelect! : data[0].id;
+        let list: SevaActivity[] = data || [];
+        const wantedRaw = parseSevaActivityIdsParam(searchParams.get("ids"));
+        if (wantedRaw.length > 0) {
+          const byId = new Map(list.map((a) => [a.id, a]));
+          const normalizedIds = filterIdsForCompatibleMultiTab(wantedRaw, list);
+          const ordered = normalizedIds
+            .map((id) => byId.get(id))
+            .filter((a): a is SevaActivity => Boolean(a));
+          if (ordered.length > 0) {
+            list = ordered;
+          }
+        }
+
+        setActivities(list);
+        if (list.length) {
+          const inList = Boolean(idToSelect && list.some((a) => a.id === idToSelect));
+          const sid = inList ? idToSelect! : list[0].id;
           setSelectedId(sid);
         }
       } catch {
@@ -313,18 +389,47 @@ function SevaActivitiesContent() {
     };
   }, [activityIdToSubmit]);
 
+  const eligibleBatchActivities = useMemo(
+    () => activities.filter((a) => !a.hasContributionList && !isActivityEnded(a)),
+    [activities]
+  );
+
+  const batchJoinCount = useMemo(() => {
+    return eligibleBatchActivities.filter((a) => batchSelection[a.id]).length;
+  }, [eligibleBatchActivities, batchSelection]);
+
   const handleJoinSeva = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError(null);
     setSignUpInfo(null);
+    setBatchJoinResults(null);
     if (activities.length === 0 || !activityIdToSubmit) {
       setSignUpError("No activity available to sign up. Add an activity in Add Seva Activity first.");
       return;
     }
-    if (isActivityEnded(displayActivity)) {
-      setSignUpInfo("Sairam! The Seva Activity has already been completed. Thank You for your interest in this Seva Activity. Please feel free to explore other seva opportunities as well.");
-      return;
+
+    const eligibleSelected = activities.filter(
+      (a) => batchSelection[a.id] && !a.hasContributionList && !isActivityEnded(a)
+    );
+
+    let useBatchApi = false;
+    let targetActivityIds: string[] = [];
+
+    if (eligibleSelected.length >= 2) {
+      useBatchApi = true;
+      targetActivityIds = eligibleSelected.map((a) => a.id);
+    } else if (eligibleSelected.length === 1) {
+      targetActivityIds = [eligibleSelected[0].id];
+    } else {
+      if (isActivityEnded(displayActivity)) {
+        setSignUpInfo(
+          "Sairam! The Seva Activity has already been completed. Thank You for your interest in this Seva Activity. Please feel free to explore other seva opportunities as well."
+        );
+        return;
+      }
+      targetActivityIds = [activityIdToSubmit];
     }
+
     if (!agreedToJoinTerms) {
       setSignUpError("Please read and acknowledge the Terms and Policy before joining.");
       document.getElementById("join-seva-confirm")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -347,26 +452,70 @@ function SevaActivitiesContent() {
     }
     setSignUpSubmitting(true);
     try {
-      const res = await fetch("/api/seva-signups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activityId: activityIdToSubmit,
-          name,
-          email,
-          phone,
-          adultsCount: Math.max(0, adultsCount),
-          kidsCount: Math.max(0, kidsCount),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data?.error || data?.detail || "Failed to sign up";
-        const detail = data?.detail ? ` (${data.detail})` : "";
-        throw new Error(typeof msg === "string" ? msg + detail : "Failed to sign up");
+      const bodyCommon = {
+        name,
+        email,
+        phone,
+        adultsCount: Math.max(0, adultsCount),
+        kidsCount: Math.max(0, kidsCount),
+      };
+
+      if (useBatchApi) {
+        const res = await fetch("/api/seva-signups/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...bodyCommon,
+            activityIds: targetActivityIds,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data?.error || data?.detail || "Failed to sign up";
+          const detail = data?.detail ? ` (${data.detail})` : "";
+          throw new Error(typeof msg === "string" ? msg + detail : "Failed to sign up");
+        }
+        const results = Array.isArray(data?.results) ? data.results : [];
+        setBatchJoinResults(
+          results.map((r: { activityId?: string; title?: string | null; status?: string }) => ({
+            activityId: String(r.activityId ?? ""),
+            title: r.title ?? null,
+            status: String(r.status ?? ""),
+          }))
+        );
+        const summary = data?.summary as { waitlisted?: number } | undefined;
+        setSignUpSubmitted(true);
+        setSignUpPending((summary?.waitlisted ?? 0) > 0);
+      } else {
+        const res = await fetch("/api/seva-signups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activityId: targetActivityIds[0],
+            ...bodyCommon,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data?.error || data?.detail || "Failed to sign up";
+          const detail = data?.detail ? ` (${data.detail})` : "";
+          throw new Error(typeof msg === "string" ? msg + detail : "Failed to sign up");
+        }
+        setSignUpSubmitted(true);
+        setSignUpPending(data?.status === "PENDING");
       }
-      setSignUpSubmitted(true);
-      setSignUpPending(data?.status === "PENDING");
+
+      try {
+        const apiQs = sevaActivitiesPageSearchParamsToApiQuery(searchParams);
+        const listUrl = apiQs ? `/api/seva-activities?${apiQs.toString()}` : "/api/seva-activities";
+        const ref = await fetch(listUrl, { cache: "no-store" });
+        if (ref.ok) {
+          const fresh = (await ref.json()) as SevaActivity[];
+          setActivities(fresh);
+        }
+      } catch {
+        /* ignore refresh errors */
+      }
     } catch (err: unknown) {
       setSignUpError(err instanceof Error ? err.message : "Failed to sign up. Please try again.");
     } finally {
@@ -491,7 +640,12 @@ function SevaActivitiesContent() {
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => setSelectedId(a.id)}
+                      onClick={() => {
+                        setSelectedId(a.id);
+                        const next = new URLSearchParams(searchParams.toString());
+                        next.set("id", a.id);
+                        router.replace(`/seva-activities?${next.toString()}`, { scroll: false });
+                      }}
                       className={`shrink-0 rounded border px-4 py-2 text-sm font-medium transition-colors ${
                         selectedId === a.id
                           ? "border-indigo-700 bg-indigo-700 text-white"
@@ -567,10 +721,19 @@ function SevaActivitiesContent() {
                     <span className="min-w-0 text-zinc-800">{displayActivity.category || "—"}</span>
                   </div>
                   {displayActivity.capacity != null && displayActivity.capacity > 0 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {DetailIcons.capacity}
                       <span className="w-[7.25rem] shrink-0 text-sm font-semibold text-zinc-600 sm:w-36">Capacity:</span>
-                      <span className="min-w-0 text-zinc-800">{displayActivity.capacity} volunteer{displayActivity.capacity !== 1 ? "s" : ""}</span>
+                      <span className="min-w-0 text-zinc-800">
+                        {displayActivity.capacity} volunteer{displayActivity.capacity !== 1 ? "s" : ""}
+                        {displayActivity.spotsRemaining != null && (
+                          <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-900 ring-1 ring-emerald-400/40">
+                            {displayActivity.spotsRemaining === 0
+                              ? "Full"
+                              : `${displayActivity.spotsRemaining} left`}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   )}
                   <div className="flex items-center gap-2">
@@ -611,7 +774,11 @@ function SevaActivitiesContent() {
                     <span className="w-[7.25rem] shrink-0 text-sm font-semibold text-zinc-600 sm:w-36">Who Can Join:</span>
                     <span className="min-w-0 text-zinc-800">
                       {displayActivity.capacity != null && displayActivity.capacity > 0
-                        ? `Up to ${displayActivity.capacity} volunteer${displayActivity.capacity !== 1 ? "s" : ""}`
+                        ? displayActivity.spotsRemaining != null
+                          ? displayActivity.spotsRemaining === 0
+                            ? `Capacity ${displayActivity.capacity} — roster full (joining may add you to the waitlist)`
+                            : `Up to ${displayActivity.capacity} volunteer${displayActivity.capacity !== 1 ? "s" : ""} (${displayActivity.spotsRemaining} spot${displayActivity.spotsRemaining !== 1 ? "s" : ""} left)`
+                          : `Up to ${displayActivity.capacity} volunteer${displayActivity.capacity !== 1 ? "s" : ""}`
                         : "All Are Welcome"}
                     </span>
                   </div>
@@ -716,7 +883,31 @@ function SevaActivitiesContent() {
               {/* Join Seva — creates SevaSignup (roster, capacity, hours when activity ends) */}
               {signUpSubmitted ? (
                 <div className="space-y-3 rounded-lg bg-emerald-50/90 px-6 py-8 text-center text-emerald-800 shadow-sm">
-                  {signUpPending ? (
+                  {batchJoinResults && batchJoinResults.length > 0 ? (
+                    <>
+                      <p className="font-medium">Sai Ram!</p>
+                      <p>
+                        You are registered for <strong>{batchJoinResults.length}</strong> activit
+                        {batchJoinResults.length === 1 ? "y" : "ies"}.
+                      </p>
+                      {signUpPending && (
+                        <p className="text-left text-sm leading-relaxed">
+                          Some activities may be on the waitlist — check your email for each event.
+                        </p>
+                      )}
+                      <ul className="mt-4 space-y-2 text-left text-sm">
+                        {batchJoinResults.map((r) => (
+                          <li key={r.activityId} className="rounded border border-emerald-200/80 bg-white/60 px-3 py-2">
+                            <span className="font-semibold text-emerald-950">{r.title ?? "Activity"}</span>
+                            <span className="ml-2 text-zinc-600">
+                              — {r.status === "PENDING" ? "Waitlist" : "Confirmed"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="pt-2 text-sm">Please check your email for each activity.</p>
+                    </>
+                  ) : signUpPending ? (
                     <>
                       <p className="font-medium">Sai Ram!</p>
                       <p>Your registration is pending.</p>
@@ -743,6 +934,95 @@ function SevaActivitiesContent() {
                       activity is completed.
                     </p>
                   </div>
+
+                  {activities.length > 1 && (
+                    <div className="overflow-hidden rounded-2xl border border-indigo-300/50 bg-white/35 shadow-[0_8px_28px_rgba(30,50,120,0.08)] backdrop-blur-sm">
+                      <div className="border-b border-indigo-200/70 bg-white/60 px-4 py-4 md:px-5">
+                        <p className="text-sm font-semibold text-indigo-950">Which activities are you joining?</p>
+                        <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+                          Matches <strong>Find Seva</strong>: use the same style of checkboxes to include activities in
+                          this page. Select two or more <strong>without</strong> a supply list to register in one step.
+                          Activities with items to bring must be joined one at a time from that tab. To join only the tab
+                          you are viewing, uncheck the others.
+                        </p>
+                      </div>
+                      <div>
+                        {activities.map((a) => {
+                          const eligible = !a.hasContributionList && !isActivityEnded(a);
+                          const checked = batchSelection[a.id] ?? false;
+                          const ended = isActivityEnded(a);
+                          return (
+                            <div
+                              key={a.id}
+                              className={`flex flex-wrap items-center gap-3 border-b border-zinc-300/50 bg-white/85 px-4 py-2.5 last:border-b-0 ${
+                                !eligible ? "opacity-90" : ""
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                id={`batch-join-${a.id}`}
+                                className="h-5 w-5 shrink-0 rounded border-zinc-400 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                checked={checked}
+                                disabled={!eligible}
+                                onChange={(e) =>
+                                  setBatchSelection((p) => ({ ...p, [a.id]: e.target.checked }))
+                                }
+                                aria-label={`Include ${a.title} in batch join`}
+                              />
+                              <label
+                                htmlFor={`batch-join-${a.id}`}
+                                className={`min-w-0 flex-1 text-sm font-medium leading-snug ${
+                                  eligible ? "cursor-pointer text-zinc-800" : "cursor-not-allowed text-zinc-400"
+                                }`}
+                              >
+                                {ended ? (
+                                  <>
+                                    Activity ended — cannot select
+                                    <span className="mt-0.5 block text-base font-semibold tracking-wide text-zinc-400">
+                                      {a.title}
+                                    </span>
+                                    <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                                      This activity has ended.
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {eligible ? (
+                                      "Include in this Join Seva submission"
+                                    ) : (
+                                      <span className="text-zinc-500">
+                                        Not included in combined Join Seva — use this tab
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`mt-0.5 block text-base font-semibold tracking-wide ${
+                                        eligible ? "text-zinc-900" : "text-zinc-600"
+                                      }`}
+                                    >
+                                      {a.title}
+                                    </span>
+                                    {a.hasContributionList ? (
+                                      <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
+                                        Has a supply list — join from this tab individually.
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {batchJoinCount >= 2 && (
+                        <div className="border-t border-indigo-400/50 bg-gradient-to-r from-indigo-50 to-white px-4 py-3">
+                          <p className="text-center text-xs font-semibold text-indigo-950">
+                            One submission will register you for {batchJoinCount} activities (confirmation email per
+                            event).
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
                     <p className="text-sm font-semibold text-emerald-800">
                       Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
@@ -810,7 +1090,11 @@ function SevaActivitiesContent() {
                         disabled={signUpSubmitting || !canJoinSeva || !agreedToJoinTerms}
                         className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
                       >
-                        {signUpSubmitting ? "Submitting…" : "Join Seva"}
+                        {signUpSubmitting
+                          ? "Submitting…"
+                          : batchJoinCount >= 2
+                            ? `Join ${batchJoinCount} activities`
+                            : "Join Seva"}
                       </button>
                       {signUpError && (
                         <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{signUpError}</p>

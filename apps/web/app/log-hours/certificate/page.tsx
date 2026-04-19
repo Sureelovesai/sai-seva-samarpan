@@ -1,8 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { CERTIFICATE_LETTER_PDF_OPTIONS, downloadElementAsPdf } from "@/lib/htmlToPdf";
+
+/** Mobile / touch browsers often ignore or mishandle `window.print()`; client PDF works reliably. */
+function shouldSavePdfInsteadOfPrint(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const mobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const ipadDesktopMode = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  return mobileUa || ipadDesktopMode || coarsePointer;
+}
+
+function safeCertificateFilenameBase(volunteerName: string): string {
+  const cleaned = volunteerName
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
+  return cleaned ? `certificate-${cleaned}` : "volunteer-certificate";
+}
 
 function formatDateFromInput(yyyyMmDd: string) {
   if (!yyyyMmDd) return "";
@@ -13,6 +33,9 @@ function formatDateFromInput(yyyyMmDd: string) {
 
 function CertificateContent() {
   const sp = useSearchParams();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const data = useMemo(() => {
     const name = sp.get("name") || "Volunteer Name";
@@ -36,6 +59,30 @@ function CertificateContent() {
       orgName: "The Sri Sathya Sai Global Council Foundation, Inc. (EIN: 88-0716268) is a U.S.-based 501(c)(3) nonprofit that supports global humanitarian and community service initiatives inspired by the teachings of  Bhagawan Sri Sathya Sai Baba.",
     };
   }, [sp]);
+
+  async function handlePrintOrSavePdf() {
+    setPdfError(null);
+    if (shouldSavePdfInsteadOfPrint()) {
+      const el = sheetRef.current;
+      if (!el) {
+        setPdfError("Could not prepare the certificate. Please try again.");
+        return;
+      }
+      setPdfBusy(true);
+      try {
+        const name = `${safeCertificateFilenameBase(data.volunteerName)}.pdf`;
+        await downloadElementAsPdf(el, name, CERTIFICATE_LETTER_PDF_OPTIONS);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Could not save PDF.";
+        setPdfError(msg);
+        console.error("Certificate PDF failed:", e);
+      } finally {
+        setPdfBusy(false);
+      }
+      return;
+    }
+    window.print();
+  }
 
   return (
     <div className="certificate-page-root flex w-full flex-col items-stretch">
@@ -109,7 +156,10 @@ function CertificateContent() {
       `}} />
     <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.75in]">
         {/* Certificate sheet */}
-        <div className="certificate-sheet relative overflow-hidden rounded-md bg-white shadow-2xl">
+        <div
+          ref={sheetRef}
+          className="certificate-sheet relative overflow-hidden rounded-md bg-white shadow-2xl"
+        >
           {/* Border layer - clearly visible gold frame (responsive: thinner on mobile to match proportions) */}
           <div className="pointer-events-none absolute inset-0 z-0">
             {/* Outer band: visible tan/gold */}
@@ -211,14 +261,18 @@ function CertificateContent() {
               </div>
             </div>
 
-            {/* Print button */}
-            <div className="mt-10 flex justify-center gap-4 print:hidden">
+            {/* Print / save — excluded from html2pdf capture */}
+            <div className="mt-10 flex flex-col items-center gap-2 print:hidden" data-html2canvas-ignore="true">
               <button
-                onClick={() => window.print()}
-                className="rounded-md bg-[#a67c2e] px-6 py-3 font-semibold text-white shadow hover:brightness-95"
+                type="button"
+                onClick={() => void handlePrintOrSavePdf()}
+                disabled={pdfBusy}
+                style={{ touchAction: "manipulation" }}
+                className="rounded-md bg-[#a67c2e] px-6 py-3 font-semibold text-white shadow hover:brightness-95 disabled:opacity-70"
               >
-                Print / Save as PDF
+                {pdfBusy ? "Generating PDF…" : "Print / Save as PDF"}
               </button>
+              {pdfError ? <p className="max-w-md text-center text-sm text-red-700">{pdfError}</p> : null}
             </div>
           </div>
         </div>
@@ -226,9 +280,10 @@ function CertificateContent() {
         <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
           <p>
             <strong>Print / Save as PDF:</strong> Output is sized for <strong>US Letter</strong> (8.5×11 in), the usual
-            certificate paper in the U.S. Use the button above, then <strong>Save as PDF</strong> (or Microsoft Print to
-            PDF). Set <strong>Scale to 100%</strong> — if the preview looks tiny, turn off &quot;Fit to page&quot; /
-            &quot;Shrink oversized pages&quot; so the certificate fills the page.
+            certificate paper in the U.S. On a <strong>phone or tablet</strong>, the button saves a PDF file directly. On
+            a <strong>computer</strong>, it opens the print dialog — choose <strong>Save as PDF</strong> (or Microsoft
+            Print to PDF). Set <strong>Scale to 100%</strong> — if the preview looks tiny, turn off &quot;Fit to page&quot;
+            / &quot;Shrink oversized pages&quot; so the certificate fills the page.
           </p>
         </div>
       </div>
