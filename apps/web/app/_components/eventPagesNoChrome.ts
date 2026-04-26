@@ -12,9 +12,14 @@ function isLogHoursCertificatePath(pathname: string): boolean {
   return pathname === "/log-hours/certificate" || pathname.startsWith("/log-hours/certificate/");
 }
 
+function isSevaMahotsavamLandingPath(pathname: string): boolean {
+  return pathname === "/seva-mahotsavam" || pathname.startsWith("/seva-mahotsavam/");
+}
+
 /** Public /events and Event Admin: no main site header (logo + menu). */
 export function shouldHideSiteHeader(pathname: string | null): boolean {
   if (!pathname) return false;
+  if (isSevaMahotsavamLandingPath(pathname)) return true;
   if (isLogHoursCertificatePath(pathname)) return true;
   if (pathname === "/events" || pathname.startsWith("/events/")) return true;
   return isEventAdminPath(pathname);
@@ -25,6 +30,7 @@ export function shouldHideSiteHeader(pathname: string | null): boolean {
  */
 export function shouldHideFooterAndChatbot(pathname: string | null): boolean {
   if (!pathname) return false;
+  if (isSevaMahotsavamLandingPath(pathname)) return true;
   if (isLogHoursCertificatePath(pathname)) return true;
   if (pathname === "/events" || pathname.startsWith("/events/")) return true;
   return isEventAdminPath(pathname);

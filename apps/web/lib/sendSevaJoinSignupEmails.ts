@@ -9,7 +9,36 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function publicAppBaseUrl(): string {
+  return (
+    (process.env.NEXT_PUBLIC_APP_URL ?? "").trim() ||
+    (process.env.VERCEL_URL ? `https://${String(process.env.VERCEL_URL).trim()}` : "")
+  );
+}
+
+/** Absolute URL for email clients; empty if app URL is not configured. */
+function absoluteSevaActivityViewDetailsUrl(activityId: string): string {
+  const base = publicAppBaseUrl().replace(/\/$/, "");
+  if (!base || !activityId) return "";
+  return `${base}/seva-activities?id=${encodeURIComponent(activityId)}`;
+}
+
+function firstNameFromVolunteerName(volunteerName: string): string {
+  const t = volunteerName.trim();
+  if (!t) return "";
+  return t.split(/\s+/)[0] ?? t;
+}
+
+function formatLocationVenueLine(locationName: string | null | undefined, address: string | null | undefined): string {
+  const loc = (locationName ?? "").trim();
+  const addr = (address ?? "").trim();
+  if (loc && addr) return `${loc} — ${addr}`;
+  return loc || addr || "—";
+}
+
 export type JoinSignupActivityEmailFields = {
+  /** Used for the “View details” link in volunteer confirmation. */
+  id: string;
   title: string | null;
   coordinatorName: string | null;
   coordinatorEmail: string | null;
@@ -18,6 +47,7 @@ export type JoinSignupActivityEmailFields = {
   startTime: string | null;
   endTime: string | null;
   locationName: string | null;
+  address?: string | null;
 };
 
 /**
@@ -63,6 +93,16 @@ export async function sendSevaJoinSignupEmails(params: {
     activity.endTime
   );
 
+  const locationLine = formatLocationVenueLine(activity.locationName, activity.address);
+  const firstName = firstNameFromVolunteerName(name);
+  const greetingName = firstName || "Sai devotee";
+  const viewDetailsUrl = activity.id ? absoluteSevaActivityViewDetailsUrl(activity.id) : "";
+  const viewDetailsBlock = viewDetailsUrl
+    ? `<p>🔗 <a href="${escapeHtml(viewDetailsUrl)}">View details</a></p>`
+    : activity.id
+      ? `<p>🔗 View details: open the Seva Portal, use <strong>Find Seva</strong>, and view this activity.</p>`
+      : "";
+
   const itemsBlock =
     itemLines && itemLines.length > 0
       ? `<p><strong>Items registered for you to bring:</strong></p><ul>${itemLines
@@ -77,27 +117,33 @@ export async function sendSevaJoinSignupEmails(params: {
     to: email,
     subject:
       status === "PENDING"
-        ? `Pending: ${activityTitle} (waitlist)`
-        : `You've joined: ${activityTitle}`,
+        ? `Waitlist: ${activityTitle}`
+        : `Your seva registration is confirmed — ${activityTitle}`,
     html:
       status === "PENDING"
         ? `
-        <p>Dear ${escapeHtml(name)},</p>
-        <p>Thank you for your interest in the seva activity: <strong>${escapeHtml(activityTitle)}</strong>.</p>
-        <p>Your sign-up is <strong>pending</strong> because the activity is at capacity. You are on the <strong>waitlist</strong>. If a spot opens, you will receive another email when your sign-up is approved.</p>
-        <p><strong>When:</strong> ${escapeHtml(startStr)}</p>
-        ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
-        <p><strong>Participants requested:</strong> ${adultsCount} adult(s), ${kidsCount} child(ren)</p>
+        <p>Sai Ram ${escapeHtml(greetingName)},</p>
+        <p>Thank you for your interest. Your sign-up is <strong>pending</strong> (waitlist) because the activity is at capacity. If a spot opens, you will receive another email when your sign-up is approved.</p>
+        <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
+        <p><strong>Date &amp; Time:</strong> ${escapeHtml(startStr)}</p>
+        <p><strong>Location:</strong> ${escapeHtml(locationLine)}</p>
+        <p>Kindly arrive 10–15 minutes early if you are later approved. If you signed up to bring items, please carry them along.</p>
+        ${viewDetailsBlock}
         ${itemsBlock}
         <p>You will not receive the usual 24-hour reminder until your sign-up is approved.${contactLine}</p>
-        <p>Jai Sai Ram.</p>
+        <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>
       `
         : `
-        <p>Dear ${escapeHtml(name)},</p>
-        <p>Thank you for joining the seva activity: <strong>${escapeHtml(activityTitle)}</strong>.</p>
-        <p>Your sign-up has been <strong>approved</strong>. You will receive a reminder 24 hours before the activity starts.${contactLine}</p>
+        <p>Sai Ram ${escapeHtml(greetingName)},</p>
+        <p>Your seva registration is confirmed. 🙏</p>
+        <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
+        <p><strong>Date &amp; Time:</strong> ${escapeHtml(startStr)}</p>
+        <p><strong>Location:</strong> ${escapeHtml(locationLine)}</p>
+        <p>Kindly arrive 10–15 minutes early. If you signed up to bring items, please carry them along.</p>
+        ${viewDetailsBlock}
         ${itemsBlock}
-        <p>Jai Sai Ram.</p>
+        <p>You will receive a reminder 24 hours before the activity starts.${contactLine}</p>
+        <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>
       `,
   });
   if (!volunteerEmailResult.ok) {
@@ -118,7 +164,7 @@ export async function sendSevaJoinSignupEmails(params: {
           <p>${status === "PENDING" ? "A volunteer has joined the <strong>waitlist</strong> (pending — activity at capacity)." : "A new volunteer has signed up for your seva activity (approved)."}</p>
           <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
           <p><strong>Start:</strong> ${escapeHtml(startStr)}</p>
-          ${activity.locationName ? `<p><strong>Location:</strong> ${escapeHtml(activity.locationName)}</p>` : ""}
+          ${activity.locationName || activity.address ? `<p><strong>Location:</strong> ${escapeHtml(formatLocationVenueLine(activity.locationName, activity.address))}</p>` : ""}
           <p><strong>Volunteer:</strong> ${escapeHtml(name)}</p>
           <p><strong>Email:</strong> ${escapeHtml(email)}</p>
           ${phone ? `<p><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ""}

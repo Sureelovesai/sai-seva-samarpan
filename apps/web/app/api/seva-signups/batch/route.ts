@@ -76,6 +76,8 @@ export async function POST(req: Request) {
         coordinatorPhone: true,
         capacity: true,
         locationName: true,
+        address: true,
+        allowKids: true,
         _count: { select: { contributionItems: true } },
       },
     });
@@ -126,6 +128,23 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       );
+    }
+    if (kidsCount > 0) {
+      const disallowKids = rows
+        .filter((a: (typeof rows)[number]) => !a.allowKids)
+        .map((a: (typeof rows)[number]) => a.title ?? a.id);
+      if (disallowKids.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Kids are not allowed for these selected activities: " +
+              disallowKids.slice(0, 8).join("; ") +
+              (disallowKids.length > 8 ? ` … (+${disallowKids.length - 8} more)` : ""),
+            code: "KIDS_NOT_ALLOWED",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Pre-check duplicates (clearer than failing mid-transaction)
@@ -183,6 +202,7 @@ export async function POST(req: Request) {
       if (!r) continue;
       await sendSevaJoinSignupEmails({
         activity: {
+          id: row.id,
           title: row.title,
           coordinatorName: row.coordinatorName,
           coordinatorEmail: row.coordinatorEmail,
@@ -191,6 +211,7 @@ export async function POST(req: Request) {
           startTime: row.startTime,
           endTime: row.endTime,
           locationName: row.locationName,
+          address: row.address,
         },
         volunteerName: name,
         email,

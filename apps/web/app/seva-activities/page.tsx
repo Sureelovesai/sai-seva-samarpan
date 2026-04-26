@@ -1,12 +1,13 @@
 "use client";
 
 import NextImage from "next/image";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { isActivityEnded } from "@/lib/activityEnded";
 import {
   filterIdsForCompatibleMultiTab,
   parseSevaActivityIdsParam,
+  SEVA_MAHOTSAVAM_ACTIVITIES_PATH,
   sevaActivitiesPageSearchParamsToApiQuery,
 } from "@/lib/sevaActivitiesBrowseQuery";
 
@@ -25,6 +26,7 @@ type SevaActivity = {
   locationName: string | null;
   address: string | null;
   capacity: number | null;
+  allowKids?: boolean;
   coordinatorName: string | null;
   coordinatorEmail: string | null;
   coordinatorPhone: string | null;
@@ -50,6 +52,7 @@ const defaultActivity: SevaActivity = {
   locationName: null,
   address: null,
   capacity: null,
+  allowKids: true,
   coordinatorName: null,
   coordinatorEmail: null,
   coordinatorPhone: null,
@@ -149,10 +152,25 @@ const ARROWS_AND_GAPS_PX = 104; // << button + gap + >> button + gap (approx)
 
 function SevaActivitiesContent() {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+  /** Mahotsavam flow uses `/seva-mahotsavam/activities` so global header/footer stay hidden. */
+  const sevaDetailsPathPrefix =
+    pathname === SEVA_MAHOTSAVAM_ACTIVITIES_PATH ? SEVA_MAHOTSAVAM_ACTIVITIES_PATH : "/seva-activities";
   const idFromUrl = searchParams.get("id");
   const idsFromUrl = searchParams.get("ids");
   const tabsRowRef = useRef<HTMLDivElement>(null);
+  const wasSupplyListTabInJoinUi = useRef(false);
+  /**
+   * Re-apply `defaultBatchSelectionFromUrl` when the open activity set, `ids`, or the URL first
+   * provides an `id` (hydration) change — but not on tab-only `id` changes after load (checkboxes
+   * stay put). `hadFocusInUrl` is true once we have applied batch with a non-empty `?id=`.
+   */
+  const lastBatchResyncKeyRef = useRef<{
+    activityKey: string;
+    ids: string | null;
+    hadFocusInUrl: boolean;
+  } | null>(null);
 
   const [activities, setActivities] = useState<SevaActivity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(idFromUrl);
@@ -210,14 +228,6 @@ function SevaActivitiesContent() {
       .then((data) => setUser(data?.user ?? null))
       .catch(() => setUser(null));
   }, []);
-
-  useEffect(() => {
-    if (activities.length === 0) {
-      setBatchSelection({});
-      return;
-    }
-    setBatchSelection(defaultBatchSelectionFromUrl(activities, idFromUrl, idsFromUrl));
-  }, [activities, idFromUrl, idsFromUrl]);
 
   // When user loads (e.g. after clicking View Details), pre-fill name and email; leave editable
   useEffect(() => {
@@ -292,6 +302,7 @@ function SevaActivitiesContent() {
         if (!res.ok) throw new Error("Failed to load");
         const data = (await res.json()) as SevaActivity[];
         const idToSelect = searchParams.get("id");
+        const idsParam = searchParams.get("ids");
         if (cancelled) return;
 
         const inSevaList = Boolean(idToSelect && data?.some((a) => a.id === idToSelect));
@@ -318,14 +329,48 @@ function SevaActivitiesContent() {
           }
         }
 
+        const activityKey = list
+          .map((a) => a.id)
+          .slice()
+          .sort()
+          .join("\u0000");
+        const idsForResync = idsParam && idsParam.trim() ? idsParam : null;
+        const hasFocusInUrl = Boolean(idToSelect && idToSelect.trim());
+        const prevResync = lastBatchResyncKeyRef.current;
+        const focusAppearedInUrl = hasFocusInUrl && prevResync && !prevResync.hadFocusInUrl;
+        const shouldResyncBatchFromUrl =
+          !prevResync ||
+          prevResync.activityKey !== activityKey ||
+          prevResync.ids !== idsForResync ||
+          focusAppearedInUrl;
+
         setActivities(list);
-        if (list.length) {
+        if (list.length === 0) {
+          if (!cancelled) {
+            setBatchSelection({});
+            lastBatchResyncKeyRef.current = null;
+          }
+        } else {
           const inList = Boolean(idToSelect && list.some((a) => a.id === idToSelect));
           const sid = inList ? idToSelect! : list[0].id;
           setSelectedId(sid);
+          if (!cancelled && shouldResyncBatchFromUrl) {
+            setBatchSelection(
+              defaultBatchSelectionFromUrl(list, idToSelect, idsParam)
+            );
+            lastBatchResyncKeyRef.current = {
+              activityKey,
+              ids: idsForResync,
+              hadFocusInUrl: hasFocusInUrl,
+            };
+          }
         }
       } catch {
-        if (!cancelled) setActivities([]);
+        if (!cancelled) {
+          setActivities([]);
+          setBatchSelection({});
+          lastBatchResyncKeyRef.current = null;
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -348,6 +393,47 @@ function SevaActivitiesContent() {
   const selected = activities.find((a) => a.id === selectedId);
   const displayActivity = activities.length ? (selected ?? activities[0]) : defaultActivity;
   const activityIdToSubmit = activities.length ? (selected?.id ?? activities[0].id) : null;
+  const kidsAllowedForCurrentJoin = displayActivity.allowKids !== false;
+
+  useEffect(() => {
+    if (!kidsAllowedForCurrentJoin && kidsCount !== 0) {
+      setKidsCount(0);
+    }
+  }, [kidsAllowedForCurrentJoin, kidsCount]);
+
+  /**
+   * With multiple tabs, if the active tab has a supply list, only that row stays selected for
+   * “Join”; other activities stay visible, disabled, while this tab is active.
+   */
+  const supplyListTabInMultiSession = Boolean(
+    activities.length > 1 &&
+    selected &&
+    selected.hasContributionList &&
+    !isActivityEnded(selected)
+  );
+
+  /** While the supply-list tab is active, only that id stays checked; leaving that tab re-syncs from the URL. */
+  useEffect(() => {
+    if (activities.length <= 1) return;
+    if (supplyListTabInMultiSession && selected) {
+      wasSupplyListTabInJoinUi.current = true;
+      setBatchSelection((prev) => {
+        const next = { ...prev };
+        for (const a of activities) {
+          next[a.id] = a.id === selected.id;
+        }
+        for (const a of activities) {
+          if ((prev[a.id] ?? false) !== (next[a.id] ?? false)) return next;
+        }
+        return prev;
+      });
+      return;
+    }
+    if (wasSupplyListTabInJoinUi.current) {
+      wasSupplyListTabInJoinUi.current = false;
+      setBatchSelection(defaultBatchSelectionFromUrl(activities, idFromUrl, idsFromUrl));
+    }
+  }, [activities, idFromUrl, idsFromUrl, supplyListTabInMultiSession, selected?.id]);
 
   useEffect(() => {
     if (!activityIdToSubmit) return;
@@ -392,6 +478,23 @@ function SevaActivitiesContent() {
   const eligibleBatchActivities = useMemo(
     () => activities.filter((a) => !a.hasContributionList && !isActivityEnded(a)),
     [activities]
+  );
+
+  /** Match top activity tabs: switch `id` in URL, update details + highlight tab; optional scroll to overview. */
+  const switchToActivityTab = useCallback(
+    (activityId: string) => {
+      setSelectedId(activityId);
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("id", activityId);
+      router.replace(`${sevaDetailsPathPrefix}?${next.toString()}`, { scroll: false });
+      requestAnimationFrame(() => {
+        document.getElementById("seva-details-activity-anchor")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    },
+    [router, searchParams, sevaDetailsPathPrefix]
   );
 
   const batchJoinCount = useMemo(() => {
@@ -446,8 +549,13 @@ function SevaActivitiesContent() {
       setSignUpError("Phone number is required.");
       return;
     }
-    if (adultsCount + kidsCount < 1) {
-      setSignUpError("The total count of adults and kids must be at least 1.");
+    const sanitizedKidsCount = kidsAllowedForCurrentJoin ? kidsCount : 0;
+    if (adultsCount + sanitizedKidsCount < 1) {
+      setSignUpError(
+        kidsAllowedForCurrentJoin
+          ? "The total count of adults and kids must be at least 1."
+          : "At least one adult must be included for this activity."
+      );
       return;
     }
     setSignUpSubmitting(true);
@@ -457,7 +565,7 @@ function SevaActivitiesContent() {
         email,
         phone,
         adultsCount: Math.max(0, adultsCount),
-        kidsCount: Math.max(0, kidsCount),
+        kidsCount: Math.max(0, sanitizedKidsCount),
       };
 
       if (useBatchApi) {
@@ -640,12 +748,7 @@ function SevaActivitiesContent() {
                     <button
                       key={a.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedId(a.id);
-                        const next = new URLSearchParams(searchParams.toString());
-                        next.set("id", a.id);
-                        router.replace(`/seva-activities?${next.toString()}`, { scroll: false });
-                      }}
+                      onClick={() => switchToActivityTab(a.id)}
                       className={`shrink-0 rounded border px-4 py-2 text-sm font-medium transition-colors ${
                         selectedId === a.id
                           ? "border-indigo-700 bg-indigo-700 text-white"
@@ -697,7 +800,7 @@ function SevaActivitiesContent() {
           </div>
 
           {/* Activity Overview - optimized layout: image prominent, description has space */}
-          <div className="p-6">
+          <div className="p-6 scroll-mt-4" id="seva-details-activity-anchor">
             <h2 className="text-2xl font-bold text-indigo-900">
               {displayActivity.title}
             </h2>
@@ -940,75 +1043,152 @@ function SevaActivitiesContent() {
                       <div className="border-b border-indigo-200/70 bg-white/60 px-4 py-4 md:px-5">
                         <p className="text-sm font-semibold text-indigo-950">Which activities are you joining?</p>
                         <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-                          Matches <strong>Find Seva</strong>: use the same style of checkboxes to include activities in
-                          this page. Select two or more <strong>without</strong> a supply list to register in one step.
-                          Activities with items to bring must be joined one at a time from that tab. To join only the tab
-                          you are viewing, uncheck the others.
+                          {supplyListTabInMultiSession ? (
+                            <>
+                              This activity has a <strong>supply list</strong> (items to bring) — it stays selected
+                              (green) for joining. Other open activities are shown but <strong>disabled</strong> here; use
+                              the tabs to switch to another program.
+                            </>
+                          ) : (
+                            <>
+                              Matches <strong>Find Seva</strong>: use the same style of checkboxes to include activities
+                              in this page. Select two or more <strong>without</strong> a supply list to register in one
+                              step. For an activity with a supply list, that tab is selected (green) and other rows are
+                              disabled until you switch tabs. To join only the tab you are viewing, uncheck the others.
+                            </>
+                          )}
                         </p>
                       </div>
                       <div>
                         {activities.map((a) => {
-                          const eligible = !a.hasContributionList && !isActivityEnded(a);
-                          const checked = batchSelection[a.id] ?? false;
                           const ended = isActivityEnded(a);
+                          const eligible = !a.hasContributionList && !ended;
+                          const isActiveSupplyListRow = Boolean(
+                            supplyListTabInMultiSession && !ended && a.id === selected?.id
+                          );
+                          const isOtherRowWhileSupplyTab = Boolean(
+                            supplyListTabInMultiSession && !ended && a.id !== selected?.id
+                          );
+                          const checked = isActiveSupplyListRow
+                            ? true
+                            : isOtherRowWhileSupplyTab
+                              ? false
+                              : (batchSelection[a.id] ?? false);
+                          const checkDisabled =
+                            isActiveSupplyListRow || isOtherRowWhileSupplyTab || !eligible;
                           return (
                             <div
                               key={a.id}
-                              className={`flex flex-wrap items-center gap-3 border-b border-zinc-300/50 bg-white/85 px-4 py-2.5 last:border-b-0 ${
-                                !eligible ? "opacity-90" : ""
+                              className={`flex flex-wrap items-center gap-3 border-b border-zinc-300/50 px-4 py-2.5 last:border-b-0 ${
+                                isActiveSupplyListRow
+                                  ? "bg-emerald-50/95 ring-2 ring-inset ring-emerald-300/80"
+                                  : isOtherRowWhileSupplyTab
+                                    ? "bg-zinc-100/60 opacity-80"
+                                    : `bg-white/85${!eligible ? " opacity-90" : ""}`
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 id={`batch-join-${a.id}`}
-                                className="h-5 w-5 shrink-0 rounded border-zinc-400 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                className={`h-5 w-5 shrink-0 rounded focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  isActiveSupplyListRow
+                                    ? "border-emerald-500 text-emerald-600 focus:ring-emerald-500"
+                                    : "border-zinc-400 text-indigo-600"
+                                }`}
                                 checked={checked}
-                                disabled={!eligible}
+                                disabled={checkDisabled}
                                 onChange={(e) =>
                                   setBatchSelection((p) => ({ ...p, [a.id]: e.target.checked }))
                                 }
-                                aria-label={`Include ${a.title} in batch join`}
+                                aria-label={
+                                  isActiveSupplyListRow
+                                    ? `Joining this activity: ${a.title} (has supply list)`
+                                    : isOtherRowWhileSupplyTab
+                                      ? `${a.title} — not selectable while a supply list tab is open`
+                                      : `Include ${a.title} in batch join`
+                                }
                               />
-                              <label
-                                htmlFor={`batch-join-${a.id}`}
+                              <div
                                 className={`min-w-0 flex-1 text-sm font-medium leading-snug ${
-                                  eligible ? "cursor-pointer text-zinc-800" : "cursor-not-allowed text-zinc-400"
+                                  isActiveSupplyListRow
+                                    ? "text-emerald-950"
+                                    : (eligible && !isOtherRowWhileSupplyTab) && !ended
+                                      ? "text-zinc-800"
+                                      : "text-zinc-400"
                                 }`}
                               >
                                 {ended ? (
                                   <>
-                                    Activity ended — cannot select
-                                    <span className="mt-0.5 block text-base font-semibold tracking-wide text-zinc-400">
+                                    <p>Activity ended — cannot select</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => switchToActivityTab(a.id)}
+                                      className="mt-0.5 w-full text-left text-base font-semibold tracking-wide text-zinc-500 line-through decoration-zinc-400 hover:bg-zinc-100/60 hover:text-zinc-700"
+                                    >
                                       {a.title}
-                                    </span>
+                                    </button>
                                     <span className="mt-0.5 block text-xs font-normal text-zinc-500">
                                       This activity has ended.
                                     </span>
                                   </>
                                 ) : (
                                   <>
-                                    {eligible ? (
-                                      "Include in this Join Seva submission"
-                                    ) : (
-                                      <span className="text-zinc-500">
-                                        Not included in combined Join Seva — use this tab
-                                      </span>
-                                    )}
-                                    <span
-                                      className={`mt-0.5 block text-base font-semibold tracking-wide ${
-                                        eligible ? "text-zinc-900" : "text-zinc-600"
-                                      }`}
+                                    <label
+                                      htmlFor={`batch-join-${a.id}`}
+                                      className={
+                                        isActiveSupplyListRow
+                                          ? "block cursor-default text-emerald-900"
+                                          : isOtherRowWhileSupplyTab
+                                            ? "block cursor-not-allowed text-zinc-500"
+                                            : eligible
+                                              ? "block cursor-pointer"
+                                              : "block cursor-not-allowed"
+                                      }
                                     >
-                                      {a.title}
-                                    </span>
-                                    {a.hasContributionList ? (
+                                      {isActiveSupplyListRow ? (
+                                        <span className="sr-only">Selected for join (supply list)</span>
+                                      ) : isOtherRowWhileSupplyTab ? (
+                                        <span>Not part of this Join while a supply list tab is open — use tabs above</span>
+                                      ) : eligible ? (
+                                        "Include in this Join Seva submission"
+                                      ) : (
+                                        <span className="text-zinc-500">
+                                          Not included in combined Join Seva — use this tab
+                                        </span>
+                                      )}
+                                    </label>
+                                    {isActiveSupplyListRow ? (
+                                      <span className="mt-0.5 block w-full text-left text-base font-semibold tracking-wide text-emerald-900">
+                                        {a.title}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => switchToActivityTab(a.id)}
+                                        className={`mt-0.5 w-full text-left text-base font-semibold tracking-wide underline decoration-indigo-400/60 underline-offset-2 hover:bg-indigo-50/50 ${
+                                          isOtherRowWhileSupplyTab
+                                            ? "text-zinc-500"
+                                            : eligible
+                                              ? "text-indigo-900"
+                                              : "text-zinc-700"
+                                        }`}
+                                      >
+                                        {a.title}
+                                      </button>
+                                    )}
+                                    {a.hasContributionList && !isActiveSupplyListRow ? (
                                       <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-                                        Has a supply list — join from this tab individually.
+                                        Has a supply list — open this tab to join (not combined with other programs).
+                                      </span>
+                                    ) : null}
+                                    {a.hasContributionList && isActiveSupplyListRow ? (
+                                      <span className="mt-0.5 block text-xs font-normal text-emerald-800">
+                                        Complete the supply list and Register below to finish joining.
                                       </span>
                                     ) : null}
                                   </>
                                 )}
-                              </label>
+                              </div>
                             </div>
                           );
                         })}
@@ -1027,7 +1207,7 @@ function SevaActivitiesContent() {
                     <p className="text-sm font-semibold text-emerald-800">
                       Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
                     </p>
-                    <div className="mt-4 grid grid-cols-2 gap-4 sm:gap-6">
+                    <div className={`mt-4 grid gap-4 sm:gap-6 ${kidsAllowedForCurrentJoin ? "grid-cols-2" : "grid-cols-1"}`}>
                       <div>
                         <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
                           Adults
@@ -1044,20 +1224,26 @@ function SevaActivitiesContent() {
                           className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
-                      <div>
-                        <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
-                          Kids
-                        </label>
-                        <input
-                          id="kids-count"
-                          type="number"
-                          min={0}
-                          max={99}
-                          value={kidsCount}
-                          onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
-                          className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
+                      {kidsAllowedForCurrentJoin ? (
+                        <div>
+                          <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
+                            Kids
+                          </label>
+                          <input
+                            id="kids-count"
+                            type="number"
+                            min={0}
+                            max={99}
+                            value={kidsCount}
+                            onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
+                            className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-600">
+                          Kids sign-up is disabled for this activity.
+                        </p>
+                      )}
                     </div>
                   </div>
 

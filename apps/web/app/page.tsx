@@ -363,14 +363,31 @@ function OurImpactSection() {
   );
 }
 
-/** Hero paths: add `public/banner_newest.png` (preferred) or `public/banner_newest.PNG` — Linux/Vercel is case-sensitive. */
-const HERO_BANNER_SRCS = ["/banner_newest.png", "/banner_newest.PNG"] as const;
+/**
+ * Desktop / tablet / mobile landscape hero (not narrow portrait).
+ * `public/Desktop-Home.jpg` (or `.JPG`); then legacy `banner_newest` PNGs; Linux/Vercel is case-sensitive.
+ */
+const HERO_BANNER_SRCS = [
+  "/Desktop-Home.jpg",
+  "/Desktop-Home.JPG",
+  "/banner_newest.png",
+  "/banner_newest.PNG",
+] as const;
+
+/** Used for `next/image` + layout. Tune if your `Desktop-Home` asset is not ~2000×820 (typical wide banner). */
+const HERO_DESKTOP_LDPX = { w: 2000, h: 820 } as const;
+
+/** Portrait `mobile-home` (and fallbacks) — ~9:16; tune to your file’s real pixels to reduce layout shift. */
+const HERO_PORTRAIT_LDPX = { w: 1080, h: 1920 } as const;
 
 /**
  * Shown only below the `sm` breakpoint in portrait orientation.
- * Add `public/mobile_copy_newest.PNG` (or `.png`) for prod; if missing, falls back to desktop banner then SVG.
+ * Add `public/mobile-home.jpg` (or `.JPG`) for the portrait hero; then legacy `mobile_copy_newest` if present;
+ * if missing, falls back to desktop banner then SVG.
  */
 const HERO_BANNER_MOBILE_PORTRAIT_SRCS = [
+  "/mobile-home.jpg",
+  "/mobile-home.JPG",
   "/mobile_copy_newest.PNG",
   "/mobile_copy_newest.png",
 ] as const;
@@ -379,7 +396,7 @@ function HomeHeroImageLayer({
   attemptSrcs,
   alt,
   priority,
-  /** `fill`: fixed-height box (near viewport). `intrinsic`: natural image height — avoids large bottom gap on narrow portrait. */
+  /** `fill`: desktop/landscape. `intrinsic`: mobile portrait — same `w-full` + `h-auto` as desktop (no `fill` box). */
   mode = "fill",
 }: {
   attemptSrcs: readonly string[];
@@ -390,8 +407,17 @@ function HomeHeroImageLayer({
   const [srcIndex, setSrcIndex] = useState(0);
   const [useSvgFallback, setUseSvgFallback] = useState(false);
 
-  const imgClassFill = "object-contain object-top";
-  const imgClassIntrinsic = "h-auto w-full object-contain object-top";
+  /**
+   * Wide / landscape hero: responsive `w-full h-auto` (no fixed-vh box) so the section height
+   * follows the image as width changes — no growing white/mint band below the art.
+   * `object-contain` + max-height keeps the first screen unscrollable for very tall art.
+   */
+  const imgClassFill =
+    "block h-auto w-full min-w-0 max-w-full object-contain object-top " +
+    "max-h-[min(88svh,calc(100svh-5.5rem))]";
+  /** Full-bleed width, natural height, no `max-h` so nothing is ever cropped (incl. fold / orientation). */
+  const imgClassIntrinsic =
+    "block h-auto w-full min-w-0 max-w-full object-contain object-top";
 
   if (useSvgFallback) {
     return (
@@ -399,12 +425,10 @@ function HomeHeroImageLayer({
         src="/manage-hero-swami.svg"
         alt={alt}
         className={
-          mode === "intrinsic"
-            ? imgClassIntrinsic
-            : `absolute inset-0 h-full w-full ${imgClassFill}`
+          mode === "intrinsic" ? imgClassIntrinsic : imgClassFill
         }
-        width={1200}
-        height={800}
+        width={mode === "intrinsic" ? HERO_PORTRAIT_LDPX.w : HERO_DESKTOP_LDPX.w}
+        height={mode === "intrinsic" ? HERO_PORTRAIT_LDPX.h : HERO_DESKTOP_LDPX.h}
         decoding="async"
       />
     );
@@ -417,12 +441,10 @@ function HomeHeroImageLayer({
         src="/manage-hero-swami.svg"
         alt={alt}
         className={
-          mode === "intrinsic"
-            ? imgClassIntrinsic
-            : `absolute inset-0 h-full w-full ${imgClassFill}`
+          mode === "intrinsic" ? imgClassIntrinsic : imgClassFill
         }
-        width={1200}
-        height={800}
+        width={mode === "intrinsic" ? HERO_PORTRAIT_LDPX.w : HERO_DESKTOP_LDPX.w}
+        height={mode === "intrinsic" ? HERO_PORTRAIT_LDPX.h : HERO_DESKTOP_LDPX.h}
         decoding="async"
       />
     );
@@ -434,8 +456,8 @@ function HomeHeroImageLayer({
         key={src}
         src={src}
         alt={alt}
-        width={1200}
-        height={1800}
+        width={HERO_PORTRAIT_LDPX.w}
+        height={HERO_PORTRAIT_LDPX.h}
         priority={priority}
         className={imgClassIntrinsic}
         sizes="100vw"
@@ -455,7 +477,8 @@ function HomeHeroImageLayer({
       key={src}
       src={src}
       alt={alt}
-      fill
+      width={HERO_DESKTOP_LDPX.w}
+      height={HERO_DESKTOP_LDPX.h}
       priority={priority}
       className={imgClassFill}
       sizes="100vw"
@@ -483,20 +506,22 @@ function HomeHeroBanner() {
 
   return (
     <>
-      {/* sm+ always, or narrow width in landscape (not portrait) */}
-      <div className="absolute inset-0 hidden max-sm:landscape:block sm:block">
-        <div className="relative h-full w-full min-h-0">
+      {/* sm+ / mobile landscape: in-flow image — height matches scaled art (no empty band below). */}
+      <div className="hidden w-full max-sm:landscape:block sm:block">
+        <div className="relative w-full min-h-0">
           <HomeHeroImageLayer attemptSrcs={desktopAttempts} alt="Seva Wheel" priority />
         </div>
       </div>
-      {/* Narrow portrait: intrinsic height so the block isn’t a near-full-screen box with empty space below `object-contain` art */}
-      <div className="relative block w-full max-sm:landscape:hidden sm:hidden">
-        <HomeHeroImageLayer
-          mode="intrinsic"
-          attemptSrcs={mobilePortraitAttempts}
-          alt="Seva Wheel"
-          priority
-        />
+      {/* Mobile portrait: full-bleed like the header — no max-w/px; intrinsic height = image (no big empty block below). */}
+      <div className="relative hidden w-full max-sm:portrait:block sm:hidden">
+        <div className="relative w-full min-w-0">
+          <HomeHeroImageLayer
+            mode="intrinsic"
+            attemptSrcs={mobilePortraitAttempts}
+            alt="Seva Wheel"
+            priority
+          />
+        </div>
       </div>
     </>
   );
@@ -505,31 +530,11 @@ function HomeHeroBanner() {
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      {/* HERO — full-width image under the menu. */}
-      <section className="relative -mt-2 w-full overflow-hidden py-0">
-        {/* Default / tablet / landscape: original sky gradient */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 block max-sm:portrait:hidden"
-          style={{
-            background:
-              "linear-gradient(180deg, #f8fcff 0%, #e8f7fe 20%, #d4f0fd 45%, #b0e5fc 70%, #7dd3fa 100%)",
-          }}
-        />
-        {/* Narrow phones in portrait only: softer bottom so object-contain letterboxing is not a bright blue band */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 hidden max-sm:portrait:block"
-          style={{
-            background:
-              "linear-gradient(180deg, #f8fcff 0%, #eef6fb 28%, #f4fafc 55%, #f9fbfc 82%, #fcfdfd 100%)",
-          }}
-        />
-        <div className="relative w-full px-0 py-0">
-          <div
-            className="relative flex h-[calc(100vh-5rem-20px)] w-full items-center justify-center overflow-hidden pt-2 sm:pt-4 md:pt-6 -mt-[5px] max-sm:portrait:h-auto max-sm:portrait:min-h-0 max-sm:portrait:items-start max-sm:portrait:pt-1"
-          >
-            <div className="relative h-full w-full min-h-0 max-sm:portrait:h-auto">
+      {/* HERO: no negative margin — overlap was hiding the top of the art under the sticky header. */}
+      <section className="relative mt-0 w-full overflow-hidden bg-[#eef3ef] py-0">
+        <div className="relative w-full max-w-none px-0 py-0">
+          <div className="relative w-full max-w-none overflow-x-hidden max-sm:portrait:overflow-x-visible">
+            <div className="relative w-full min-h-0 max-sm:portrait:min-h-0">
               <HomeHeroBanner />
             </div>
           </div>

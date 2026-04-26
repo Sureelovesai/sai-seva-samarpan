@@ -235,6 +235,8 @@ model SevaActivity {
   updatedAt        DateTime           @updatedAt
   address          String?
   capacity         Int?
+  /// When false, Join Seva should not accept children for this activity.
+  allowKids        Boolean            @default(true)
   coordinatorEmail String?
   coordinatorName  String?
   coordinatorPhone String?

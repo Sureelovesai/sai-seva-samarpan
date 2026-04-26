@@ -197,6 +197,7 @@ export async function PATCH(
         address: body.address != null ? String(body.address).trim() || undefined : undefined,
 
         capacity: body.capacity !== undefined ? toIntOrNull(body.capacity) : undefined,
+        allowKids: body.allowKids === undefined ? undefined : Boolean(body.allowKids),
 
         coordinatorName: body.coordinatorName != null ? String(body.coordinatorName).trim() || undefined : undefined,
         coordinatorEmail: body.coordinatorEmail != null ? String(body.coordinatorEmail).trim() || undefined : undefined,

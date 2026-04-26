@@ -104,6 +104,22 @@ export type BuildSevaActivitiesUrlOptions = {
   selectedIds?: string[];
 };
 
+function sevaActivitiesSearchParamsFromFindSeva(
+  activityId: string,
+  ctx: FindSevaBrowseContext,
+  options?: BuildSevaActivitiesUrlOptions
+) {
+  const p = new URLSearchParams();
+  p.set("id", activityId);
+  p.set("level", ctx.levelTab);
+  appendFindSevaBrowseToApiParams(p, ctx);
+  const merged = [...new Set([activityId, ...(options?.selectedIds ?? [])].filter(Boolean))];
+  if (merged.length > 1) {
+    p.set("ids", merged.join(","));
+  }
+  return p;
+}
+
 /**
  * Full URL for “View Details” from Find Seva — preserves level + filters in the query string.
  * When `selectedIds` has 2+ unique ids (including `activityId`), adds `ids=a,b,c` so Seva Details opens those tabs together.
@@ -113,15 +129,22 @@ export function buildSevaActivitiesPageUrlFromFindSeva(
   ctx: FindSevaBrowseContext,
   options?: BuildSevaActivitiesUrlOptions
 ): string {
-  const p = new URLSearchParams();
-  p.set("id", activityId);
-  p.set("level", ctx.levelTab);
-  appendFindSevaBrowseToApiParams(p, ctx);
-  const merged = [...new Set([activityId, ...(options?.selectedIds ?? [])].filter(Boolean))];
-  if (merged.length > 1) {
-    p.set("ids", merged.join(","));
-  }
-  return `/seva-activities?${p.toString()}`;
+  return `/seva-activities?${sevaActivitiesSearchParamsFromFindSeva(activityId, ctx, options).toString()}`;
+}
+
+/** Seva Details under the Mahotsavam landing: same query as Find Seva, but no main site header/footer. */
+export const SEVA_MAHOTSAVAM_ACTIVITIES_PATH = "/seva-mahotsavam/activities";
+
+export function buildSevaMahotsavamActivitiesPageUrlFromFindSeva(
+  activityId: string,
+  ctx: FindSevaBrowseContext,
+  options?: BuildSevaActivitiesUrlOptions
+): string {
+  return `${SEVA_MAHOTSAVAM_ACTIVITIES_PATH}?${sevaActivitiesSearchParamsFromFindSeva(
+    activityId,
+    ctx,
+    options
+  ).toString()}`;
 }
 
 type SearchGet = { get: (key: string) => string | null };

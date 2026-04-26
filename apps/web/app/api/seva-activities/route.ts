@@ -10,6 +10,7 @@ import {
   type UsaRegionLabel,
   usaRegionFromUrlParams,
 } from "@/lib/usaRegions";
+import { MAHOTSAVAM_REGIONAL_PROGRAM_DISPLAY_TITLE } from "@/lib/mahotsavamRegionalLanding";
 import { sevaSignupParticipantTotal } from "@/lib/sevaCapacity";
 
 /**
@@ -42,6 +43,7 @@ const activityPublicSelect = {
   organizationName: true,
   address: true,
   capacity: true,
+  allowKids: true,
   coordinatorName: true,
   coordinatorEmail: true,
   coordinatorPhone: true,
@@ -89,6 +91,7 @@ function toPublicActivityJson(a: ActivityPublicRow, spotsRemaining: number | nul
  *   - fromDate & toDate=YYYY-MM-DD — activities whose schedule overlaps that inclusive range (either alone defaults to a single day)
  *   - activityStatus — only for logged-in ADMIN / seva coordinators (ignored otherwise).
  *   - sevaScope — CENTER | REGIONAL | NATIONAL (Find Seva tabs). When omitted, region filter uses the legacy “mixed” listing (centers + regional + national in that USA region).
+ *   - sevaProgram — optional: `regional-mahotsavam` = only activities in the Sri Sathya Sai Seva Mahotsavam program group (used by /seva-mahotsavam). Implies a published program group match; use with sevaScope=REGIONAL.
  *
  * Without date / fromDate+toDate, past activities (last day before today) are omitted.
  */
@@ -190,6 +193,33 @@ export async function GET(req: Request) {
     if (statusFilter && session) {
       const scopeW = adminSevaActivityListWhere(session);
       if (scopeW) andClauses.push(scopeW);
+    }
+
+    const sevaProgram = (searchParams.get("sevaProgram") || "").trim();
+    if (sevaProgram === "regional-mahotsavam") {
+      andClauses.push({
+        group: {
+          is: {
+            status: "PUBLISHED",
+            OR: [
+              {
+                title: {
+                  contains: MAHOTSAVAM_REGIONAL_PROGRAM_DISPLAY_TITLE,
+                  mode: "insensitive",
+                },
+              },
+              {
+                AND: [
+                  { title: { contains: "Sathya", mode: "insensitive" } },
+                  { title: { contains: "Sai", mode: "insensitive" } },
+                  { title: { contains: "Seva", mode: "insensitive" } },
+                  { title: { contains: "Mahotsavam", mode: "insensitive" } },
+                ],
+              },
+            ],
+          },
+        },
+      });
     }
 
     const where =

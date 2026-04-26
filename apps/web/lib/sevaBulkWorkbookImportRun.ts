@@ -100,6 +100,7 @@ export async function runBulkWorkbookImportCore(options: {
       endDate: true,
       durationHours: true,
       locationName: true,
+      address: true,
       contributionItems: {
         orderBy: { sortOrder: "asc" },
         select: { id: true, name: true, maxQuantity: true },
@@ -256,6 +257,7 @@ export async function runBulkWorkbookImportCore(options: {
   });
 
   const emailActivity = {
+    id: activityLive.id,
     title: activityLive.title,
     coordinatorName: activityLive.coordinatorName,
     coordinatorEmail: activityLive.coordinatorEmail,
@@ -264,6 +266,7 @@ export async function runBulkWorkbookImportCore(options: {
     startTime: activityLive.startTime,
     endTime: activityLive.endTime,
     locationName: activityLive.locationName,
+    address: activityLive.address,
   };
 
   if (sendEmails) {

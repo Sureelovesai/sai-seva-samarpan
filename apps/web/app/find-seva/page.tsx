@@ -1,20 +1,14 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import type { ReactNode } from "react";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CENTERS_FOR_FILTER, CITIES, FIND_SEVA_LAST_CENTER_STORAGE_KEY } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { USA_REGIONS_FOR_FILTER, usaRegionFromUrlParams } from "@/lib/usaRegions";
+import { FindSevaActivityRow } from "@/app/_components/FindSevaActivityRow";
 import { SevaLevelTabInfoIcon, SEVA_LEVEL_TAB_INFO } from "@/app/_components/SevaLevelTabInfoIcon";
-import { isActivityEnded } from "@/lib/activityEnded";
-import {
-  buildSevaActivitiesPageUrlFromFindSeva,
-  isCompatibleMultiTabSelection,
-  type FindSevaBrowseContext,
-} from "@/lib/sevaActivitiesBrowseQuery";
+import { compareFindSevaActivities } from "@/lib/findSevaListSort";
+import { buildSevaActivitiesPageUrlFromFindSeva, type FindSevaBrowseContext } from "@/lib/sevaActivitiesBrowseQuery";
 
 function persistLastFindSevaCenter(center: string) {
   try {
@@ -128,348 +122,7 @@ function fuzzyMatch(query: string, text: string) {
   });
 }
 
-/** Minutes since midnight for "HH:mm" / "H:mm"; null if missing or invalid */
-function timeStringToMinutes(hhmm: string | null | undefined): number | null {
-  if (!hhmm || !String(hhmm).trim()) return null;
-  const [h, m] = String(hhmm).trim().split(":");
-  const hour = parseInt(h, 10);
-  const min = parseInt(m ?? "0", 10);
-  if (Number.isNaN(hour) || Number.isNaN(min)) return null;
-  return hour * 60 + min;
-}
-
-/**
- * Find Seva list order: start calendar date → start time → end time (tiebreak) → title (A–Z).
- * Activities with no date sort after dated ones; missing times sort after known times on the same day.
- */
-function compareFindSevaActivities(a: SevaActivity, b: SevaActivity): number {
-  const ad = a.startDate ? String(a.startDate).slice(0, 10) : "";
-  const bd = b.startDate ? String(b.startDate).slice(0, 10) : "";
-  if (ad !== bd) {
-    if (!ad && bd) return 1;
-    if (ad && !bd) return -1;
-    return ad.localeCompare(bd);
-  }
-
-  const am = timeStringToMinutes(a.startTime);
-  const bm = timeStringToMinutes(b.startTime);
-  if (am != null && bm != null && am !== bm) return am - bm;
-  if (am != null && bm == null) return -1;
-  if (am == null && bm != null) return 1;
-
-  const ae = timeStringToMinutes(a.endTime);
-  const be = timeStringToMinutes(b.endTime);
-  if (ae != null && be != null && ae !== be) return ae - be;
-  if (ae != null && be == null) return -1;
-  if (ae == null && be != null) return 1;
-
-  return (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" });
-}
-
-/** Category-based color for tiles */
-function tileBg(category: string) {
-  const c = (category || "").toLowerCase();
-  if (c.includes("online")) return "bg-sky-200/80";
-  if (c.includes("food") || c.includes("narayana")) return "bg-green-200/80";
-  if (c.includes("medicare") || c.includes("medical")) return "bg-blue-200/80";
-  if (c.includes("sociocare") || c.includes("social")) return "bg-orange-200/80";
-  if (c.includes("educare") || c.includes("educ")) return "bg-yellow-200/80";
-  if (c.includes("environmental") || c.includes("go green")) return "bg-teal-200/80";
-  if (c.includes("animal")) return "bg-amber-200/80";
-  if (c.includes("senior") || c.includes("children") || c.includes("women")) return "bg-pink-200/80";
-  if (c.includes("homeless") || c.includes("veterans")) return "bg-slate-200/80";
-  if (c.includes("cultural") || c.includes("worship")) return "bg-purple-200/80";
-  return "bg-purple-200/80";
-}
-
-function timeToAMPM(hhmm: string | null): string {
-  if (!hhmm || !hhmm.trim()) return "";
-  const [h, m] = hhmm.trim().split(":");
-  const hour = parseInt(h, 10);
-  if (Number.isNaN(hour)) return hhmm;
-  const min = (m ?? "00").padStart(2, "0");
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const h12 = hour % 12 || 12;
-  return `${h12}:${min} ${ampm}`;
-}
-
-/** Format ISO date to short local date string, or "" if invalid/missing */
-function formatDateOnly(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const dateOnly = String(iso).slice(0, 10);
-  const [y, mo, day] = dateOnly.split("-").map(Number);
-  if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(day)) return "";
-  const d = new Date(y, mo - 1, day);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-/**
- * Multi-select on Find Seva: only activities without `hasContributionList` may be combined.
- * At most one supply-list activity can be selected (opened alone in tabs).
- */
-function getFindSevaCheckboxState(
-  item: SevaActivity,
-  selectedIds: string[],
-  byId: Map<string, SevaActivity>
-): { disabled: boolean; title: string; subline: ReactNode | null } {
-  const ended = isActivityEnded({
-    startDate: item.startDate,
-    endDate: item.endDate,
-    startTime: item.startTime,
-    endTime: item.endTime,
-    durationHours: item.durationHours ?? null,
-  });
-  if (ended) {
-    return { disabled: true, title: "This activity has ended", subline: null };
-  }
-
-  if (selectedIds.length === 0) {
-    if (item.hasContributionList) {
-      return {
-        disabled: false,
-        title: "Has items-to-bring list — select alone, or combine only activities without a supply list",
-        subline: (
-          <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-            Has a supply list — select this activity alone, or combine only activities that do not have items to bring.
-          </span>
-        ),
-      };
-    }
-    return { disabled: false, title: "Include in multi-tab Seva Details", subline: null };
-  }
-
-  const selectedActs = selectedIds.map((id) => byId.get(id)).filter(Boolean) as SevaActivity[];
-  const anyContribSelected = selectedActs.some((a) => a.hasContributionList);
-
-  if (anyContribSelected) {
-    if (selectedIds.length === 1 && selectedIds[0] === item.id) {
-      return {
-        disabled: false,
-        title: item.hasContributionList
-          ? "Open Seva Details for this supply-list activity"
-          : "Include in multi-tab Seva Details",
-        subline: item.hasContributionList ? (
-          <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-            Register items on the Seva Details tab (one activity at a time).
-          </span>
-        ) : null,
-      };
-    }
-    if (selectedIds.length === 1 && selectedActs[0]?.hasContributionList) {
-      return {
-        disabled: true,
-        title: "Clear selection to combine other activities",
-        subline: (
-          <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-            An activity with a supply list is already selected. Clear selection to combine activities without items to
-            bring, or open this row with View Details alone.
-          </span>
-        ),
-      };
-    }
-    return {
-      disabled: true,
-      title: "Only one activity with a supply list at a time — clear selection to pick another",
-      subline: (
-        <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-          Another activity with a supply list is already selected. Clear selection to choose a different one.
-        </span>
-      ),
-    };
-  }
-
-  if (item.hasContributionList) {
-    return {
-      disabled: true,
-      title: "Cannot combine with activities that have no supply list — clear selection first",
-      subline: (
-        <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
-          You already selected activities without a supply list. Clear selection to open this one alone.
-        </span>
-      ),
-    };
-  }
-
-  return { disabled: false, title: "Include in multi-tab Seva Details", subline: null };
-}
-
-function FindSevaActivityRow({
-  item,
-  levelTab,
-  nestedUnderProgram = false,
-  viewDetailsHref,
-  selected,
-  onToggleSelect,
-  selectDisabled,
-  selectSubline,
-  selectTitle,
-}: {
-  item: SevaActivity;
-  levelTab: LevelTab;
-  /** When true, this row sits under a program heading — only the activity title is shown here, not the program name. */
-  nestedUnderProgram?: boolean;
-  /** Preserves Center / Regional / National scope and filters on Seva Details (includes `ids` when multiple selected on Find Seva). */
-  viewDetailsHref: string;
-  selected: boolean;
-  onToggleSelect: (checked: boolean) => void;
-  selectDisabled: boolean;
-  selectSubline: ReactNode | null;
-  selectTitle: string;
-}) {
-  const ended = isActivityEnded({
-    startDate: item.startDate,
-    endDate: item.endDate,
-    startTime: item.startTime,
-    endTime: item.endTime,
-    durationHours: item.durationHours ?? null,
-  });
-  return (
-    <div
-      className={`mx-auto w-full min-w-0 overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)] ${nestedUnderProgram ? "ring-1 ring-indigo-900/10" : ""}`}
-    >
-      <div className="flex flex-wrap items-center gap-3 border-b border-zinc-300/50 bg-white/85 px-4 py-2.5">
-        <input
-          type="checkbox"
-          id={`find-seva-pick-${item.id}`}
-          checked={selected}
-          disabled={selectDisabled}
-          title={selectTitle}
-          onChange={(e) => onToggleSelect(e.target.checked)}
-          className="h-5 w-5 shrink-0 rounded border-zinc-400 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label={`Select ${item.title} to open together on Seva Details`}
-        />
-        <label
-          htmlFor={`find-seva-pick-${item.id}`}
-          className={`min-w-0 flex-1 ${selectDisabled ? "cursor-not-allowed" : "cursor-pointer"} text-sm font-medium leading-snug ${ended ? "text-zinc-400" : "text-zinc-800"}`}
-        >
-          {ended ? "Activity ended — cannot select" : "Select for Seva Details (open multiple in tabs)"}
-          {selectSubline}
-        </label>
-      </div>
-      <div
-        className={`grid w-full min-w-0 grid-cols-1 items-stretch md:grid-cols-[minmax(0,180px)_minmax(0,1fr)] md:overflow-hidden`}
-      >
-      <div className="flex min-h-[140px] w-full items-center justify-center overflow-hidden bg-zinc-200 md:min-h-0 md:h-full md:w-[180px] md:shrink-0">
-        <div className="relative aspect-[9/8] w-full max-w-[min(100%,280px)] overflow-hidden md:max-w-[180px]">
-          {(() => {
-            const src = item.imageUrl ?? "/swami-circle.jpeg";
-            const isRelativeOrBlob = src.startsWith("/") || src.includes("blob.vercel-storage.com");
-            if (isRelativeOrBlob) {
-              return (
-                <Image
-                  src={src}
-                  alt={item.title}
-                  fill
-                  className="object-contain object-center"
-                  sizes="(max-width: 767px) 90vw, 180px"
-                />
-              );
-            }
-            return (
-              <img
-                src={src}
-                alt={item.title}
-                className="absolute inset-0 h-full w-full object-contain object-center"
-              />
-            );
-          })()}
-        </div>
-      </div>
-
-      <div
-        className={`${tileBg(item.category)} min-w-0 px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10`}
-      >
-        <div className="flex min-w-0 gap-3 sm:gap-5">
-          <div className="min-w-0 flex-1">
-            <div className="break-words text-2xl font-semibold tracking-wide text-zinc-900 sm:text-3xl">
-              {item.title}
-            </div>
-
-            <div className="mt-3 break-words text-base font-semibold leading-snug text-zinc-800 sm:text-lg">
-              {formatWhenWhere(item)}
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2 break-words text-sm font-semibold text-zinc-700">
-              <span>{item.category}</span>
-              {levelTab === "regional" && item.sevaUsaRegion && (
-                <span className="rounded border border-indigo-400 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-900">
-                  {item.sevaUsaRegion}
-                </span>
-              )}
-              {levelTab === "national" && (
-                <span className="rounded border border-amber-600 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950">
-                  National
-                </span>
-              )}
-            </div>
-
-            {item.organizationName && (
-              <div className="mt-2 break-words text-base font-semibold text-indigo-900">
-                {item.organizationName}
-              </div>
-            )}
-
-            <div className="mt-6 md:mt-8">
-              <Link
-                href={viewDetailsHref}
-                className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
-              >
-                View Details
-              </Link>
-            </div>
-          </div>
-
-          {item.capacity != null && item.capacity > 0 && item.spotsRemaining != null && (
-            <div
-              className="flex w-[5.25rem] shrink-0 flex-col justify-center self-stretch sm:w-28"
-              aria-label={
-                item.spotsRemaining === 0
-                  ? "No volunteer spots left"
-                  : `${item.spotsRemaining} volunteer spots left out of ${item.capacity}`
-              }
-            >
-              <span
-                className={`inline-flex w-full items-center justify-center rounded-full px-2.5 py-1.5 text-center text-sm font-bold tabular-nums leading-tight shadow-sm sm:px-3 sm:text-base ${
-                  item.spotsRemaining === 0
-                    ? "bg-zinc-200 text-zinc-700"
-                    : "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-400/50"
-                }`}
-              >
-                {item.spotsRemaining === 0 ? "Full" : `${item.spotsRemaining} left`}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-      </div>
-    </div>
-  );
-}
-
-function formatWhenWhere(a: SevaActivity) {
-  const city = a.city || "";
-  const startStr = formatDateOnly(a.startDate);
-  const endStr = formatDateOnly(a.endDate);
-
-  let dateStr = "";
-  if (startStr && endStr) {
-    dateStr =
-      startStr === endStr
-        ? startStr
-        : `${startStr} – ${endStr}`;
-  } else if (startStr) {
-    dateStr = startStr;
-  } else if (endStr) {
-    dateStr = endStr;
-  }
-
-  const startAMPM = timeToAMPM(a.startTime);
-  const endAMPM = timeToAMPM(a.endTime);
-  const timeStr = [startAMPM, endAMPM].filter(Boolean).join(" – ");
-
-  const parts = [dateStr, timeStr].filter(Boolean).join(", ");
-  return [parts, city].filter(Boolean).join(" — ");
-}
+/** Multi-activity / batch join: use “Which activities are you joining?” on Seva Details, not on Find Seva. */
 
 function initialFromDate(sp: ReturnType<typeof useSearchParams>) {
   const f = sp.get("fromDate");
@@ -737,53 +390,10 @@ function FindSevaContent() {
     [levelTab, center, usaRegion, fromDate, toDate, category]
   );
 
-  const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
-
-  const activityById = useMemo(() => new Map(filtered.map((a) => [a.id, a])), [filtered]);
-
-  useEffect(() => {
-    const allowed = new Set(filtered.map((a) => a.id));
-    setSelectedActivityIds((prev) => {
-      let next = prev.filter((id) => allowed.has(id));
-      if (next.length > 1 && !isCompatibleMultiTabSelection(next, activityById)) {
-        next = [next[0]];
-      }
-      return next;
-    });
-  }, [filtered, activityById]);
-
-  const getRowCheckboxState = useCallback(
-    (item: SevaActivity) => getFindSevaCheckboxState(item, selectedActivityIds, activityById),
-    [selectedActivityIds, activityById]
-  );
-
   const getSevaDetailsHref = useCallback(
-    (rowActivityId: string) => {
-      const merged = [...new Set([...selectedActivityIds, rowActivityId])];
-      const multiOk = merged.length > 1 && isCompatibleMultiTabSelection(merged, activityById);
-      return buildSevaActivitiesPageUrlFromFindSeva(rowActivityId, browseCtx, {
-        selectedIds: multiOk ? merged : undefined,
-      });
-    },
-    [browseCtx, selectedActivityIds, activityById]
+    (rowActivityId: string) => buildSevaActivitiesPageUrlFromFindSeva(rowActivityId, browseCtx),
+    [browseCtx]
   );
-
-  const toggleActivitySelect = useCallback((id: string, checked: boolean) => {
-    setSelectedActivityIds((prev) => {
-      if (checked) return prev.includes(id) ? prev : [...prev, id];
-      return prev.filter((x) => x !== id);
-    });
-  }, []);
-
-  const openSevaDetailsHref = useMemo(() => {
-    if (selectedActivityIds.length === 0) return "#";
-    const first = selectedActivityIds[0];
-    const multiOk =
-      selectedActivityIds.length > 1 && isCompatibleMultiTabSelection(selectedActivityIds, activityById);
-    return buildSevaActivitiesPageUrlFromFindSeva(first, browseCtx, {
-      selectedIds: multiOk ? selectedActivityIds : undefined,
-    });
-  }, [selectedActivityIds, browseCtx, activityById]);
 
   return (
     <div className="min-h-screen pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
@@ -1006,32 +616,6 @@ function FindSevaContent() {
           {!loading && error && <span className="text-red-700">{error}</span>}
         </div>
 
-        {selectedActivityIds.length > 0 && (
-          <div className="mt-6 flex flex-col gap-3 rounded-xl border border-indigo-400/70 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 shadow-md sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-semibold text-indigo-950">
-              {selectedActivityIds.length} activit{selectedActivityIds.length === 1 ? "y" : "ies"} selected —{" "}
-              {selectedActivityIds.length > 1
-                ? "opening together on Seva Details (tabs) is only for activities without an items-to-bring list."
-                : "open on Seva Details with your current filters."}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={openSevaDetailsHref}
-                className="inline-flex items-center justify-center rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-indigo-800"
-              >
-                Open Seva Details
-              </Link>
-              <button
-                type="button"
-                onClick={() => setSelectedActivityIds([])}
-                className="rounded-lg border border-zinc-400 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
-              >
-                Clear selection
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* RESULTS — program name (e.g. Retreat) appears once; activities below are the individual sevas in that program */}
         <div
           id="find-seva-results"
@@ -1054,27 +638,27 @@ function FindSevaContent() {
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
                   {ge.items.length === 1
                     ? "One seva activity in this program (details and sign-up are on the card below)."
-                    : `${ge.items.length} seva activities in this program — each card is its own activity with its own details.`}
+                    : levelTab === "regional" || levelTab === "national"
+                      ? `${ge.items.length} seva activities in this program. Use View Details on each card; you can open several in tabs and choose which to join on the Seva Details page.`
+                      : `${ge.items.length} seva activities in this program — each card is its own activity with its own details.`}
                 </p>
               </header>
               <div className="space-y-6 border-l-[3px] border-indigo-400/55 pl-4 md:pl-6">
-                {ge.items.map((item) => {
-                  const st = getRowCheckboxState(item);
-                  return (
-                    <FindSevaActivityRow
-                      key={item.id}
-                      item={item}
-                      levelTab={levelTab}
-                      nestedUnderProgram
-                      viewDetailsHref={getSevaDetailsHref(item.id)}
-                      selected={selectedActivityIds.includes(item.id)}
-                      onToggleSelect={(checked) => toggleActivitySelect(item.id, checked)}
-                      selectDisabled={st.disabled}
-                      selectSubline={st.subline}
-                      selectTitle={st.title}
-                    />
-                  );
-                })}
+                {ge.items.map((item) => (
+                  <FindSevaActivityRow
+                    key={item.id}
+                    item={item}
+                    levelTab={levelTab}
+                    nestedUnderProgram
+                    showSelectCheckbox={false}
+                    viewDetailsHref={getSevaDetailsHref(item.id)}
+                    selected={false}
+                    onToggleSelect={() => {}}
+                    selectDisabled
+                    selectSubline={null}
+                    selectTitle=""
+                  />
+                ))}
               </div>
             </section>
           ))}
@@ -1093,22 +677,20 @@ function FindSevaContent() {
                 </h2>
               )}
               <div className="space-y-6">
-                {groupedForDisplay.ungrouped.map((item) => {
-                  const st = getRowCheckboxState(item);
-                  return (
-                    <FindSevaActivityRow
-                      key={item.id}
-                      item={item}
-                      levelTab={levelTab}
-                      viewDetailsHref={getSevaDetailsHref(item.id)}
-                      selected={selectedActivityIds.includes(item.id)}
-                      onToggleSelect={(checked) => toggleActivitySelect(item.id, checked)}
-                      selectDisabled={st.disabled}
-                      selectSubline={st.subline}
-                      selectTitle={st.title}
-                    />
-                  );
-                })}
+                {groupedForDisplay.ungrouped.map((item) => (
+                  <FindSevaActivityRow
+                    key={item.id}
+                    item={item}
+                    levelTab={levelTab}
+                    showSelectCheckbox={false}
+                    viewDetailsHref={getSevaDetailsHref(item.id)}
+                    selected={false}
+                    onToggleSelect={() => {}}
+                    selectDisabled
+                    selectSubline={null}
+                    selectTitle=""
+                  />
+                ))}
               </div>
             </div>
           )}

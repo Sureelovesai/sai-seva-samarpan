@@ -11,13 +11,16 @@ const activitySelectForSignup = {
   coordinatorEmail: true,
   coordinatorPhone: true,
   capacity: true,
+  allowKids: true,
   startDate: true,
   startTime: true,
   endTime: true,
   locationName: true,
+  address: true,
 } as const;
 
 export type ActivityForJoinEmail = {
+  id: string;
   title: string | null;
   coordinatorName: string | null;
   coordinatorEmail: string | null;
@@ -26,6 +29,7 @@ export type ActivityForJoinEmail = {
   startTime: string | null;
   endTime: string | null;
   locationName: string | null;
+  address: string | null;
 };
 
 /**
@@ -54,6 +58,9 @@ export async function createVolunteerSignup(
   });
   if (!activity) {
     throw new Error("Activity not found or not active");
+  }
+  if (!activity.allowKids && kidsCount > 0) {
+    throw new Error("Kids sign-up is not available for this activity.");
   }
 
   const existingSignup = await db.sevaSignup.findFirst({

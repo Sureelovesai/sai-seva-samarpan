@@ -15,6 +15,10 @@ function toIntOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function toBooleanDefaultTrue(v: unknown): boolean {
+  return v === undefined ? true : Boolean(v);
+}
+
 export async function GET(req: Request) {
   const session = await getSessionWithRole(req.headers.get("cookie"));
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -180,6 +184,7 @@ export async function POST(req: Request) {
         address,
 
         capacity: capacityNum,
+        allowKids: toBooleanDefaultTrue(body.allowKids),
 
         coordinatorName,
         coordinatorEmail,
