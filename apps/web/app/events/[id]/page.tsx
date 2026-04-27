@@ -59,8 +59,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "America/New_York",
     timeZoneName: "short",
-  }).format(event.startsAt);
+  })
+    .format(event.startsAt)
+    .replace(/\bEDT\b|\bEST\b/g, "EST");
 
   return (
     <EventsPageShell>

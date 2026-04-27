@@ -97,13 +97,10 @@ function MahotsavamContent() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:max-w-4xl sm:px-6 md:max-w-6xl">
+      <div className="mx-auto max-w-3xl px-4 pb-10 pt-5 sm:max-w-4xl sm:px-6 md:max-w-6xl">
         <header className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-indigo-950 sm:text-3xl">
-            {MAHOTSAVAM_REGIONAL_PROGRAM_DISPLAY_TITLE}
-          </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-zinc-700 sm:text-base">
-            Use <strong>View Details</strong> to open Seva Details and sign up.
+          <p className="mx-auto max-w-2xl text-xs leading-relaxed text-zinc-700 sm:text-base">
+            Use <strong>View Details</strong> for Seva Details and sign up.
           </p>
         </header>
 

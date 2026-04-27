@@ -153,6 +153,7 @@ const ARROWS_AND_GAPS_PX = 104; // << button + gap + >> button + gap (approx)
 function SevaActivitiesContent() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const isMahotsavamActivitiesPage = pathname === SEVA_MAHOTSAVAM_ACTIVITIES_PATH;
   const searchParams = useSearchParams();
   /** Mahotsavam flow uses `/seva-mahotsavam/activities` so global header/footer stay hidden. */
   const sevaDetailsPathPrefix =
@@ -911,14 +912,16 @@ function SevaActivitiesContent() {
 
         {/* Sign-up area — scroll target from Seva Details link */}
         <h2 id="sign-up-to-volunteer" className="scroll-mt-6 mt-14 text-center text-2xl font-bold tracking-tight text-indigo-900">
-          Volunteer &amp; item sign-up
+          {isMahotsavamActivitiesPage ? "Volunteer sign-up" : "Volunteer & item sign-up"}
         </h2>
-        <p className="mx-auto mt-3 max-w-lg px-4 text-center text-sm leading-relaxed text-zinc-600">
-          <strong>Join Seva</strong> first if you will take part on site — that adds you to the roster and counts toward
-          participation and hours after the event ends. Below that, <strong>Register</strong> is only for bringing listed
-          supplies (no volunteer headcount or service hours); you can use it without joining if you are donating items
-          only.
-        </p>
+        {!isMahotsavamActivitiesPage && (
+          <p className="mx-auto mt-3 max-w-lg px-4 text-center text-sm leading-relaxed text-zinc-600">
+            <strong>Join Seva</strong> first if you will take part on site — that adds you to the roster and counts toward
+            participation and hours after the event ends. Below that, <strong>Register</strong> is only for bringing listed
+            supplies (no volunteer headcount or service hours); you can use it without joining if you are donating items
+            only.
+          </p>
+        )}
 
         <div className="mx-auto mt-6 max-w-md">
           {!canJoinSeva ? (
@@ -1032,10 +1035,12 @@ function SevaActivitiesContent() {
                 <form onSubmit={handleJoinSeva} className="space-y-6">
                   <div>
                     <h3 className="text-center text-lg font-bold tracking-tight text-indigo-900">Join the activity</h3>
-                    <p className="mx-auto mt-2 max-w-sm text-center text-sm text-zinc-600">
-                      Adds your group to the volunteer roster and counts toward participation and service hours when this
-                      activity is completed.
-                    </p>
+                    {!isMahotsavamActivitiesPage && (
+                      <p className="mx-auto mt-2 max-w-sm text-center text-sm text-zinc-600">
+                        Adds your group to the volunteer roster and counts toward participation and service hours when this
+                        activity is completed.
+                      </p>
+                    )}
                   </div>
 
                   {activities.length > 1 && (
@@ -1051,10 +1056,8 @@ function SevaActivitiesContent() {
                             </>
                           ) : (
                             <>
-                              Matches <strong>Find Seva</strong>: use the same style of checkboxes to include activities
-                              in this page. Select two or more <strong>without</strong> a supply list to register in one
-                              step. For an activity with a supply list, that tab is selected (green) and other rows are
-                              disabled until you switch tabs. To join only the tab you are viewing, uncheck the others.
+                              You are welcome to participate in multiple seva activities. Please review the schedules and
+                              details carefully before selecting to avoid any timing conflicts.
                             </>
                           )}
                         </p>
@@ -1296,7 +1299,7 @@ function SevaActivitiesContent() {
               )}
 
               {/* Items to bring — Register saves claims only (no Seva signup) */}
-              {activityIdToSubmit && (
+              {!isMahotsavamActivitiesPage && activityIdToSubmit && (
                 <>
                   <h2
                     id="items-to-bring"

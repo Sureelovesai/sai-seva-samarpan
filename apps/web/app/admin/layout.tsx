@@ -10,9 +10,15 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const isEventsDashboard = pathname === "/admin/events-dashboard";
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    if (isEventsDashboard) {
+      setChecked(true);
+      return;
+    }
+
     let cancelled = false;
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : { user: null }))
@@ -52,9 +58,9 @@ export default function AdminLayout({
         if (!cancelled) router.replace("/login");
       });
     return () => { cancelled = true; };
-  }, [pathname, router]);
+  }, [isEventsDashboard, pathname, router]);
 
-  if (!checked) {
+  if (!checked && !isEventsDashboard) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-lg font-semibold text-zinc-600">Loading…</p>

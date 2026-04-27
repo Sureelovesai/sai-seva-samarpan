@@ -50,6 +50,13 @@ export type JoinSignupActivityEmailFields = {
   address?: string | null;
 };
 
+export type JoinSignupStatus = "APPROVED" | "PENDING";
+
+export type JoinSignupSummaryRow = {
+  activity: JoinSignupActivityEmailFields;
+  status: JoinSignupStatus;
+};
+
 /**
  * Sends join-confirmation emails for a new Seva signup (public Join Seva or bulk import).
  */
@@ -65,6 +72,8 @@ export async function sendSevaJoinSignupEmails(params: {
   itemLines?: { itemName: string; quantity: number }[];
   /** When true, only the volunteer email is sent (e.g. bulk import sends one coordinator digest at the end). */
   skipCoordinatorEmail?: boolean;
+  /** When true, only the coordinator email is sent (used by batch summary volunteer emails). */
+  skipVolunteerEmail?: boolean;
 }): Promise<void> {
   const {
     activity,
@@ -76,6 +85,7 @@ export async function sendSevaJoinSignupEmails(params: {
     status,
     itemLines,
     skipCoordinatorEmail,
+    skipVolunteerEmail,
   } = params;
 
   const activityTitle = activity.title ?? "Seva Activity";
@@ -113,15 +123,16 @@ export async function sendSevaJoinSignupEmails(params: {
           .join("")}</ul>`
       : "";
 
-  const volunteerEmailResult = await sendEmail({
-    to: email,
-    subject:
-      status === "PENDING"
-        ? `Waitlist: ${activityTitle}`
-        : `Your seva registration is confirmed — ${activityTitle}`,
-    html:
-      status === "PENDING"
-        ? `
+  if (!skipVolunteerEmail) {
+    const volunteerEmailResult = await sendEmail({
+      to: email,
+      subject:
+        status === "PENDING"
+          ? `Waitlist: ${activityTitle}`
+          : `Your seva registration is confirmed — ${activityTitle}`,
+      html:
+        status === "PENDING"
+          ? `
         <p>Sai Ram ${escapeHtml(greetingName)},</p>
         <p>Thank you for your interest. Your sign-up is <strong>pending</strong> (waitlist) because the activity is at capacity. If a spot opens, you will receive another email when your sign-up is approved.</p>
         <p><strong>Activity:</strong> ${escapeHtml(activityTitle)}</p>
@@ -145,12 +156,13 @@ export async function sendSevaJoinSignupEmails(params: {
         <p>You will receive a reminder 24 hours before the activity starts.${contactLine}</p>
         <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>
       `,
-  });
-  if (!volunteerEmailResult.ok) {
-    console.error(
-      "Seva join signup: volunteer email failed",
-      volunteerEmailResult.error ?? volunteerEmailResult.skipped
-    );
+    });
+    if (!volunteerEmailResult.ok) {
+      console.error(
+        "Seva join signup: volunteer email failed",
+        volunteerEmailResult.error ?? volunteerEmailResult.skipped
+      );
+    }
   }
 
   if (coordEmail && !skipCoordinatorEmail) {
@@ -180,5 +192,64 @@ export async function sendSevaJoinSignupEmails(params: {
         coordinatorEmailResult.error ?? coordinatorEmailResult.skipped
       );
     }
+  }
+}
+
+/**
+ * Sends one combined volunteer confirmation email for multiple Seva activities.
+ * Coordinator notifications are intentionally not sent from this helper.
+ */
+export async function sendSevaBatchVolunteerSummaryEmail(params: {
+  rows: JoinSignupSummaryRow[];
+  volunteerName: string;
+  email: string;
+}): Promise<void> {
+  const { rows, volunteerName, email } = params;
+  if (!rows.length) return;
+
+  const firstName = firstNameFromVolunteerName(volunteerName);
+  const greetingName = firstName || "Sai devotee";
+
+  const listHtml = rows
+    .map(({ activity, status }) => {
+      const title = escapeHtml(activity.title ?? "Seva Activity");
+      const when = escapeHtml(
+        formatActivityDateTime(activity.startDate, activity.startTime, activity.endTime)
+      );
+      const where = escapeHtml(formatLocationVenueLine(activity.locationName, activity.address));
+      const viewDetailsUrl = activity.id ? absoluteSevaActivityViewDetailsUrl(activity.id) : "";
+      const statusLabel = status === "PENDING" ? "Waitlist" : "Confirmed";
+      const linkHtml = viewDetailsUrl
+        ? ` <a href="${escapeHtml(viewDetailsUrl)}">View details</a>`
+        : "";
+      return `<li style="margin-bottom:10px;"><strong>${title}</strong> — ${statusLabel}<br /><span>Date &amp; Time: ${when}</span><br /><span>Location: ${where}</span>${linkHtml}</li>`;
+    })
+    .join("");
+
+  const pendingCount = rows.filter((r) => r.status === "PENDING").length;
+  const confirmedCount = rows.length - pendingCount;
+  const pendingLine =
+    pendingCount > 0
+      ? `<p>${pendingCount} activit${pendingCount === 1 ? "y is" : "ies are"} currently on waitlist. You will receive a follow-up email if approval opens up.</p>`
+      : "";
+
+  const emailResult = await sendEmail({
+    to: email,
+    subject: `Your seva registrations (${rows.length} activities)`,
+    html: `
+      <p>Sai Ram ${escapeHtml(greetingName)},</p>
+      <p>Your Seva registrations have been recorded.</p>
+      <p><strong>Confirmed:</strong> ${confirmedCount} &nbsp;|&nbsp; <strong>Waitlist:</strong> ${pendingCount}</p>
+      <ul>${listHtml}</ul>
+      ${pendingLine}
+      <p>You will continue to receive the usual 24-hour reminders per activity.</p>
+      <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>
+    `,
+  });
+  if (!emailResult.ok) {
+    console.error(
+      "Seva batch signup: volunteer summary email failed",
+      emailResult.error ?? emailResult.skipped
+    );
   }
 }

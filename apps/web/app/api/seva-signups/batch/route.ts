@@ -3,15 +3,46 @@ import type { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { isActivityEnded } from "@/lib/activityEnded";
 import { createVolunteerSignup } from "@/lib/sevaVolunteerSignupCore";
-import { sendSevaJoinSignupEmails } from "@/lib/sendSevaJoinSignupEmails";
+import {
+  sendSevaBatchVolunteerSummaryEmail,
+  sendSevaJoinSignupEmails,
+} from "@/lib/sendSevaJoinSignupEmails";
 
 const MAX_BATCH = 25;
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+function buildActivityStartDateTime(startDate: Date | string | null, startTime: string | null): Date | null {
+  if (!startDate) return null;
+  const base =
+    startDate instanceof Date
+      ? new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0)
+      : new Date(`${String(startDate).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(base.getTime())) return null;
+  const time = (startTime ?? "").trim();
+  if (!time) return base;
+  const m = /^(\d{1,2}):(\d{2})/.exec(time);
+  if (!m) return base;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min)) return base;
+  base.setHours(Math.min(23, Math.max(0, h)), Math.min(59, Math.max(0, min)), 0, 0);
+  return base;
+}
+
+function startsWithin24Hours(startDate: Date | string | null, startTime: string | null): boolean {
+  const dt = buildActivityStartDateTime(startDate, startTime);
+  if (!dt) return false;
+  const diff = dt.getTime() - Date.now();
+  return diff > 0 && diff <= TWENTY_FOUR_HOURS_MS;
+}
 
 /**
  * POST /api/seva-signups/batch
  * Register the same volunteer for multiple activities in one request (Seva Details when several
- * activities are open in tabs). Sends one confirmation email per activity (+ coordinator each time),
- * same as individual Join Seva.
+ * activities are open in tabs). Volunteer email behavior:
+ * - activities starting in <=24 hours: send separate per-activity email
+ * - activities starting after 24 hours: send one combined summary email
+ * Coordinator notifications remain per-activity.
  *
  * Rules:
  * - Every activity must be active, not ended, and must have **no** contribution-item rows
@@ -196,29 +227,74 @@ export async function POST(req: Request) {
       }
     });
 
-    // Emails after successful commit (same as single route — one pair per activity)
+    // Emails after successful commit.
+    const summaryRows: {
+      activity: {
+        id: string;
+        title: string | null;
+        coordinatorName: string | null;
+        coordinatorEmail: string | null;
+        coordinatorPhone: string | null;
+        startDate: Date | string | null;
+        startTime: string | null;
+        endTime: string | null;
+        locationName: string | null;
+        address: string | null;
+      };
+      status: "APPROVED" | "PENDING";
+    }[] = [];
+
     for (const row of ordered) {
       const r = results.find((x) => x.activityId === row.id);
       if (!r) continue;
+      const activityEmailFields = {
+        id: row.id,
+        title: row.title,
+        coordinatorName: row.coordinatorName,
+        coordinatorEmail: row.coordinatorEmail,
+        coordinatorPhone: row.coordinatorPhone,
+        startDate: row.startDate,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        locationName: row.locationName,
+        address: row.address,
+      };
+
+      if (startsWithin24Hours(row.startDate, row.startTime)) {
+        await sendSevaJoinSignupEmails({
+          activity: activityEmailFields,
+          volunteerName: name,
+          email,
+          phone,
+          adultsCount,
+          kidsCount,
+          status: r.status,
+        });
+        continue;
+      }
+
+      summaryRows.push({
+        activity: activityEmailFields,
+        status: r.status,
+      });
+
       await sendSevaJoinSignupEmails({
-        activity: {
-          id: row.id,
-          title: row.title,
-          coordinatorName: row.coordinatorName,
-          coordinatorEmail: row.coordinatorEmail,
-          coordinatorPhone: row.coordinatorPhone,
-          startDate: row.startDate,
-          startTime: row.startTime,
-          endTime: row.endTime,
-          locationName: row.locationName,
-          address: row.address,
-        },
+        activity: activityEmailFields,
         volunteerName: name,
         email,
         phone,
         adultsCount,
         kidsCount,
         status: r.status,
+        skipVolunteerEmail: true,
+      });
+    }
+
+    if (summaryRows.length > 0) {
+      await sendSevaBatchVolunteerSummaryEmail({
+        rows: summaryRows,
+        volunteerName: name,
+        email,
       });
     }
 
