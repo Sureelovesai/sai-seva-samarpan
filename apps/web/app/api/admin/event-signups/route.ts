@@ -1,18 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
-import { canManagePortalEvents, getSessionWithRole } from "@/lib/getRole";
 import { isPrismaColumnMissing } from "@/lib/prismaMissingPortalEvent";
 
-function canManage(session: Awaited<ReturnType<typeof getSessionWithRole>>) {
-  return canManagePortalEvents(session);
-}
-
 export async function GET(req: Request) {
-  const session = await getSessionWithRole(req.headers.get("cookie"));
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManage(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId")?.trim();
   const responseFilter = searchParams.get("response"); // YES | NO | MAYBE

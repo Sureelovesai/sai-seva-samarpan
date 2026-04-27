@@ -10,11 +10,15 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isEventsDashboard = pathname === "/admin/events-dashboard";
+  const bypassAdminLoginForEventPages =
+    pathname === "/admin/events-dashboard" ||
+    pathname.startsWith("/admin/add-event") ||
+    pathname.startsWith("/admin/manage-events") ||
+    pathname.startsWith("/admin/event-signups");
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (isEventsDashboard) {
+    if (bypassAdminLoginForEventPages) {
       setChecked(true);
       return;
     }
@@ -58,9 +62,9 @@ export default function AdminLayout({
         if (!cancelled) router.replace("/login");
       });
     return () => { cancelled = true; };
-  }, [isEventsDashboard, pathname, router]);
+  }, [bypassAdminLoginForEventPages, pathname, router]);
 
-  if (!checked && !isEventsDashboard) {
+  if (!checked && !bypassAdminLoginForEventPages) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-lg font-semibold text-zinc-600">Loading…</p>

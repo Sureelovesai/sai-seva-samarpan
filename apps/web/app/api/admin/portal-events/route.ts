@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canManagePortalEvents, getSessionWithRole } from "@/lib/getRole";
-
-function canManage(session: Awaited<ReturnType<typeof getSessionWithRole>>) {
-  return canManagePortalEvents(session);
-}
 
 export async function GET(req: Request) {
-  const session = await getSessionWithRole(req.headers.get("cookie"));
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManage(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const where: { status?: "DRAFT" | "PUBLISHED" | "ARCHIVED" } = {};
@@ -29,10 +20,6 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!canManage(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const body = await req.json();
     const title = typeof body.title === "string" ? body.title.trim() : "";
     if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -65,7 +52,7 @@ export async function POST(req: Request) {
         : "PUBLISHED";
 
     const orgRaw = typeof body.organizerEmail === "string" ? body.organizerEmail.trim() : "";
-    const organizerEmail = (orgRaw || session.email || "").trim().toLowerCase() || null;
+    const organizerEmail = (orgRaw || "").trim().toLowerCase() || null;
 
     const event = await prisma.portalEvent.create({
       data: {

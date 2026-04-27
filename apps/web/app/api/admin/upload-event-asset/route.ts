@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { put as putBlob } from "@vercel/blob";
-import { canManagePortalEvents, getSessionWithRole } from "@/lib/getRole";
 
 const UPLOAD_DIR = "public/uploads/portal-events";
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB
@@ -23,11 +22,6 @@ const PROD_STORAGE_UNAVAILABLE =
 
 export async function POST(req: Request) {
   try {
-    const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || !canManagePortalEvents(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const kind = String(formData.get("kind") || "").toLowerCase();
