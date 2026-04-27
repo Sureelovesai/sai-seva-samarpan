@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 
 export default function EventsAdminDashboardPage() {
   const [role, setRole] = useState<string | null>(null);
-  const [eventAdminOnly, setEventAdminOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -15,13 +14,11 @@ export default function EventsAdminDashboardPage() {
       .then((data) => {
         if (!cancelled) {
           setRole(data?.user?.role ?? null);
-          setEventAdminOnly(Boolean(data?.user?.eventAdminOnly));
         }
       })
       .catch(() => {
         if (!cancelled) {
           setRole(null);
-          setEventAdminOnly(false);
         }
       });
     return () => {
@@ -55,17 +52,6 @@ export default function EventsAdminDashboardPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-4 py-8">
-        {!eventAdminOnly ? (
-          <div className="mb-6 flex flex-wrap gap-3 text-sm">
-            <Link
-              href="/admin/seva-dashboard"
-              className="rounded-lg border border-sky-300 bg-white px-4 py-2 font-semibold text-sky-900 shadow-sm hover:bg-sky-50"
-            >
-              ← Seva Admin Dashboard
-            </Link>
-          </div>
-        ) : null}
-
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <DashboardTile
             href="/admin/add-event"

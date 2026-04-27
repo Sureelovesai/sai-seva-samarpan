@@ -3,12 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getSessionFromCookie } from "@/lib/auth";
-import { driveFolderUrlFromId } from "@/lib/blogDriveFolderUrl";
 import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
-import {
-  createBlogPostDriveFolder,
-  isBlogDriveFolderConfigured,
-} from "@/lib/googleDriveBlogPostFolder";
 import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
 import {
   buildApprovedBlogWhereForScope,
@@ -155,7 +150,6 @@ export async function GET(req: Request) {
         dislikeCount,
         emojiCounts,
         driveMediaLinks: normalizeStoredDriveMedia(p.driveMediaLinks),
-        driveFolderUrl: driveFolderUrlFromId(p.driveFolderId),
       };
     });
 
@@ -231,21 +225,6 @@ export async function POST(req: Request) {
       },
     });
 
-    let driveFolderId: string | null = null;
-    try {
-      if (isBlogDriveFolderConfigured()) {
-        const { folderId } = await createBlogPostDriveFolder(post.id, post.title);
-        driveFolderId = folderId;
-        await prisma.blogPost.update({
-          where: { id: post.id },
-          data: { driveFolderId: folderId },
-        });
-      }
-    } catch (e) {
-      console.error("Blog post: could not create Google Drive folder:", e);
-    }
-    const driveFolderUrl = driveFolderUrlFromId(driveFolderId);
-
     // Notify admins and blog admins for verification
     const admins: { email: string }[] = await prisma.roleAssignment.findMany({
       where: { role: { in: ["ADMIN", "BLOG_ADMIN"] } },
@@ -276,16 +255,13 @@ export async function POST(req: Request) {
     const driveItems = normalizeStoredDriveMedia(post.driveMediaLinks);
     const driveBlock =
       driveItems.length > 0
-        ? `<p><strong>Google Drive / Docs media (${driveItems.length}):</strong></p><ul>${driveItems
+        ? `<p><strong>Extra media (cloud, ${driveItems.length}):</strong></p><ul>${driveItems
             .map(
               (d) =>
                 `<li><a href="${escapeHtml(d.url)}">${escapeHtml(d.url)}</a>${d.caption ? ` — ${escapeHtml(d.caption)}` : ""}</li>`
             )
             .join("")}</ul>`
         : "";
-    const folderBlock = driveFolderUrl
-      ? `<p><strong>Post media folder (Google Drive):</strong> <a href="${escapeHtml(driveFolderUrl)}">${escapeHtml(driveFolderUrl)}</a></p><p>Upload photos, videos, and audio for this story into this folder (or use upload in the blog after submit).</p>`
-      : "";
 
     for (const to of adminEmails) {
       const result = await sendEmail({
@@ -302,7 +278,6 @@ export async function POST(req: Request) {
           ${post.posterEmail ? `<p><strong>Contact email:</strong> ${escapeHtml(post.posterEmail)}</p>` : ""}
           ${post.posterPhone ? `<p><strong>Phone:</strong> ${escapeHtml(post.posterPhone)}</p>` : ""}
           ${imageBlock}
-          ${folderBlock}
           ${driveBlock}
           <p><strong>Description / Content:</strong></p>
           <div style="margin:12px 0; padding:12px; background:#f5f5f5; border-radius:8px; border:1px solid #e0e0e0; max-height:400px; overflow-y:auto;">${safeContent || escapeHtml("(No content)")}</div>
@@ -331,7 +306,6 @@ export async function POST(req: Request) {
       createdAt: post.createdAt,
       status: post.status,
       driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
-      driveFolderUrl,
       message: "Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!",
     });
   } catch (e: unknown) {

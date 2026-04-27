@@ -59,7 +59,7 @@ export async function sendPortalEventRsvpEmails(params: {
   });
   const icsBase64 = Buffer.from(ics, "utf8").toString("base64");
 
-  const guestLine = `${signup.accompanyingAdults} adult(s), ${signup.accompanyingKids} kid(s) (guests besides the person named)`;
+  const guestLine = `${signup.accompanyingAdults} adult(s), ${signup.accompanyingKids} kid(s) (group counts include the person named)`;
   const commentLine = signup.comment?.trim()
     ? `<p><strong>Comment:</strong> ${escapeHtml(signup.comment)}</p>`
     : "";
@@ -81,12 +81,18 @@ export async function sendPortalEventRsvpEmails(params: {
   const fromEvents = getPortalEventsEmailFrom();
 
   if (event.organizerEmail?.trim()) {
-    await sendEmail({
+    const organizerResult = await sendEmail({
       from: fromEvents,
       to: event.organizerEmail.trim(),
       subject: `[Event RSVP] ${responseLabel(signup.response)} · ${event.title}`,
       html: orgHtml,
     });
+    if (!organizerResult.ok) {
+      console.error(
+        "portal-events RSVP organizer email failed:",
+        organizerResult.error ?? organizerResult.skipped ?? "unknown"
+      );
+    }
   }
 
   const volHtml = `
@@ -102,11 +108,16 @@ export async function sendPortalEventRsvpEmails(params: {
     <p>Jai Sai Ram.</p>
   `;
 
-  await sendEmail({
+  const participantResult = await sendEmail({
     from: fromEvents,
     to: signup.email.trim(),
     subject: `RSVP recorded: ${event.title}`,
     html: volHtml,
     attachments: [{ filename: "event.ics", content: icsBase64 }],
   });
+  if (!participantResult.ok) {
+    throw new Error(
+      `Participant confirmation email failed: ${participantResult.error ?? (participantResult.skipped ? "sending skipped by config" : "unknown")}`
+    );
+  }
 }

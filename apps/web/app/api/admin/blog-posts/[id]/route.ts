@@ -1,6 +1,5 @@
 import { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
-import { driveFolderUrlFromId } from "@/lib/blogDriveFolderUrl";
 import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
@@ -35,7 +34,6 @@ export async function GET(
         posterEmail: true,
         posterPhone: true,
         driveMediaLinks: true,
-        driveFolderId: true,
         createdAt: true,
         status: true,
       },
@@ -45,10 +43,7 @@ export async function GET(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      ...post,
-      driveFolderUrl: driveFolderUrlFromId(post.driveFolderId),
-    });
+    return NextResponse.json(post);
   } catch (e: unknown) {
     console.error("Admin blog post GET error:", e);
     return NextResponse.json(
@@ -101,10 +96,7 @@ export async function PATCH(
         where: { id },
         data: { imageUrl },
       });
-      return NextResponse.json({
-        ...updated,
-        driveFolderUrl: driveFolderUrlFromId(updated.driveFolderId),
-      });
+      return NextResponse.json(updated);
     }
 
     const validated = validateBlogPostWriteBody(body);
@@ -133,10 +125,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({
-      ...updated,
-      driveFolderUrl: driveFolderUrlFromId(updated.driveFolderId),
-    });
+    return NextResponse.json(updated);
   } catch (e: unknown) {
     console.error("Admin blog post PATCH error:", e);
     return NextResponse.json(

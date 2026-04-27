@@ -32,7 +32,9 @@ function normalizeFrom(from: string): string {
 export function getPortalEventsEmailFrom(): string {
   const v = (process.env.EMAIL_FROM_EVENTS ?? "").trim();
   if (v) return normalizeFrom(v);
-  return "Charlotte Sai Center Events <events@charlottesaicenter.org>";
+  const general = (process.env.EMAIL_FROM ?? "").trim();
+  if (general) return normalizeFrom(general);
+  return "Seva <onboarding@resend.dev>";
 }
 
 /** Log once at first send so we know env is loaded (dev only). */

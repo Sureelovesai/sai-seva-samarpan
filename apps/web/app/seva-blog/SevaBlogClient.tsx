@@ -97,7 +97,6 @@ export default function SevaBlogClient() {
   });
   const [postSubmitSuccess, setPostSubmitSuccess] = useState<{
     message: string;
-    driveFolderUrl?: string | null;
   } | null>(null);
   const [postsFetchError, setPostsFetchError] = useState<string | null>(null);
 
@@ -270,19 +269,6 @@ export default function SevaBlogClient() {
       >
         <div className="min-w-0 flex-1">
           <p className="text-base font-bold text-green-900 sm:text-lg">{postSubmitSuccess.message}</p>
-          {postSubmitSuccess.driveFolderUrl ? (
-            <p className="mt-2 text-sm font-medium text-green-950">
-              <span className="mr-1">Google Drive folder for this post:</span>
-              <a
-                href={postSubmitSuccess.driveFolderUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="break-all underline"
-              >
-                Open folder
-              </a>
-            </p>
-          ) : null}
         </div>
         <button
           type="button"
@@ -728,7 +714,6 @@ export default function SevaBlogClient() {
               setTimeout(() => {
                 setPostSubmitSuccess({
                   message: textToShow,
-                  driveFolderUrl: opts?.driveFolderUrl ?? null,
                 });
                 setTimeout(
                   () => window.scrollTo({ top: 0, behavior: "smooth" }),

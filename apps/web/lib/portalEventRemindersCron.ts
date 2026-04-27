@@ -81,7 +81,7 @@ export async function runPortalEvent24hReminders(now: Date): Promise<{
           ? "<p><strong>Your response:</strong> Maybe — let us know if your plans change.</p>"
           : "<p><strong>Your response:</strong> Yes — we look forward to seeing you.</p>";
 
-      const guestLine = `${s.accompanyingAdults} adult(s), ${s.accompanyingKids} kid(s) (guests besides you, if any)`;
+      const guestLine = `${s.accompanyingAdults} adult(s), ${s.accompanyingKids} kid(s) (group counts include you)`;
 
       const ok = await sendEmail({
         from: fromEvents,

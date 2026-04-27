@@ -13,9 +13,9 @@ function responseLabel(r: SignupRow["response"]) {
   return "Maybe";
 }
 
-function partyIncludingSelf(r: SignupRow): number {
+function partyTotal(r: SignupRow): number {
   if (r.response === "NO") return 0;
-  return 1 + r.accompanyingAdults + r.accompanyingKids;
+  return r.accompanyingAdults + r.accompanyingKids;
 }
 
 export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
@@ -24,18 +24,17 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
   const maybe = signups.filter((s) => s.response === "MAYBE").length;
 
   const yesMaybe = signups.filter((s) => s.response === "YES" || s.response === "MAYBE");
-  const totalGuestAdults = yesMaybe.reduce((a, s) => a + s.accompanyingAdults, 0);
-  const totalGuestKids = yesMaybe.reduce((a, s) => a + s.accompanyingKids, 0);
-  const totalParty = yesMaybe.reduce((a, s) => a + partyIncludingSelf(s), 0);
+  const totalAdults = yesMaybe.reduce((a, s) => a + s.accompanyingAdults, 0);
+  const totalKids = yesMaybe.reduce((a, s) => a + s.accompanyingKids, 0);
+  const totalParty = yesMaybe.reduce((a, s) => a + partyTotal(s), 0);
 
   return (
     <div className="events-attendance-summary border-t-2 border-teal-200 bg-gradient-to-b from-teal-50 to-white px-5 py-8 sm:px-8">
       <h2 className="text-xl font-bold text-slate-900">Attendance summary</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Everyone who submitted an RSVP (emails are not shown). <strong className="text-slate-800">Name</strong> is the
-        &quot;Your name&quot; value from the sign-up form. Total (incl. you) counts the respondent plus their guest adults
-        and kids for <strong className="text-slate-800">Yes</strong> and <strong className="text-slate-800">Maybe</strong>;
-        {" "}
+        Everyone who submitted an RSVP (emails are not shown). <strong className="text-slate-800">Name</strong> is
+        first and last name from the sign-up form. Adults and kids include the respondent. Totals count only{" "}
+        <strong className="text-slate-800">Yes</strong> and <strong className="text-slate-800">Maybe</strong> responses;{" "}
         <strong className="text-slate-800">No</strong> is shown as 0.
       </p>
 
@@ -51,9 +50,9 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
                 <th className="px-3 py-2.5 font-bold text-teal-950">Name</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Comment</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Response</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Guest adults</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Guest kids</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Total (incl. you)</th>
+                <th className="px-3 py-2.5 font-bold text-teal-950">Adults (incl. you)</th>
+                <th className="px-3 py-2.5 font-bold text-teal-950">Kids</th>
+                <th className="px-3 py-2.5 font-bold text-teal-950">Total group</th>
               </tr>
             </thead>
             <tbody>
@@ -66,7 +65,7 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
                   <td className="px-3 py-2 text-slate-800">{responseLabel(s.response)}</td>
                   <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingAdults}</td>
                   <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingKids}</td>
-                  <td className="px-3 py-2 tabular-nums font-semibold text-slate-900">{partyIncludingSelf(s)}</td>
+                  <td className="px-3 py-2 tabular-nums font-semibold text-slate-900">{partyTotal(s)}</td>
                 </tr>
               ))}
             </tbody>
@@ -75,15 +74,15 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
                 <td className="px-3 py-3" colSpan={3}>
                   Totals · Yes {yes} · No {no} · Maybe {maybe}
                 </td>
-                <td className="px-3 py-3 tabular-nums">{totalGuestAdults}</td>
-                <td className="px-3 py-3 tabular-nums">{totalGuestKids}</td>
+                <td className="px-3 py-3 tabular-nums">{totalAdults}</td>
+                <td className="px-3 py-3 tabular-nums">{totalKids}</td>
                 <td className="px-3 py-3 tabular-nums text-teal-900">{totalParty}</td>
               </tr>
             </tfoot>
           </table>
           <p className="border-t border-teal-100 px-3 py-2 text-xs text-slate-600">
-            Guest adult/kid columns sum only <strong>Yes</strong> and <strong>Maybe</strong> rows. Total (incl. you) uses
-            the same rule (expected attendance).
+            Adults and kids include the person who submitted the form. Totals include only <strong>Yes</strong> and{" "}
+            <strong>Maybe</strong> rows (expected attendance).
           </p>
         </div>
       )}

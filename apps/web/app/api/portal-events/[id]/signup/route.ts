@@ -59,6 +59,95 @@ function parseGuestCount(raw: unknown, max = 500): number {
   return Math.min(max, n);
 }
 
+function splitParticipantName(full: string): { firstName: string; lastName: string } {
+  const t = full.trim().replace(/\s+/g, " ");
+  if (!t) return { firstName: "", lastName: "" };
+  const parts = t.split(" ");
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: eventId } = await params;
+    const event = await prisma.portalEvent.findFirst({
+      where: { id: eventId, status: "PUBLISHED" },
+      select: { id: true, signupsEnabled: true },
+    });
+    if (!event) {
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    const url = new URL(req.url);
+    const email = (url.searchParams.get("email") ?? "").trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
+    }
+
+    try {
+      const existing = await prisma.eventSignup.findFirst({
+        where: { eventId, email },
+        orderBy: { createdAt: "desc" },
+        select: {
+          participantName: true,
+          email: true,
+          response: true,
+          accompanyingAdults: true,
+          accompanyingKids: true,
+          comment: true,
+        },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: "No RSVP found for this email on this event." }, { status: 404 });
+      }
+      const split = splitParticipantName(existing.participantName);
+      return NextResponse.json({
+        firstName: split.firstName,
+        lastName: split.lastName,
+        email: existing.email,
+        response: existing.response,
+        accompanyingAdults: existing.accompanyingAdults,
+        accompanyingKids: existing.accompanyingKids,
+        comment: existing.comment ?? "",
+      });
+    } catch (readErr: unknown) {
+      if (!isPrismaColumnMissing(readErr)) throw readErr;
+      const rows = (await prisma.$queryRaw(Prisma.sql`
+        SELECT "participantName", email, response, "accompanyingCount"
+        FROM "EventSignup"
+        WHERE "eventId" = ${eventId} AND email = ${email}
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      `)) as Array<{
+        participantName: string;
+        email: string;
+        response: "YES" | "NO" | "MAYBE";
+        accompanyingCount: number;
+      }>;
+      const existing = rows[0];
+      if (!existing) {
+        return NextResponse.json({ error: "No RSVP found for this email on this event." }, { status: 404 });
+      }
+      const split = splitParticipantName(existing.participantName);
+      return NextResponse.json({
+        firstName: split.firstName,
+        lastName: split.lastName,
+        email: existing.email,
+        response: existing.response,
+        accompanyingAdults: Math.max(0, Number(existing.accompanyingCount) || 0),
+        accompanyingKids: 0,
+        comment: "",
+      });
+    }
+  } catch (e: unknown) {
+    console.error("portal-events signup GET:", e);
+    return NextResponse.json({ error: "Could not load RSVP." }, { status: 500 });
+  }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -84,9 +173,26 @@ export async function POST(
     }
 
     const body = await req.json();
-    const participantName = typeof body.participantName === "string" ? body.participantName.trim() : "";
-    if (!participantName || participantName.length > 200) {
-      return NextResponse.json({ error: "Name is required (max 200 characters)." }, { status: 400 });
+    const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+    if (!firstName || firstName.length > 100) {
+      return NextResponse.json(
+        { error: "First name is required (max 100 characters)." },
+        { status: 400 }
+      );
+    }
+    if (!lastName || lastName.length > 100) {
+      return NextResponse.json(
+        { error: "Last name is required (max 100 characters)." },
+        { status: 400 }
+      );
+    }
+    const participantName = `${firstName} ${lastName}`.trim();
+    if (participantName.length > 200) {
+      return NextResponse.json(
+        { error: "First and last name together must be at most 200 characters." },
+        { status: 400 }
+      );
     }
 
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -119,17 +225,34 @@ export async function POST(
     }
 
     try {
-      const signup = await prisma.eventSignup.create({
-        data: {
-          eventId,
-          participantName,
-          email,
-          comment,
-          accompanyingAdults,
-          accompanyingKids,
-          response,
-        },
+      const existing = await prisma.eventSignup.findFirst({
+        where: { eventId, email },
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
       });
+      const signup = existing
+        ? await prisma.eventSignup.update({
+            where: { id: existing.id },
+            data: {
+              participantName,
+              email,
+              comment,
+              accompanyingAdults,
+              accompanyingKids,
+              response,
+            },
+          })
+        : await prisma.eventSignup.create({
+            data: {
+              eventId,
+              participantName,
+              email,
+              comment,
+              accompanyingAdults,
+              accompanyingKids,
+              response,
+            },
+          });
 
       revalidateEventRoutes(eventId);
       await notifyAfterRsvp(
@@ -155,27 +278,50 @@ export async function POST(
       return NextResponse.json({
         id: signup.id,
         message:
-          "Thank you — your response has been recorded. Check your email for a confirmation and a Google Calendar link.",
+          "Sai Ram! Thank you for registering. We look forward to your presence at the center event.",
       });
     } catch (createErr: unknown) {
       if (!isPrismaColumnMissing(createErr)) throw createErr;
 
       const legacyGuestTotal = accompanyingAdults + accompanyingKids;
-      const id = randomUUID().replace(/-/g, "");
-      const rows = (await prisma.$queryRaw(Prisma.sql`
-        INSERT INTO "EventSignup" ("id", "eventId", "participantName", email, "accompanyingCount", response, "createdAt")
-        VALUES (
-          ${id},
-          ${eventId},
-          ${participantName},
-          ${email},
-          ${legacyGuestTotal},
-          CAST(${response} AS "EventSignupResponse"),
-          NOW()
-        )
-        RETURNING id
+      const existingRows = (await prisma.$queryRaw(Prisma.sql`
+        SELECT id
+        FROM "EventSignup"
+        WHERE "eventId" = ${eventId} AND email = ${email}
+        ORDER BY "createdAt" DESC
+        LIMIT 1
       `)) as Array<{ id: string }>;
-      const row = rows[0];
+      const existing = existingRows[0];
+      let row: { id: string } | undefined;
+      if (existing?.id) {
+        const updated = (await prisma.$queryRaw(Prisma.sql`
+          UPDATE "EventSignup"
+          SET
+            "participantName" = ${participantName},
+            email = ${email},
+            "accompanyingCount" = ${legacyGuestTotal},
+            response = CAST(${response} AS "EventSignupResponse")
+          WHERE id = ${existing.id}
+          RETURNING id
+        `)) as Array<{ id: string }>;
+        row = updated[0];
+      } else {
+        const id = randomUUID().replace(/-/g, "");
+        const inserted = (await prisma.$queryRaw(Prisma.sql`
+          INSERT INTO "EventSignup" ("id", "eventId", "participantName", email, "accompanyingCount", response, "createdAt")
+          VALUES (
+            ${id},
+            ${eventId},
+            ${participantName},
+            ${email},
+            ${legacyGuestTotal},
+            CAST(${response} AS "EventSignupResponse"),
+            NOW()
+          )
+          RETURNING id
+        `)) as Array<{ id: string }>;
+        row = inserted[0];
+      }
       if (!row) {
         return NextResponse.json({ error: "Could not save sign-up." }, { status: 500 });
       }
@@ -203,7 +349,7 @@ export async function POST(
       return NextResponse.json({
         id: row.id,
         message:
-          "Thank you — your response has been recorded. Check your email for a confirmation and a Google Calendar link.",
+          "Sai Ram! Thank you for registering. We look forward to your presence at the center event.",
       });
     }
   } catch (e: unknown) {

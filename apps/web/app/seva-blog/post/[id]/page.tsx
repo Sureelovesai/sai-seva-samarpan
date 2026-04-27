@@ -16,7 +16,6 @@ type Post = {
   title: string;
   content: string;
   imageUrl: string | null;
-  driveFolderUrl?: string | null;
   driveMediaLinks?: unknown;
   section: string;
   authorName: string | null;
@@ -220,25 +219,6 @@ export default function BlogPostPage({
               className="prose prose-lg mt-6 max-w-none text-[#4a3f3a] [&_img]:max-w-full [&_div]:mb-2 [&_br]:block"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
-
-            {post.driveFolderUrl && post.driveFolderUrl.startsWith("https://") ? (
-              <section className="mt-8 rounded-xl border border-[#e8b4a0] bg-[#f8faf8] p-5">
-                <h2 className="font-serif text-lg font-semibold text-[#6b5344]">
-                  Media folder for this post
-                </h2>
-                <p className="mt-1 text-sm text-[#7a6b65]">
-                  Photos, videos, and audio for this story are collected in this Google Drive folder.
-                </p>
-                <a
-                  href={post.driveFolderUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-block break-all text-sm font-semibold text-[#8b6b5c] underline hover:text-[#6b5344]"
-                >
-                  {post.driveFolderUrl}
-                </a>
-              </section>
-            ) : null}
 
             <BlogDriveMediaSection items={driveMediaItems} />
 

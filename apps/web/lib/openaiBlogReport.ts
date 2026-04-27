@@ -9,8 +9,6 @@ export type PostForReport = {
   content: string;
   imageUrl: string | null;
   driveMediaLinks: unknown;
-  /** Per-post Google Drive folder when configured */
-  driveFolderUrl?: string | null;
   centerCity: string | null;
   createdAt: Date;
   section: string;
@@ -86,13 +84,9 @@ export async function generateBlogAnalyticsNarrative(
         const drive = normalizeStoredDriveMedia(p.driveMediaLinks);
         const driveNote =
           drive.length > 0
-            ? `Google Drive / Docs links (${drive.length}): ${drive.map((d) => d.url).join("; ")}`
-            : "(no extra Drive links)";
-        const folderNote =
-          p.driveFolderUrl && p.driveFolderUrl.startsWith("https://")
-            ? `Post media folder: ${p.driveFolderUrl}`
-            : "(no dedicated Drive folder URL)";
-        return `---\nTitle: ${p.title}\nSection: ${p.section}\nCenter: ${p.centerCity ?? "unspecified"}\nDate: ${p.createdAt.toISOString().slice(0, 10)}\nCover image: ${imgNote}\n${folderNote}\n${driveNote}\nBody (plain excerpt):\n${plain}\n`;
+            ? `Extra media (R2) URLs (${drive.length}): ${drive.map((d) => d.url).join("; ")}`
+            : "(no extra media links)";
+        return `---\nTitle: ${p.title}\nSection: ${p.section}\nCenter: ${p.centerCity ?? "unspecified"}\nDate: ${p.createdAt.toISOString().slice(0, 10)}\nCover image: ${imgNote}\n${driveNote}\nBody (plain excerpt):\n${plain}\n`;
       })
       .join("\n");
 

@@ -32,11 +32,10 @@ export default async function EventsListPage() {
 
   return (
     <EventsPageShell>
-      <div className="mx-auto max-w-3xl px-4 pb-16 pt-12 sm:pt-14">
-        <header className="events-hero-panel px-6 py-8 sm:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Community</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Events</h1>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-700">
+      <div className="mx-auto max-w-5xl px-4 pb-16 pt-12 sm:pt-14">
+        <header className="px-1 py-2 sm:py-3">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Events Signup</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-700">
             Upcoming and past gatherings. Open an event for details and to RSVP (Yes / No / Maybe) when sign-ups are
             enabled.
           </p>
@@ -108,11 +107,11 @@ function EventListCard({
       >
         <div className="flex flex-col sm:flex-row">
           <div
-            className={`relative h-40 w-full shrink-0 sm:h-auto sm:w-48 ${e.heroImageUrl ? "bg-sky-100" : "bg-gradient-to-br from-sky-200 via-cyan-50 to-amber-100"}`}
+            className={`relative h-44 w-full shrink-0 sm:h-40 sm:w-56 ${e.heroImageUrl ? "bg-sky-100" : "bg-gradient-to-br from-sky-200 via-cyan-50 to-amber-100"}`}
           >
             {e.heroImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={e.heroImageUrl} alt="" className="h-full w-full object-cover" />
+              <img src={e.heroImageUrl} alt="" className="h-full w-full object-contain p-1.5" />
             ) : (
               <div className="flex h-full min-h-[10rem] flex-col items-center justify-center gap-2 px-4 text-center">
                 <span className="rounded-2xl bg-white p-3 text-sky-600 shadow-md ring-2 ring-sky-200">
