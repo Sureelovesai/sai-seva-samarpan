@@ -163,10 +163,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             {event.signupsEnabled ? (
               <>
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-700">
-                  Let us know if you plan to attend. You can respond <strong className="text-slate-900">Yes</strong>,{" "}
-                  <strong className="text-slate-900">No</strong>, or <strong className="text-slate-900">Maybe</strong>, and
-                  list <strong className="text-slate-900">adults</strong> and{" "}
-                  <strong className="text-slate-900">kids</strong> in your group (including yourself).
+                  Sairam we look forward to seeing you
                 </p>
                 <EventRsvpForm eventId={event.id} />
               </>
