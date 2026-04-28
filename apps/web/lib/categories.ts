@@ -4,6 +4,7 @@
  * Use SEVA_CATEGORIES_FOR_FILTER (includes "All") for Find Seva filter.
  */
 
+/** Named categories; "Other" is appended last everywhere Service Category appears (Find Seva, forms, reports). */
 const SEVA_CATEGORIES_SORTED = [
   "Animal Care",
   "Children",
@@ -15,11 +16,11 @@ const SEVA_CATEGORIES_SORTED = [
   "Medicare",
   "Narayana Seva/Food",
   "Online",
-  "Other",
   "Senior Citizens",
   "Sociocare",
   "Veterans",
   "Women Seva",
+  "Other",
 ] as const;
 
 export const SEVA_CATEGORIES = SEVA_CATEGORIES_SORTED;

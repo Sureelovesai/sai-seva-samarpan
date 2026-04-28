@@ -1153,7 +1153,9 @@ function SevaActivitiesContent() {
                                       ) : isOtherRowWhileSupplyTab ? (
                                         <span>Not part of this Join while a supply list tab is open — use tabs above</span>
                                       ) : eligible ? (
-                                        "Include in this Join Seva submission"
+                                        <span className="sr-only">
+                                          Toggle whether this activity is included in this Join Seva submission
+                                        </span>
                                       ) : (
                                         <span className="text-zinc-500">
                                           Not included in combined Join Seva — use this tab
