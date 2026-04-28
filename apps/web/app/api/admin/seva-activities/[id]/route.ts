@@ -198,6 +198,8 @@ export async function PATCH(
 
         capacity: body.capacity !== undefined ? toIntOrNull(body.capacity) : undefined,
         allowKids: body.allowKids === undefined ? undefined : Boolean(body.allowKids),
+        joinSevaEnabled:
+          body.joinSevaEnabled === undefined ? undefined : Boolean(body.joinSevaEnabled),
 
         coordinatorName: body.coordinatorName != null ? String(body.coordinatorName).trim() || undefined : undefined,
         coordinatorEmail: body.coordinatorEmail != null ? String(body.coordinatorEmail).trim() || undefined : undefined,

@@ -44,6 +44,7 @@ const activityPublicSelect = {
   address: true,
   capacity: true,
   allowKids: true,
+  joinSevaEnabled: true,
   coordinatorName: true,
   coordinatorEmail: true,
   coordinatorPhone: true,

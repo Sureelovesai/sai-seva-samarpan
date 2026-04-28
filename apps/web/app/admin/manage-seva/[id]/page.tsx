@@ -64,6 +64,7 @@ type ActivityData = {
   address: string | null;
   capacity: number | null;
   allowKids?: boolean;
+  joinSevaEnabled?: boolean;
   coordinatorName: string | null;
   coordinatorEmail: string | null;
   coordinatorPhone: string | null;
@@ -237,6 +238,7 @@ export default function EditSevaActivityPage() {
   const [active, setActive] = useState(true);
   const [featured, setFeatured] = useState(false);
   const [allowKids, setAllowKids] = useState(true);
+  const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED">("PUBLISHED");
 
   const [imageUrl, setImageUrl] = useState("");
@@ -483,6 +485,7 @@ export default function EditSevaActivityPage() {
       setActive(a.isActive ?? true);
       setFeatured(a.isFeatured ?? false);
       setAllowKids(a.allowKids ?? true);
+      setJoinSevaEnabled(a.joinSevaEnabled ?? true);
       setStatus((a.status as "DRAFT" | "PUBLISHED" | "ARCHIVED") || "PUBLISHED");
 
       const { editorRows, withClaims } = mapContributionItemsFromApi(a.contributionItems);
@@ -711,6 +714,7 @@ export default function EditSevaActivityPage() {
         isActive: active,
         isFeatured: featured,
         allowKids,
+        joinSevaEnabled,
         status,
         contributionItems: contributionItems
           .filter((r) => r.name.trim())
@@ -844,6 +848,7 @@ export default function EditSevaActivityPage() {
         isActive: true,
         isFeatured: false,
         allowKids,
+        joinSevaEnabled,
         status: "PUBLISHED" as const,
         contributionItems: contributionItems
           .filter((r) => r.name.trim())
@@ -1545,8 +1550,29 @@ export default function EditSevaActivityPage() {
                   <span className="text-lg font-semibold text-indigo-950">Featured</span>
                 </label>
                 <label className="inline-flex items-center gap-3">
-                  <input type="checkbox" checked={allowKids} onChange={(e) => setAllowKids(e.target.checked)} className="h-6 w-6 accent-indigo-600" />
+                  <input
+                    type="checkbox"
+                    checked={allowKids}
+                    onChange={(e) => setAllowKids(e.target.checked)}
+                    disabled={!joinSevaEnabled}
+                    className="h-6 w-6 accent-indigo-600"
+                  />
                   <span className="text-lg font-semibold text-indigo-950">Allow kids in Join Seva</span>
+                </label>
+                <label className="inline-flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={!joinSevaEnabled}
+                    onChange={(e) => {
+                      const itemsOnly = e.target.checked;
+                      setJoinSevaEnabled(!itemsOnly);
+                      if (itemsOnly) setAllowKids(false);
+                    }}
+                    className="h-6 w-6 accent-indigo-600"
+                  />
+                  <span className="text-lg font-semibold text-indigo-950">
+                    Only Items To Sign Up (disable Join Seva)
+                  </span>
                 </label>
                 <div>
                   <label className="block text-sm font-semibold text-zinc-800">Status</label>

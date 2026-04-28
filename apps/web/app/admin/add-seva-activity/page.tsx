@@ -47,6 +47,7 @@ export default function AddSevaActivityPage() {
   const [active, setActive] = useState(true);
   const [featured, setFeatured] = useState(false);
   const [allowKids, setAllowKids] = useState(true);
+  const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
 
   // Activity image: upload only
   const [imageUrl, setImageUrl] = useState<string>("");
@@ -515,6 +516,7 @@ export default function AddSevaActivityPage() {
         isActive: active,
         isFeatured: featured,
         allowKids,
+        joinSevaEnabled,
         status,
         contributionItems: contributionItems
           .filter((r) => r.name.trim())
@@ -579,6 +581,7 @@ export default function AddSevaActivityPage() {
         setActive(true);
         setFeatured(false);
         setAllowKids(true);
+        setJoinSevaEnabled(true);
         setContributionItems([]);
       }
     } catch (e: any) {
@@ -1083,10 +1086,26 @@ export default function AddSevaActivityPage() {
                     type="checkbox"
                     checked={allowKids}
                     onChange={(e) => setAllowKids(e.target.checked)}
+                    disabled={!joinSevaEnabled}
                     className="h-6 w-6 accent-indigo-600"
                   />
                   <span className="text-lg font-semibold text-indigo-950">
                     Allow kids in Join Seva
+                  </span>
+                </label>
+                <label className="inline-flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={!joinSevaEnabled}
+                    onChange={(e) => {
+                      const itemsOnly = e.target.checked;
+                      setJoinSevaEnabled(!itemsOnly);
+                      if (itemsOnly) setAllowKids(false);
+                    }}
+                    className="h-6 w-6 accent-indigo-600"
+                  />
+                  <span className="text-lg font-semibold text-indigo-950">
+                    Only Items To Sign Up (disable Join Seva)
                   </span>
                 </label>
               </div>

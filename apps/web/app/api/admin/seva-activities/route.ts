@@ -185,6 +185,7 @@ export async function POST(req: Request) {
 
         capacity: capacityNum,
         allowKids: toBooleanDefaultTrue(body.allowKids),
+        joinSevaEnabled: body.joinSevaEnabled === undefined ? true : Boolean(body.joinSevaEnabled),
 
         coordinatorName,
         coordinatorEmail,

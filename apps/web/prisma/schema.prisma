@@ -237,6 +237,8 @@ model SevaActivity {
   capacity         Int?
   /// When false, Join Seva should not accept children for this activity.
   allowKids        Boolean            @default(true)
+  /// When false, public Seva Details should disable "Join Seva" and allow only item sign-up.
+  joinSevaEnabled  Boolean            @default(true)
   coordinatorEmail String?
   coordinatorName  String?
   coordinatorPhone String?

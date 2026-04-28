@@ -12,6 +12,7 @@ const activitySelectForSignup = {
   coordinatorPhone: true,
   capacity: true,
   allowKids: true,
+  joinSevaEnabled: true,
   startDate: true,
   startTime: true,
   endTime: true,
@@ -61,6 +62,9 @@ export async function createVolunteerSignup(
   }
   if (!activity.allowKids && kidsCount > 0) {
     throw new Error("Kids sign-up is not available for this activity.");
+  }
+  if (!activity.joinSevaEnabled) {
+    throw new Error("Join Seva is disabled for this activity. Please use Items to sign up.");
   }
 
   const existingSignup = await db.sevaSignup.findFirst({

@@ -106,6 +106,7 @@ export async function POST(req: Request) {
         coordinatorEmail: true,
         coordinatorPhone: true,
         capacity: true,
+        joinSevaEnabled: true,
         locationName: true,
         address: true,
         allowKids: true,
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
     }
 
     const blockedByItems: string[] = [];
+    const blockedJoinDisabled: string[] = [];
     const endedTitles: string[] = [];
     for (const a of rows) {
       if (a._count.contributionItems > 0) {
@@ -136,6 +138,9 @@ export async function POST(req: Request) {
         })
       ) {
         endedTitles.push(a.title ?? a.id);
+      }
+      if (!a.joinSevaEnabled) {
+        blockedJoinDisabled.push(a.title ?? a.id);
       }
     }
     if (blockedByItems.length > 0) {
@@ -156,6 +161,18 @@ export async function POST(req: Request) {
         {
           error: "These activities have already ended: " + endedTitles.slice(0, 8).join("; "),
           code: "ACTIVITIES_ENDED",
+        },
+        { status: 400 }
+      );
+    }
+    if (blockedJoinDisabled.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Join Seva is disabled for these activities; use Items to sign up instead: " +
+            blockedJoinDisabled.slice(0, 8).join("; ") +
+            (blockedJoinDisabled.length > 8 ? ` … (+${blockedJoinDisabled.length - 8} more)` : ""),
+          code: "JOIN_DISABLED",
         },
         { status: 400 }
       );

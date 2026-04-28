@@ -27,6 +27,7 @@ type SevaActivity = {
   address: string | null;
   capacity: number | null;
   allowKids?: boolean;
+  joinSevaEnabled?: boolean;
   coordinatorName: string | null;
   coordinatorEmail: string | null;
   coordinatorPhone: string | null;
@@ -53,6 +54,7 @@ const defaultActivity: SevaActivity = {
   address: null,
   capacity: null,
   allowKids: true,
+  joinSevaEnabled: true,
   coordinatorName: null,
   coordinatorEmail: null,
   coordinatorPhone: null,
@@ -155,6 +157,27 @@ function SevaActivitiesContent() {
   const pathname = usePathname() ?? "";
   const isMahotsavamActivitiesPage = pathname === SEVA_MAHOTSAVAM_ACTIVITIES_PATH;
   const searchParams = useSearchParams();
+  const findSevaBackHref = useMemo(() => {
+    if (isMahotsavamActivitiesPage) {
+      return "/seva-mahotsavam";
+    }
+    const p = new URLSearchParams();
+    const passthroughKeys = [
+      "level",
+      "category",
+      "city",
+      "usaRegion",
+      "fromDate",
+      "toDate",
+      "date",
+    ] as const;
+    for (const k of passthroughKeys) {
+      const v = searchParams.get(k);
+      if (v && v.trim()) p.set(k, v);
+    }
+    const qs = p.toString();
+    return qs ? `/find-seva?${qs}` : "/find-seva";
+  }, [isMahotsavamActivitiesPage, searchParams]);
   /** Mahotsavam flow uses `/seva-mahotsavam/activities` so global header/footer stay hidden. */
   const sevaDetailsPathPrefix =
     pathname === SEVA_MAHOTSAVAM_ACTIVITIES_PATH ? SEVA_MAHOTSAVAM_ACTIVITIES_PATH : "/seva-activities";
@@ -196,6 +219,7 @@ function SevaActivitiesContent() {
   const [itemRegisterInfo, setItemRegisterInfo] = useState<string | null>(null);
   const [adultsCount, setAdultsCount] = useState(1); // 0 allowed when only kids are participating
   const [kidsCount, setKidsCount] = useState(0);
+  const [signUpTab, setSignUpTab] = useState<"join" | "items">("join");
   const [tabsPage, setTabsPage] = useState(0);
   const [tabsPerPage, setTabsPerPage] = useState(5);
   const [user, setUser] = useState<{
@@ -507,6 +531,10 @@ function SevaActivitiesContent() {
     setSignUpError(null);
     setSignUpInfo(null);
     setBatchJoinResults(null);
+    if (!joinSevaEnabledForCurrent) {
+      setSignUpError("Join Seva is disabled for this activity. Please use Items to sign up.");
+      return;
+    }
     if (activities.length === 0 || !activityIdToSubmit) {
       setSignUpError("No activity available to sign up. Add an activity in Add Seva Activity first.");
       return;
@@ -703,6 +731,25 @@ function SevaActivitiesContent() {
   };
 
   const canJoinSeva = activities.length > 0 && !!activityIdToSubmit;
+  const joinSevaEnabledForCurrent = displayActivity.joinSevaEnabled !== false;
+  const showItemsSignUpTab = !isMahotsavamActivitiesPage;
+  const hasItemsToSignUp =
+    !contribLoading && !contribError && !contribEnded && contribItems.length > 0;
+  const itemsTabDisabled = !hasItemsToSignUp;
+
+  useEffect(() => {
+    if (!showItemsSignUpTab) {
+      setSignUpTab("join");
+      return;
+    }
+    if (!joinSevaEnabledForCurrent) {
+      setSignUpTab("items");
+      return;
+    }
+    if (signUpTab === "items" && itemsTabDisabled) {
+      setSignUpTab("join");
+    }
+  }, [showItemsSignUpTab, joinSevaEnabledForCurrent, signUpTab, itemsTabDisabled]);
 
   if (loading && !activities.length) {
     return (
@@ -715,67 +762,97 @@ function SevaActivitiesContent() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,180,220,0.4),transparent),radial-gradient(ellipse_60%_40%_at_100%_50%,rgba(160,200,240,0.25),transparent),radial-gradient(ellipse_60%_40%_at_0%_50%,rgba(140,180,220,0.25),transparent),linear-gradient(180deg,rgba(200,220,240,0.5)_0%,rgba(180,200,230,0.6)_50%,rgba(160,190,220,0.5)_100%)]">
       <div className="mx-auto max-w-6xl px-4 py-10">
-        {/* Tabs: wide enough to show 5 tabs (732px) + << >> arrows */}
+        <div className="mx-auto mb-4 w-full max-w-4xl">
+          <a
+            href={findSevaBackHref}
+            className="inline-flex items-center rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
+          >
+            ← Back to Find Seva
+          </a>
+        </div>
+        {/* Tabs */}
         <div className="mx-auto w-full max-w-4xl">
-          {/* Activity tabs: up to 5 visible, << >> slide to next/prev */}
+          {/* Mobile portrait/landscape: native horizontal scroll (cleaner than clipped carousel). */}
           {activities.length > 1 && (
-            <div ref={tabsRowRef} className="mb-6 flex items-center gap-2">
-              {showTabsArrows && (
-                <button
-                  type="button"
-                  onClick={() => setTabsPage((p) => Math.max(0, p - 1))}
-                  disabled={tabsPage === 0}
-                  className="shrink-0 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:pointer-events-none"
-                  aria-label="Previous activities"
-                >
-                  &#171;
-                </button>
-              )}
-              <div
-                className="overflow-hidden"
-                style={{
-                  width: Math.min(activities.length, tabsPerPage) * TAB_WIDTH_PX + (Math.min(activities.length, tabsPerPage) - 1) * TAB_GAP_PX,
-                }}
-              >
+            <>
+              <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:hidden">
+                {activities.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => switchToActivityTab(a.id)}
+                    className={`min-w-[72%] snap-start rounded-lg border px-4 py-2.5 text-left text-sm font-semibold transition-colors ${
+                      selectedId === a.id
+                        ? "border-indigo-700 bg-indigo-700 text-white"
+                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                    }`}
+                  >
+                    <span className="block truncate" title={a.title}>
+                      {a.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Desktop/tablet: up to 5 visible with << >> controls */}
+              <div ref={tabsRowRef} className="mb-6 hidden items-center gap-2 sm:flex">
+                {showTabsArrows && (
+                  <button
+                    type="button"
+                    onClick={() => setTabsPage((p) => Math.max(0, p - 1))}
+                    disabled={tabsPage === 0}
+                    className="shrink-0 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:pointer-events-none"
+                    aria-label="Previous activities"
+                  >
+                    &#171;
+                  </button>
+                )}
                 <div
-                  className="flex transition-transform duration-300 ease-out"
+                  className="overflow-hidden"
                   style={{
-                    gap: TAB_GAP_PX,
-                    width: activities.length * TAB_WIDTH_PX + (activities.length - 1) * TAB_GAP_PX,
-                    transform: `translateX(-${slideOffsetPx}px)`,
+                    width: Math.min(activities.length, tabsPerPage) * TAB_WIDTH_PX + (Math.min(activities.length, tabsPerPage) - 1) * TAB_GAP_PX,
                   }}
                 >
-                  {activities.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => switchToActivityTab(a.id)}
-                      className={`shrink-0 rounded border px-4 py-2 text-sm font-medium transition-colors ${
-                        selectedId === a.id
-                          ? "border-indigo-700 bg-indigo-700 text-white"
-                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                      }`}
-                      style={{ width: TAB_WIDTH_PX, minWidth: TAB_WIDTH_PX }}
-                    >
-                      <span className="block truncate" title={a.title}>
-                        {a.title}
-                      </span>
-                    </button>
-                  ))}
+                  <div
+                    className="flex transition-transform duration-300 ease-out"
+                    style={{
+                      gap: TAB_GAP_PX,
+                      width: activities.length * TAB_WIDTH_PX + (activities.length - 1) * TAB_GAP_PX,
+                      transform: `translateX(-${slideOffsetPx}px)`,
+                    }}
+                  >
+                    {activities.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => switchToActivityTab(a.id)}
+                        className={`shrink-0 rounded border px-4 py-2 text-sm font-medium transition-colors ${
+                          selectedId === a.id
+                            ? "border-indigo-700 bg-indigo-700 text-white"
+                            : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                        }`}
+                        style={{ width: TAB_WIDTH_PX, minWidth: TAB_WIDTH_PX }}
+                      >
+                        <span className="block truncate" title={a.title}>
+                          {a.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                {showTabsArrows && (
+                  <button
+                    type="button"
+                    onClick={() => setTabsPage((p) => Math.min(tabsMaxPage, p + 1))}
+                    disabled={tabsPage >= tabsMaxPage}
+                    className="shrink-0 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:pointer-events-none"
+                    aria-label="Next activities"
+                  >
+                    &#187;
+                  </button>
+                )}
               </div>
-              {showTabsArrows && (
-                <button
-                  type="button"
-                  onClick={() => setTabsPage((p) => Math.min(tabsMaxPage, p + 1))}
-                  disabled={tabsPage >= tabsMaxPage}
-                  className="shrink-0 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 disabled:pointer-events-none"
-                  aria-label="Next activities"
-                >
-                  &#187;
-                </button>
-              )}
-            </div>
+            </>
           )}
         </div>
 
@@ -912,16 +989,36 @@ function SevaActivitiesContent() {
 
         {/* Sign-up area — scroll target from Seva Details link */}
         <h2 id="sign-up-to-volunteer" className="scroll-mt-6 mt-14 text-center text-2xl font-bold tracking-tight text-indigo-900">
-          {isMahotsavamActivitiesPage ? "Volunteer sign-up" : "Volunteer & item sign-up"}
+          {isMahotsavamActivitiesPage ? "Volunteer sign-up" : "Volunteer & Item sign-up"}
         </h2>
-        {!isMahotsavamActivitiesPage && (
-          <p className="mx-auto mt-3 max-w-lg px-4 text-center text-sm leading-relaxed text-zinc-600">
-            <strong>Join Seva</strong> first if you will take part on site — that adds you to the roster and counts toward
-            participation and hours after the event ends. Below that, <strong>Register</strong> is only for bringing listed
-            supplies (no volunteer headcount or service hours); you can use it without joining if you are donating items
-            only.
-          </p>
-        )}
+        <div className="mx-auto mt-4 flex max-w-md gap-2">
+          <button
+            type="button"
+            onClick={() => setSignUpTab("join")}
+            disabled={!joinSevaEnabledForCurrent}
+            className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold ${
+              signUpTab === "join"
+                ? "border-indigo-700 bg-indigo-700 text-white"
+                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            Join the activity
+          </button>
+          {showItemsSignUpTab ? (
+            <button
+              type="button"
+              onClick={() => setSignUpTab("items")}
+              disabled={itemsTabDisabled}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold ${
+                signUpTab === "items"
+                  ? "border-indigo-700 bg-indigo-700 text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+              } disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              Items to sign up
+            </button>
+          ) : null}
+        </div>
 
         <div className="mx-auto mt-6 max-w-md">
           {!canJoinSeva ? (
@@ -936,6 +1033,11 @@ function SevaActivitiesContent() {
               {signUpInfo && (
                 <p className="rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{signUpInfo}</p>
               )}
+              {!joinSevaEnabledForCurrent ? (
+                <p className="rounded bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
+                  Join Seva is disabled for this activity. Please use Items to sign up.
+                </p>
+              ) : null}
 
               {/* Contact — shared by Register (items) and Join Seva */}
               <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
@@ -987,7 +1089,8 @@ function SevaActivitiesContent() {
               </div>
 
               {/* Join Seva — creates SevaSignup (roster, capacity, hours when activity ends) */}
-              {signUpSubmitted ? (
+              {signUpTab === "join" ? (
+              signUpSubmitted ? (
                 <div className="space-y-3 rounded-lg bg-emerald-50/90 px-6 py-8 text-center text-emerald-800 shadow-sm">
                   {batchJoinResults && batchJoinResults.length > 0 ? (
                     <>
@@ -1035,12 +1138,6 @@ function SevaActivitiesContent() {
                 <form onSubmit={handleJoinSeva} className="space-y-6">
                   <div>
                     <h3 className="text-center text-lg font-bold tracking-tight text-indigo-900">Join the activity</h3>
-                    {!isMahotsavamActivitiesPage && (
-                      <p className="mx-auto mt-2 max-w-sm text-center text-sm text-zinc-600">
-                        Adds your group to the volunteer roster and counts toward participation and service hours when this
-                        activity is completed.
-                      </p>
-                    )}
                   </div>
 
                   {activities.length > 1 && (
@@ -1048,18 +1145,10 @@ function SevaActivitiesContent() {
                       <div className="border-b border-indigo-200/70 bg-white/60 px-4 py-4 md:px-5">
                         <p className="text-sm font-semibold text-indigo-950">Which activities are you joining?</p>
                         <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-                          {supplyListTabInMultiSession ? (
-                            <>
-                              This activity has a <strong>supply list</strong> (items to bring) — it stays selected
-                              (green) for joining. Other open activities are shown but <strong>disabled</strong> here; use
-                              the tabs to switch to another program.
-                            </>
-                          ) : (
-                            <>
-                              You are welcome to participate in multiple seva activities. Please review the schedules and
-                              details carefully before selecting to avoid any timing conflicts.
-                            </>
-                          )}
+                          <>
+                            You are welcome to participate in multiple seva activities. Please review the schedules and
+                            details carefully before selecting to avoid any timing conflicts.
+                          </>
                         </p>
                       </div>
                       <div>
@@ -1079,6 +1168,31 @@ function SevaActivitiesContent() {
                               : (batchSelection[a.id] ?? false);
                           const checkDisabled =
                             isActiveSupplyListRow || isOtherRowWhileSupplyTab || !eligible;
+                          const dateSummary = (() => {
+                            const start = formatDateOnly(a.startDate);
+                            const end = formatDateOnly(a.endDate);
+                            if (start && end && start !== end) return `${start} - ${end}`;
+                            return start ?? end ?? "Date TBD";
+                          })();
+                          const timeSummary =
+                            [formatTimeOnly(a.startTime), formatTimeOnly(a.endTime)]
+                              .filter(Boolean)
+                              .join(" - ") || "Time TBD";
+                          const scheduleSummary = `${dateSummary} • ${timeSummary}`;
+                          const capacitySummary =
+                            a.capacity != null && a.capacity > 0
+                              ? `${a.capacity} volunteer${a.capacity === 1 ? "" : "s"}${
+                                  a.spotsRemaining != null
+                                    ? a.spotsRemaining === 0
+                                      ? " (Full)"
+                                      : ` (${a.spotsRemaining} left)`
+                                    : ""
+                                }`
+                              : "All are welcome";
+                          const locationSummary =
+                            [a.locationName, a.address]
+                              .filter((v): v is string => Boolean(v && v.trim()))
+                              .join(" • ") || "Location TBD";
                           return (
                             <div
                               key={a.id}
@@ -1127,9 +1241,18 @@ function SevaActivitiesContent() {
                                       type="button"
                                       onClick={() => switchToActivityTab(a.id)}
                                       className="mt-0.5 w-full text-left text-base font-semibold tracking-wide text-zinc-500 line-through decoration-zinc-400 hover:bg-zinc-100/60 hover:text-zinc-700"
+                                      title={`${a.title}
+Category: ${a.category || "—"}
+Date & Time: ${scheduleSummary}
+Capacity: ${capacitySummary}
+City: ${a.city || "—"}
+Location: ${locationSummary}`}
                                     >
                                       {a.title}
                                     </button>
+                                    <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                                      {scheduleSummary}
+                                    </span>
                                     <span className="mt-0.5 block text-xs font-normal text-zinc-500">
                                       This activity has ended.
                                     </span>
@@ -1163,7 +1286,15 @@ function SevaActivitiesContent() {
                                       )}
                                     </label>
                                     {isActiveSupplyListRow ? (
-                                      <span className="mt-0.5 block w-full text-left text-base font-semibold tracking-wide text-emerald-900">
+                                      <span
+                                        className="mt-0.5 block w-full text-left text-base font-semibold tracking-wide text-emerald-900"
+                                        title={`${a.title}
+Category: ${a.category || "—"}
+Date & Time: ${scheduleSummary}
+Capacity: ${capacitySummary}
+City: ${a.city || "—"}
+Location: ${locationSummary}`}
+                                      >
                                         {a.title}
                                       </span>
                                     ) : (
@@ -1177,10 +1308,19 @@ function SevaActivitiesContent() {
                                               ? "text-indigo-900"
                                               : "text-zinc-700"
                                         }`}
+                                        title={`${a.title}
+Category: ${a.category || "—"}
+Date & Time: ${scheduleSummary}
+Capacity: ${capacitySummary}
+City: ${a.city || "—"}
+Location: ${locationSummary}`}
                                       >
                                         {a.title}
                                       </button>
                                     )}
+                                    <span className="mt-0.5 block text-xs font-normal text-zinc-600">
+                                      {scheduleSummary}
+                                    </span>
                                     {a.hasContributionList && !isActiveSupplyListRow ? (
                                       <span className="mt-0.5 block text-xs font-normal text-amber-900/90">
                                         Has a supply list — open this tab to join (not combined with other programs).
@@ -1278,7 +1418,7 @@ function SevaActivitiesContent() {
                     <div className="pt-4">
                       <button
                         type="submit"
-                        disabled={signUpSubmitting || !canJoinSeva || !agreedToJoinTerms}
+                        disabled={signUpSubmitting || !canJoinSeva || !agreedToJoinTerms || !joinSevaEnabledForCurrent}
                         className="w-full rounded-lg bg-blue-600 py-3 text-base font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70"
                       >
                         {signUpSubmitting
@@ -1298,10 +1438,10 @@ function SevaActivitiesContent() {
                     </div>
                   </div>
                 </form>
-              )}
+              )) : null}
 
               {/* Items to bring — Register saves claims only (no Seva signup) */}
-              {!isMahotsavamActivitiesPage && activityIdToSubmit && (
+              {!isMahotsavamActivitiesPage && activityIdToSubmit && signUpTab === "items" && (
                 <>
                   <h2
                     id="items-to-bring"
