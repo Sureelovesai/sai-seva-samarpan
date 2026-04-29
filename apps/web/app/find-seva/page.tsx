@@ -397,7 +397,7 @@ function FindSevaContent() {
 
   return (
     <div className="min-h-screen pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
-      <div className="mx-auto max-w-6xl px-4 py-10">
+      <div className="mx-auto max-w-6xl px-3 py-10 sm:px-4">
         {/* LEVEL TABS */}
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
           <div className="inline-flex w-full max-w-3xl overflow-visible rounded-lg border-2 border-indigo-800/80 bg-white/90 shadow-md">
@@ -412,7 +412,7 @@ function FindSevaContent() {
               return (
                 <div
                   key={tab.id}
-                  className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 py-2 pl-1 pr-0.5 sm:gap-1 sm:py-3 sm:pl-2 sm:pr-1 md:pl-3 md:pr-2 ${
+                  className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 py-1.5 pl-0.5 pr-0.5 sm:gap-1 sm:py-3 sm:pl-2 sm:pr-1 md:pl-3 md:pr-2 ${
                     i === 0 ? "rounded-l-[calc(0.5rem-2px)]" : ""
                   } ${i === 2 ? "rounded-r-[calc(0.5rem-2px)]" : ""} ${
                     i > 0 ? "border-l border-indigo-300" : ""
@@ -421,7 +421,7 @@ function FindSevaContent() {
                   <button
                     type="button"
                     onClick={() => setLevelTab(tab.id)}
-                    className="min-w-0 flex-1 px-1 text-center text-sm font-semibold transition-colors sm:px-2 sm:text-base"
+                    className="min-w-0 flex-1 px-0.5 text-center text-[11px] font-semibold leading-tight transition-colors sm:px-2 sm:text-sm md:text-base"
                   >
                     {tab.label}
                   </button>
@@ -477,16 +477,17 @@ function FindSevaContent() {
           Category, center, region, and dates update the list as soon as you change them.
         </p>
 
-        {/* FILTERS */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">
-              Find Seva (Service Category)
+        {/* FILTERS — stack To Date + Search on very narrow portrait (e.g. Z-Flip); sm+ uses 2-col row */}
+        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
+          <div className="min-w-0">
+            <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
+              <span className="block sm:inline">Find Seva</span>
+              <span className="text-zinc-600 sm:text-zinc-800"> (Service Category)</span>
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
             >
               {SEVA_CATEGORIES_FOR_FILTER.map((c) => (
                 <option key={c} value={c}>
@@ -497,14 +498,14 @@ function FindSevaContent() {
           </div>
 
           {levelTab === "center" && (
-            <div>
-              <label className="block text-sm font-semibold text-zinc-800">
+            <div className="min-w-0">
+              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 Sri Sathya Sai Center/ Group
               </label>
               <select
                 value={center}
                 onChange={(e) => setCenter(e.target.value)}
-                className="mt-2 w-full rounded-none border-b-2 border-b-indigo-600 border-transparent bg-white px-4 py-3 text-zinc-900 outline-none"
+                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
               >
                 {CENTERS_FOR_FILTER.map((c) => (
                   <option key={c} value={c}>
@@ -516,14 +517,14 @@ function FindSevaContent() {
           )}
 
           {(levelTab === "center" || levelTab === "regional") && (
-            <div>
-              <label className="block text-sm font-semibold text-zinc-800">
+            <div className="min-w-0">
+              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 USA Region
               </label>
               <select
                 value={usaRegion}
                 onChange={(e) => setUsaRegion(e.target.value)}
-                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
               >
                 {USA_REGIONS_FOR_FILTER.map((r) => (
                   <option key={r} value={r}>
@@ -534,39 +535,39 @@ function FindSevaContent() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-zinc-800">
+          <div className="min-w-0">
+            <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
               From Date
             </label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              className="mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
             />
           </div>
 
-          <div className="grid min-w-0 grid-cols-2 gap-4 sm:col-span-2 sm:gap-6 md:items-end">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2 sm:gap-6 md:items-end">
             <div className="min-w-0">
-              <label className="block text-sm font-semibold text-zinc-800">
+              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 To Date
               </label>
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+                className="mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
               />
             </div>
             <div className="min-w-0">
-              <label className="block text-sm font-semibold text-zinc-800">
+              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 Search
               </label>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Filter titles & descriptions below…"
-                className="mt-2 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none sm:px-4 sm:py-3"
               />
             </div>
           </div>

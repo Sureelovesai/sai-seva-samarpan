@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getPortalEventsEmailFrom, sendEmail } from "@/lib/email";
+import { formatPortalEventStart } from "@/lib/formatPortalEventStart";
 import { buildEventIcs, buildGoogleCalendarTemplateUrl } from "@/lib/portalEventCalendar";
 
 function escapeHtml(s: string): string {
@@ -66,6 +67,7 @@ export async function sendPortalEventRsvpEmails(params: {
 
   const orgHtml = `
     <p>New RSVP for <strong>${escapeHtml(event.title)}</strong>.</p>
+    <p><strong>When:</strong> ${escapeHtml(formatPortalEventStart(event.startsAt))}</p>
     <ul>
       <li><strong>Name:</strong> ${escapeHtml(signup.participantName)}</li>
       <li><strong>Email:</strong> ${escapeHtml(signup.email)}</li>
@@ -100,7 +102,7 @@ export async function sendPortalEventRsvpEmails(params: {
     <p>Your response for <strong>${escapeHtml(event.title)}</strong> is recorded as <strong>${escapeHtml(
       responseLabel(signup.response)
     )}</strong>.</p>
-    <p><strong>When:</strong> ${escapeHtml(event.startsAt.toLocaleString())}</p>
+    <p><strong>When:</strong> ${escapeHtml(formatPortalEventStart(event.startsAt))}</p>
     <p><strong>Where:</strong> ${escapeHtml(event.venue)}</p>
     <p><a href="${escapeHtml(publicEventUrl)}">Event details</a></p>
     <p><strong>Add to Google Calendar:</strong> <a href="${escapeHtml(gcalUrl)}">Add to Google Calendar</a></p>

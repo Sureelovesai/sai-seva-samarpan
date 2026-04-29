@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { loadPublicEventSignups } from "@/lib/loadPublicEventSignups";
 import { prisma } from "@/lib/prisma";
 import { isPortalEventTableMissing } from "@/lib/prismaMissingPortalEvent";
+import { getPortalEventTimezone } from "@/lib/formatPortalEventStart";
 import { EventsPageShell } from "../EventsPageShell";
 import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
@@ -50,16 +51,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const flyerLower = event.flyerUrl?.toLowerCase() ?? "";
   const flyerIsPdf = flyerLower.endsWith(".pdf") || flyerLower.includes("/pdf");
-  const dayLabel = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(event.startsAt);
+  const eventTz = getPortalEventTimezone();
+  const dayLabel = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: eventTz }).format(
+    event.startsAt
+  );
   const dateLabel = new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: eventTz,
   }).format(event.startsAt);
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "America/New_York",
+    timeZone: eventTz,
     timeZoneName: "short",
   })
     .format(event.startsAt)

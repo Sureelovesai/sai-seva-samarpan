@@ -11,14 +11,35 @@ function Req() {
   );
 }
 
+const GUEST_CAP = 500;
+
+/**
+ * String draft for controlled `<input type="number">` so users can clear the field and type
+ * without sticky 0 / "01" issues; native steppers still work.
+ */
+function sanitizeGuestCountDraft(raw: string): string {
+  if (raw === "") return "";
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return "";
+  return String(Math.min(GUEST_CAP, Math.max(0, n)));
+}
+
+function guestDraftToApiCount(draft: string): number {
+  const t = draft.trim();
+  if (t === "") return 0;
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(GUEST_CAP, Math.max(0, n));
+}
+
 export function EventRsvpForm({ eventId }: { eventId: string }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
-  const [accompanyingAdults, setAccompanyingAdults] = useState(0);
-  const [accompanyingKids, setAccompanyingKids] = useState(0);
+  const [accompanyingAdultsDraft, setAccompanyingAdultsDraft] = useState("0");
+  const [accompanyingKidsDraft, setAccompanyingKidsDraft] = useState("0");
   const [response, setResponse] = useState<"YES" | "NO" | "MAYBE">("YES");
   const [submitting, setSubmitting] = useState(false);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
@@ -51,12 +72,10 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
       setLastName(typeof data.lastName === "string" ? data.lastName : "");
       setEmail(typeof data.email === "string" ? data.email : em);
       setResponse(data.response === "NO" || data.response === "MAYBE" ? data.response : "YES");
-      setAccompanyingAdults(
-        Number.isFinite(Number(data.accompanyingAdults)) ? Math.max(0, Number(data.accompanyingAdults)) : 0
-      );
-      setAccompanyingKids(
-        Number.isFinite(Number(data.accompanyingKids)) ? Math.max(0, Number(data.accompanyingKids)) : 0
-      );
+      const a = Number.isFinite(Number(data.accompanyingAdults)) ? Math.max(0, Number(data.accompanyingAdults)) : 0;
+      const k = Number.isFinite(Number(data.accompanyingKids)) ? Math.max(0, Number(data.accompanyingKids)) : 0;
+      setAccompanyingAdultsDraft(String(a));
+      setAccompanyingKidsDraft(String(k));
       setComment(typeof data.comment === "string" ? data.comment : "");
       setInfo("Previous response loaded. Update fields and submit to save changes.");
     } catch (err: unknown) {
@@ -79,6 +98,8 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
     }
     setSubmitting(true);
     try {
+      const accompanyingAdults = guestDraftToApiCount(accompanyingAdultsDraft);
+      const accompanyingKids = guestDraftToApiCount(accompanyingKidsDraft);
       const res = await fetch(`/api/portal-events/${encodeURIComponent(eventId)}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -202,10 +223,21 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
               id="evt-adults"
               type="number"
               min={0}
-              max={500}
-              value={accompanyingAdults}
-              onChange={(e) => setAccompanyingAdults(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none"
+              max={GUEST_CAP}
+              step={1}
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Adults guest count"
+              value={accompanyingAdultsDraft}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") setAccompanyingAdultsDraft("");
+                else setAccompanyingAdultsDraft(sanitizeGuestCountDraft(v));
+              }}
+              onBlur={() =>
+                setAccompanyingAdultsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
+              }
+              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
             />
           </div>
           <div className="flex-1">
@@ -216,10 +248,21 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
               id="evt-kids"
               type="number"
               min={0}
-              max={500}
-              value={accompanyingKids}
-              onChange={(e) => setAccompanyingKids(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none"
+              max={GUEST_CAP}
+              step={1}
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Kids guest count"
+              value={accompanyingKidsDraft}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") setAccompanyingKidsDraft("");
+                else setAccompanyingKidsDraft(sanitizeGuestCountDraft(v));
+              }}
+              onBlur={() =>
+                setAccompanyingKidsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
+              }
+              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
             />
           </div>
         </div>
