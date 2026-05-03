@@ -3,7 +3,7 @@ import { createR2PresignedPut } from "@/lib/r2BlogUpload";
 
 /**
  * POST /api/blog-posts/r2-presign
- * Body: { fileName: string, contentType: string, fileSize: number }
+ * Body: { fileName, contentType, fileSize, blogPostId?, mediaBatchId? }
  * Returns presigned PUT URL for direct upload to Cloudflare R2 (S3-compatible).
  * Browser must PUT the raw file bytes to uploadUrl with the given Content-Type header.
  */
@@ -19,6 +19,14 @@ export async function POST(req: Request) {
         ? (body as { contentType: string }).contentType
         : "";
     const fileSize = Number((body as { fileSize?: unknown }).fileSize);
+    const blogPostIdRaw = (body as { blogPostId?: unknown }).blogPostId;
+    const blogPostId =
+      typeof blogPostIdRaw === "string" && blogPostIdRaw.trim() ? blogPostIdRaw.trim() : undefined;
+    const mediaBatchIdRaw = (body as { mediaBatchId?: unknown }).mediaBatchId;
+    const mediaBatchId =
+      typeof mediaBatchIdRaw === "string" && mediaBatchIdRaw.trim()
+        ? mediaBatchIdRaw.trim()
+        : undefined;
 
     if (!fileName.trim()) {
       return NextResponse.json({ error: "fileName is required." }, { status: 400 });
@@ -28,6 +36,8 @@ export async function POST(req: Request) {
       fileName: fileName.trim(),
       contentType: contentType || "application/octet-stream",
       fileSize,
+      blogPostId,
+      mediaBatchId,
     });
 
     if (!result.ok) {

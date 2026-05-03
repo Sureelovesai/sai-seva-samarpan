@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { USA_REGIONS_FOR_FILTER } from "@/lib/usaRegions";
@@ -53,11 +53,26 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
   const [sevaCategoryFilter, setSevaCategoryFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [userInstructions, setUserInstructions] = useState("");
-  const [targetWordCount, setTargetWordCount] = useState(500);
+  const [targetWordCount, setTargetWordCount] = useState(100);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Step 3: server reports whether OPENAI_API_KEY is set */
   const [openaiStatus, setOpenaiStatus] = useState<"idle" | "checking" | "yes" | "no" | "unknown">("idle");
+
+  /** Scroll target: whichever step heading is mounted (only one at a time). */
+  const stepHeadRef = useRef<HTMLDivElement>(null);
+  const skipStepScrollOnMount = useRef(true);
+
+  useLayoutEffect(() => {
+    if (skipStepScrollOnMount.current) {
+      skipStepScrollOnMount.current = false;
+      return;
+    }
+    stepHeadRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [step]);
 
   const blogPostsQuery = useMemo(() => {
     const sp = new URLSearchParams();
@@ -201,7 +216,7 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
     if (postIds.length === 0) return;
     setError(null);
     setSubmitting(true);
-    const clampedWords = Math.min(2000, Math.max(200, Math.round(targetWordCount)));
+    const clampedWords = Math.min(2000, Math.max(100, Math.round(targetWordCount)));
     try {
       const res = await fetch("/api/blog-reports/generate", {
         method: "POST",
@@ -247,20 +262,12 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
 
       {step === 1 ? (
         <>
-          <div>
+          <div ref={stepHeadRef} className="scroll-mt-8">
             <p className="text-sm font-medium text-zinc-800">Step 1 of 3 — Choose stories</p>
-            <p className="mt-1 text-sm text-zinc-600">
-              Set filters so only matching stories appear, then select up to {MAX_SELECT}. Dates use each
-              post&apos;s <strong>seva / story date</strong> when set, otherwise the posted date.{" "}
-              <span className="font-semibold text-amber-950">{selected.size}</span> selected.
-            </p>
           </div>
 
           <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">
-              Scope (blog list + report metadata)
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-medium text-zinc-700">From date</label>
                 <input
@@ -418,7 +425,7 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
         </>
       ) : step === 2 ? (
         <>
-          <div>
+          <div ref={stepHeadRef} className="scroll-mt-8">
             <p className="text-sm font-medium text-zinc-800">Step 2 of 3 — Instructions</p>
             <p className="mt-1 text-sm text-zinc-600">
               Optional guidance for the AI ({selected.size} stor{selected.size === 1 ? "y" : "ies"} will be
@@ -485,7 +492,7 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
           ) : null}
 
           <div className={submitting ? "pointer-events-none select-none opacity-40" : ""}>
-          <div>
+          <div ref={stepHeadRef} className="scroll-mt-8">
             <p className="text-sm font-medium text-zinc-800">Step 3 of 3 — Review &amp; generate</p>
             <p className="mt-1 text-sm text-zinc-600">
               Confirm what will be sent to the AI. When you click <strong>Generate report</strong>, the server
@@ -500,10 +507,6 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
               <strong>OpenAI is not configured.</strong> Set <code className="rounded bg-white px-1">OPENAI_API_KEY</code>{" "}
               on the server (e.g. Vercel env or <code className="rounded bg-white px-1">apps/web/.env.local</code>), then
               refresh this page.
-            </p>
-          ) : openaiStatus === "yes" ? (
-            <p className="rounded-lg border border-green-200 bg-green-50/90 px-4 py-2 text-sm text-green-900">
-              AI is configured — you can generate when ready.
             </p>
           ) : openaiStatus === "unknown" ? (
             <p className="text-xs text-zinc-500">
@@ -544,18 +547,18 @@ export function GenerateBlogReportWizard({ onSuccess }: Props) {
             <input
               id="report-word-target"
               type="number"
-              min={200}
+              min={100}
               max={2000}
               step={50}
               value={targetWordCount}
               onChange={(e) => {
                 const n = Number(e.target.value);
-                setTargetWordCount(Number.isFinite(n) ? n : 500);
+                setTargetWordCount(Number.isFinite(n) ? n : 100);
               }}
               disabled={submitting}
               className="mt-1 w-full max-w-[12rem] rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 shadow-sm disabled:opacity-60"
             />
-            <p className="mt-1 text-xs text-zinc-500">Allowed range: 200–2000 (server will clamp if needed).</p>
+            <p className="mt-1 text-xs text-zinc-500">Allowed range: 100–2000 (server will clamp if needed).</p>
           </div>
 
           <div className="flex flex-wrap justify-between gap-3 border-t border-amber-100 pt-4">

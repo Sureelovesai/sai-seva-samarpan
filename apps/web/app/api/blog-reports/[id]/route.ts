@@ -140,7 +140,7 @@ const MAX_BODY = 500_000;
 
 /**
  * PATCH /api/blog-reports/[id]
- * Body: { editedBody?: string, presentation?: { backgroundId, borderId } }
+ * Body: { editedBody?: string, presentation?: object — backgroundId, borderId, optional backdropPhoto* fields }
  */
 export async function PATCH(
   req: Request,

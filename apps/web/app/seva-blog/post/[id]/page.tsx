@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArticleCanvasChrome } from "@/app/seva-blog/ArticleCanvasChrome";
 import { BlogDriveMediaSection } from "@/app/seva-blog/BlogDriveMediaSection";
 import { BlogPostFormModal } from "@/app/seva-blog/BlogPostFormModal";
 import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
+import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
+import { downloadElementAsPdf } from "@/lib/htmlToPdf";
 
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&h=400&fit=crop";
@@ -15,6 +18,7 @@ type Post = {
   id: string;
   title: string;
   content: string;
+  articleCanvas?: unknown;
   imageUrl: string | null;
   driveMediaLinks?: unknown;
   section: string;
@@ -25,6 +29,10 @@ type Post = {
   emojiCounts: Record<string, number>;
   myReaction: { type: string; emojiCode?: string } | null;
 };
+
+function safeFileBaseFromTitle(title: string): string {
+  return title.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "").slice(0, 80) || "blog-post";
+}
 
 function formatDate(s: string) {
   return new Date(s).toLocaleDateString("en-US", {
@@ -53,6 +61,34 @@ export default function BlogPostPage({
   const [reacting, setReacting] = useState(false);
   const [canEditBlog, setCanEditBlog] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [shareAllMediaUrl, setShareAllMediaUrl] = useState("");
+  const pdfCaptureRef = useRef<HTMLDivElement>(null);
+  const [pdfWorking, setPdfWorking] = useState(false);
+
+  const canvasPresentation = useMemo(
+    () => normalizeArticleCanvasPresentation(post?.articleCanvas ?? null),
+    [post?.articleCanvas]
+  );
+
+  async function handleDownloadPdf() {
+    if (!post) return;
+    setPdfWorking(true);
+    try {
+      const el = pdfCaptureRef.current;
+      if (!el) {
+        window.alert("Could not prepare PDF.");
+        return;
+      }
+      await downloadElementAsPdf(el, `${safeFileBaseFromTitle(post.title)}.pdf`);
+    } catch (e) {
+      console.error(e);
+      window.alert(
+        e instanceof Error ? e.message : "Could not build PDF. Try again or use Print to PDF in your browser."
+      );
+    } finally {
+      setPdfWorking(false);
+    }
+  }
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -85,6 +121,20 @@ export default function BlogPostPage({
       })
       .catch(() => setCanEditBlog(false));
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    setShareAllMediaUrl(`${window.location.origin}/seva-blog/post/${encodeURIComponent(id)}#media`);
+  }, [id]);
+
+  /** Shared `…#media` links scroll here after the post loads (client render can miss native hash jump). */
+  useLayoutEffect(() => {
+    if (loading || !post) return;
+    if (typeof window === "undefined" || window.location.hash !== "#media") return;
+    const el = document.getElementById("media");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, post, id]);
 
   async function setReaction(type: string, emojiCode?: string) {
     if (!id || reacting) return;
@@ -157,6 +207,14 @@ export default function BlogPostPage({
                 Edit post
               </button>
             ) : null}
+            <button
+              type="button"
+              disabled={pdfWorking}
+              onClick={() => void handleDownloadPdf()}
+              className="shrink-0 rounded-lg border border-[#e8b4a0] bg-white px-4 py-2 text-sm font-semibold text-[#6b5344] shadow-sm hover:bg-[#fdf2f0] disabled:cursor-wait disabled:opacity-60"
+            >
+              {pdfWorking ? "Preparing PDF…" : "Download PDF"}
+            </button>
             <Link
               href="/admin/blog-reports"
               className="shrink-0 rounded-lg border border-[#e8b4a0] bg-white px-4 py-2 text-sm font-semibold text-[#6b5344] shadow-sm hover:bg-[#fdf2f0]"
@@ -185,7 +243,6 @@ export default function BlogPostPage({
             <h1 className="mt-2 font-serif text-3xl font-semibold text-[#6b5344] md:text-4xl">
               {post.title}
             </h1>
-
             {/* Emojis only */}
             <div className="mt-6 flex flex-wrap items-center gap-4 border-y border-[#f8e4e1] py-4">
               <span className="text-sm text-[#7a6b65]">Reactions:</span>
@@ -215,12 +272,48 @@ export default function BlogPostPage({
               </div>
             </div>
 
-            <div
-              className="prose prose-lg mt-6 max-w-none text-[#4a3f3a] [&_img]:max-w-full [&_div]:mb-2 [&_br]:block"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
-            />
+            <ArticleCanvasChrome
+              className="mt-6"
+              presentation={canvasPresentation}
+              contentClassName="blog-post-content prose prose-lg max-w-none text-[#4a3f3a] [&_img]:max-w-full [&_div]:mb-2 [&_br]:block"
+            >
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }} />
+            </ArticleCanvasChrome>
 
-            <BlogDriveMediaSection items={driveMediaItems} />
+            {/* Off-screen snapshot for PDF (html2canvas); includes title + same backdrop as the story. */}
+            <div
+              ref={pdfCaptureRef}
+              className="pointer-events-none fixed top-0 -left-[14000px] z-0 box-border w-[210mm] rounded-none bg-white p-[12mm] text-[#4a3f3a] shadow-none"
+              aria-hidden
+            >
+              <h1
+                style={{
+                  fontFamily: "Georgia, 'Times New Roman', serif",
+                  fontSize: "22px",
+                  fontWeight: 700,
+                  color: "#5a4538",
+                  margin: "0 0 8px 0",
+                  lineHeight: 1.25,
+                }}
+              >
+                {post.title}
+              </h1>
+              <p style={{ fontSize: "10.5pt", color: "#7a6b65", margin: "0 0 14px 0" }}>
+                {post.section}
+                {post.authorName ? ` · ${post.authorName}` : ""} · {formatDate(post.createdAt)}
+              </p>
+              <ArticleCanvasChrome presentation={canvasPresentation} showFrame>
+                <div
+                  className="blog-post-content prose prose-lg max-w-none text-[#4a3f3a] [&_img]:max-w-full [&_div]:mb-2 [&_br]:block"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+                />
+              </ArticleCanvasChrome>
+            </div>
+
+            <BlogDriveMediaSection
+              items={driveMediaItems}
+              shareAllMediaUrl={shareAllMediaUrl ? shareAllMediaUrl : undefined}
+            />
 
             <CommentsSection postId={id} />
 

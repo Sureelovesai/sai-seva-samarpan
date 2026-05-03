@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
+import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
 import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
@@ -61,6 +62,7 @@ export async function GET(
       id: post.id,
       title: post.title,
       content: post.content,
+      articleCanvas: normalizeArticleCanvasPresentation(post.articleCanvas ?? null),
       imageUrl: post.imageUrl,
       driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
       section: post.section,

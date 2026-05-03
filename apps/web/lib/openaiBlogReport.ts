@@ -3,6 +3,41 @@ import { htmlToPlain } from "@/lib/htmlToPlain";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+type OpenAiErrorBody = {
+  message?: string;
+  type?: string;
+  code?: string;
+};
+
+/** Short messages for the blog UI — avoids raw OpenAI docs URLs in alerts. */
+export function formatOpenAiErrorForUser(
+  message: string,
+  meta?: { type?: string; code?: string },
+  httpStatus?: number
+): string {
+  const m = message.toLowerCase();
+  const t = meta?.type ?? "";
+  const c = meta?.code ?? "";
+
+  if (
+    t === "insufficient_quota" ||
+    c === "insufficient_quota" ||
+    m.includes("exceeded your current quota") ||
+    m.includes("check your plan and billing") ||
+    (m.includes("quota") && m.includes("billing"))
+  ) {
+    return "OpenAI usage limit reached (quota or billing on your API key). Update plan or billing in your OpenAI account, then try again.";
+  }
+  if (t === "rate_limit_exceeded" || c === "rate_limit_exceeded" || m.includes("rate limit")) {
+    return "OpenAI rate limit reached. Wait briefly and try again, or check usage limits on your OpenAI account.";
+  }
+  if (httpStatus === 401 || m.includes("invalid api key") || m.includes("incorrect api key")) {
+    return "OpenAI rejected the API key. Verify OPENAI_API_KEY in the server environment.";
+  }
+  if (message.length > 280) return `${message.slice(0, 277)}…`;
+  return message;
+}
+
 export type PostForReport = {
   id: string;
   title: string;
@@ -40,12 +75,12 @@ async function openAiChat(
     }),
   });
   const data = (await res.json().catch(() => ({}))) as {
-    error?: { message?: string };
+    error?: OpenAiErrorBody;
     choices?: { message?: { content?: string } }[];
   };
   if (!res.ok) {
-    const msg = data?.error?.message || res.statusText || "OpenAI request failed";
-    throw new Error(msg);
+    const raw = data?.error?.message || res.statusText || "OpenAI request failed";
+    throw new Error(formatOpenAiErrorForUser(raw, data?.error, res.status));
   }
   const text = data?.choices?.[0]?.message?.content;
   if (typeof text !== "string" || !text.trim()) throw new Error("Empty response from the AI model");

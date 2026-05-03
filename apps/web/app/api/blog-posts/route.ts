@@ -41,6 +41,34 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** One-line hint for admins: shared R2 URL prefix when all attachments live under the same path. */
+function blogDriveMediaFolderNote(items: { url: string }[]): string {
+  if (items.length === 0) return "";
+  try {
+    const urls = items.map((i) => new URL(i.url));
+    const first = urls[0];
+    const segs = first.pathname.split("/").filter(Boolean);
+    let folderEnd = -1;
+    const postsIdx = segs.indexOf("posts");
+    if (postsIdx >= 1 && segs[postsIdx - 1] === "blog" && segs[postsIdx + 1]) {
+      folderEnd = postsIdx + 1;
+    } else {
+      const blogIdx = segs.indexOf("blog");
+      if (blogIdx >= 0 && segs[blogIdx + 1]) {
+        folderEnd = blogIdx + 1;
+      }
+    }
+    if (folderEnd < 0) return "";
+    const prefix = `/${segs.slice(0, folderEnd + 1).join("/")}/`;
+    const allSame = urls.every((u) => u.origin === first.origin && u.pathname.startsWith(prefix));
+    if (!allSame) return "";
+    const folderUrl = `${first.origin}${prefix}`;
+    return `<p><strong>Media folder URL (R2, this post):</strong> <a href="${escapeHtml(folderUrl)}">${escapeHtml(folderUrl)}</a></p>`;
+  } catch {
+    return "";
+  }
+}
+
 /** Sanitize HTML for safe inclusion in email (strip script, iframe, event handlers). */
 function sanitizeHtmlForEmail(html: string): string {
   if (!html || typeof html !== "string") return "";
@@ -183,6 +211,7 @@ export async function POST(req: Request) {
     const {
       title,
       content,
+      articleCanvas,
       imageUrl,
       driveMediaLinks,
       section,
@@ -208,6 +237,7 @@ export async function POST(req: Request) {
       data: {
         title,
         content,
+        articleCanvas: articleCanvas as unknown as Prisma.InputJsonValue,
         imageUrl,
         driveMediaLinks:
           driveMediaLinks.length > 0
@@ -253,9 +283,10 @@ export async function POST(req: Request) {
         ? `<p><strong>Image:</strong></p><p><img src="${escapeHtml(imageSrc)}" alt="Post image" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:8px;" /></p>`
         : "";
     const driveItems = normalizeStoredDriveMedia(post.driveMediaLinks);
+    const driveFolderNote = blogDriveMediaFolderNote(driveItems);
     const driveBlock =
       driveItems.length > 0
-        ? `<p><strong>Extra media (cloud, ${driveItems.length}):</strong></p><ul>${driveItems
+        ? `${driveFolderNote}<p><strong>Extra media (cloud, ${driveItems.length}):</strong></p><ul>${driveItems
             .map(
               (d) =>
                 `<li><a href="${escapeHtml(d.url)}">${escapeHtml(d.url)}</a>${d.caption ? ` — ${escapeHtml(d.caption)}` : ""}</li>`

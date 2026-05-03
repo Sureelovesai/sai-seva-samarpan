@@ -396,11 +396,11 @@ function FindSevaContent() {
   );
 
   return (
-    <div className="min-h-screen pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
-      <div className="mx-auto max-w-6xl px-3 py-10 sm:px-4">
+    <div className="min-h-screen overflow-x-hidden pt-2 bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
+      <div className="mx-auto min-w-0 max-w-6xl px-3 py-10 sm:px-4">
         {/* LEVEL TABS */}
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
-          <div className="inline-flex w-full max-w-3xl overflow-visible rounded-lg border-2 border-indigo-800/80 bg-white/90 shadow-md">
+        <div className="mb-8 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <div className="inline-flex w-full min-w-0 max-w-3xl overflow-visible rounded-lg border-2 border-indigo-800/80 bg-white/90 shadow-md">
             {(
               [
                 { id: "center" as const, label: "Center level", info: SEVA_LEVEL_TAB_INFO.center },
@@ -477,9 +477,9 @@ function FindSevaContent() {
           Category, center, region, and dates update the list as soon as you change them.
         </p>
 
-        {/* FILTERS — stack To Date + Search on very narrow portrait (e.g. Z-Flip); sm+ uses 2-col row */}
-        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
-          <div className="min-w-0">
+        {/* FILTERS — one grid cell per control so date inputs get the same min-width constraints as selects (nested col-span was letting dates overflow). */}
+        <div className="grid min-w-0 max-w-full grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
+          <div className="min-w-0 max-w-full">
             <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
               <span className="block sm:inline">Find Seva</span>
               <span className="text-zinc-600 sm:text-zinc-800"> (Service Category)</span>
@@ -487,7 +487,7 @@ function FindSevaContent() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
+              className="find-seva-filter-control mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
             >
               {SEVA_CATEGORIES_FOR_FILTER.map((c) => (
                 <option key={c} value={c}>
@@ -498,14 +498,14 @@ function FindSevaContent() {
           </div>
 
           {levelTab === "center" && (
-            <div className="min-w-0">
+            <div className="min-w-0 max-w-full">
               <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 Sri Sathya Sai Center/ Group
               </label>
               <select
                 value={center}
                 onChange={(e) => setCenter(e.target.value)}
-                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
+                className="find-seva-filter-control mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
               >
                 {CENTERS_FOR_FILTER.map((c) => (
                   <option key={c} value={c}>
@@ -517,14 +517,14 @@ function FindSevaContent() {
           )}
 
           {(levelTab === "center" || levelTab === "regional") && (
-            <div className="min-w-0">
+            <div className="min-w-0 max-w-full">
               <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
                 USA Region
               </label>
               <select
                 value={usaRegion}
                 onChange={(e) => setUsaRegion(e.target.value)}
-                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
+                className="find-seva-filter-control mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
               >
                 {USA_REGIONS_FOR_FILTER.map((r) => (
                   <option key={r} value={r}>
@@ -535,7 +535,7 @@ function FindSevaContent() {
             </div>
           )}
 
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-full overflow-hidden">
             <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
               From Date
             </label>
@@ -543,33 +543,32 @@ function FindSevaContent() {
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
+              className="find-seva-filter-control mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
             />
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2 sm:gap-6 md:items-end">
-            <div className="min-w-0">
-              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
-              />
-            </div>
-            <div className="min-w-0">
-              <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
-                Search
-              </label>
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Filter titles & descriptions below…"
-                className="mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none sm:px-4 sm:py-3"
-              />
-            </div>
+          <div className="min-w-0 max-w-full overflow-hidden">
+            <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="find-seva-filter-control mt-2 w-full min-w-0 max-w-full rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-zinc-900 outline-none sm:px-4 sm:py-3"
+            />
+          </div>
+
+          <div className="min-w-0 max-w-full sm:col-span-2 lg:col-span-1 xl:col-span-2">
+            <label className="block text-xs font-semibold leading-snug text-zinc-800 sm:text-sm">
+              Search
+            </label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter titles & descriptions below…"
+              className="find-seva-filter-control mt-2 w-full min-w-0 rounded-none border border-zinc-600 bg-white px-3 py-2.5 text-base text-zinc-900 outline-none sm:px-4 sm:py-3"
+            />
           </div>
         </div>
 

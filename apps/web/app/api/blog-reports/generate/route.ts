@@ -9,7 +9,10 @@ import {
   type ReportScopeInput,
   type ScopeParseError,
 } from "@/lib/blogReportScope";
-import { generateBlogAnalyticsNarrative } from "@/lib/openaiBlogReport";
+import {
+  formatOpenAiErrorForUser,
+  generateBlogAnalyticsNarrative,
+} from "@/lib/openaiBlogReport";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -95,9 +98,9 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
 
     let targetWordCount = Number(body.targetWordCount);
-    if (!Number.isFinite(targetWordCount)) targetWordCount = 500;
+    if (!Number.isFinite(targetWordCount)) targetWordCount = 100;
     targetWordCount = Math.round(targetWordCount);
-    targetWordCount = Math.min(2000, Math.max(200, targetWordCount));
+    targetWordCount = Math.min(2000, Math.max(100, targetWordCount));
 
     const userInstructions =
       typeof body.userInstructions === "string" ? body.userInstructions.slice(0, 8000) : "";
@@ -223,14 +226,15 @@ export async function POST(req: Request) {
         userInstructions
       );
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Generation failed";
+      const raw = e instanceof Error ? e.message : "Generation failed";
       console.error("blog-reports/generate OpenAI error:", e);
-      if (msg.includes("OPENAI_API_KEY")) {
+      if (raw.includes("OPENAI_API_KEY")) {
         return NextResponse.json(
           { error: "AI reporting is not configured (missing OPENAI_API_KEY)." },
           { status: 503 }
         );
       }
+      const msg = formatOpenAiErrorForUser(raw);
       return NextResponse.json({ error: msg }, { status: 502 });
     }
 

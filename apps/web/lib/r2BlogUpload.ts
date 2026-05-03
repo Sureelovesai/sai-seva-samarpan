@@ -39,10 +39,36 @@ function sanitizeFilename(name: string): string {
   return base || "upload";
 }
 
-function makeObjectKey(originalName: string): string {
+/** CUID-style post ids from Prisma; also allow draft UUIDs from the client. */
+function isSafeBlogFolderId(raw: string): boolean {
+  const s = raw.trim();
+  if (s.length < 8 || s.length > 64) return false;
+  return /^[a-zA-Z0-9_-]+$/.test(s);
+}
+
+/** One folder per form session so all extra media for a post share `blog/posts/{postId}/{batch}/…`. */
+function isSafeMediaBatchId(raw: string): boolean {
+  const s = raw.trim();
+  if (s.length < 8 || s.length > 32) return false;
+  return /^[a-fA-F0-9]+$/.test(s);
+}
+
+function makeObjectKey(
+  originalName: string,
+  blogFolderId?: string | null,
+  mediaBatchId?: string | null
+): string {
   const safe = sanitizeFilename(originalName).replace(/[^a-zA-Z0-9._\- ()]/g, "_");
-  const id = randomBytes(8).toString("hex");
-  return `blog/${new Date().toISOString().slice(0, 10)}/${id}/${safe}`;
+  const perFileId = randomBytes(8).toString("hex");
+  const folder = blogFolderId && isSafeBlogFolderId(blogFolderId) ? blogFolderId.trim() : null;
+  const batch = mediaBatchId && isSafeMediaBatchId(mediaBatchId) ? mediaBatchId.trim() : null;
+  if (folder && batch) {
+    return `blog/posts/${folder}/${batch}/${safe}`;
+  }
+  if (folder) {
+    return `blog/posts/${folder}/${perFileId}/${safe}`;
+  }
+  return `blog/${new Date().toISOString().slice(0, 10)}/${perFileId}/${safe}`;
 }
 
 let cachedClient: S3Client | null = null;
@@ -74,6 +100,10 @@ export async function createR2PresignedPut(input: {
   fileName: string;
   contentType: string;
   fileSize: number;
+  /** When set (e.g. editing an existing post), objects live under `blog/posts/{id}/…` for a stable per-post folder. */
+  blogPostId?: string | null;
+  /** When set with blogPostId, all uploads in that session share `blog/posts/{id}/{batch}/file.ext`. */
+  mediaBatchId?: string | null;
 }): Promise<{ ok: true; data: R2PresignResult } | { ok: false; error: string; status?: number }> {
   const env = getR2Env();
   if (!env) {
@@ -102,7 +132,7 @@ export async function createR2PresignedPut(input: {
     };
   }
 
-  const key = makeObjectKey(input.fileName);
+  const key = makeObjectKey(input.fileName, input.blogPostId, input.mediaBatchId);
   const client = getS3Client(env);
 
   const command = new PutObjectCommand({

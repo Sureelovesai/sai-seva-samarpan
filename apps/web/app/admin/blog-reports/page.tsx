@@ -54,12 +54,20 @@ export default function AdminBlogReportsPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <h1 className="font-serif text-2xl font-bold text-amber-950 sm:text-3xl">Blog analytics reports</h1>
-          <Link
-            href="/admin/seva-dashboard"
-            className="text-sm font-semibold text-amber-900 underline hover:no-underline"
-          >
-            ← Admin dashboard
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link
+              href="/seva-blog#stories"
+              className="text-sm font-semibold text-amber-900 underline hover:no-underline"
+            >
+              ← Seva Blog
+            </Link>
+            <Link
+              href="/admin/seva-dashboard"
+              className="text-sm font-semibold text-amber-900 underline hover:no-underline"
+            >
+              ← Admin dashboard
+            </Link>
+          </div>
         </div>
 
         <section className="mb-10 rounded-xl border border-amber-200 bg-white p-6 shadow-sm">

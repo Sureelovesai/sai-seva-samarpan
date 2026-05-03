@@ -34,6 +34,7 @@ export async function GET(
         posterEmail: true,
         posterPhone: true,
         driveMediaLinks: true,
+        articleCanvas: true,
         createdAt: true,
         status: true,
       },
@@ -122,6 +123,7 @@ export async function PATCH(
         authorName: d.authorName,
         posterEmail: d.posterEmail,
         posterPhone: d.posterPhone,
+        articleCanvas: d.articleCanvas as unknown as Prisma.InputJsonValue,
       },
     });
 

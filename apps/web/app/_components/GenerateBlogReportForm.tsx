@@ -38,7 +38,7 @@ export function GenerateBlogReportForm({ onSuccess, onCancel, showCancel }: Prop
   const [centerFilter, setCenterFilter] = useState("All");
   const [regionFilter, setRegionFilter] = useState("All");
   const [sevaCategoryFilter, setSevaCategoryFilter] = useState("All");
-  const [targetWordCount, setTargetWordCount] = useState(500);
+  const [targetWordCount, setTargetWordCount] = useState(100);
   const [userInstructions, setUserInstructions] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +166,7 @@ export function GenerateBlogReportForm({ onSuccess, onCancel, showCancel }: Prop
         <label className="block text-sm font-medium text-zinc-800">Target length (words)</label>
         <input
           type="number"
-          min={200}
+          min={100}
           max={2000}
           step={50}
           value={targetWordCount}

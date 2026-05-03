@@ -1,4 +1,6 @@
 import type { BlogDriveMediaItem } from "@/lib/blogDriveMedia";
+import type { ArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
+import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
 import { parseAndValidateDriveMediaLinks } from "@/lib/blogDriveMedia";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { CITIES } from "@/lib/cities";
@@ -32,6 +34,7 @@ export function parseSevaDateOnly(raw: string): Date | null {
 export type ValidatedBlogPostWrite = {
   title: string;
   content: string;
+  articleCanvas: ArticleCanvasPresentation;
   imageUrl: string | null;
   driveMediaLinks: BlogDriveMediaItem[];
   section: string;
@@ -131,11 +134,16 @@ export function validateBlogPostWriteBody(body: unknown):
     return { ok: false, error: driveParsed.error };
   }
 
+  const articleCanvas = normalizeArticleCanvasPresentation(
+    (b as Record<string, unknown>).articleCanvas
+  );
+
   return {
     ok: true,
     data: {
       title: title.trim(),
       content: content.trim(),
+      articleCanvas,
       imageUrl: imageUrlNorm,
       driveMediaLinks: driveParsed.value,
       section: sectionTrim,

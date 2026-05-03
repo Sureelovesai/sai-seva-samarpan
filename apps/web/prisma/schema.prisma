@@ -78,6 +78,8 @@ model BlogPost {
   id        String         @id @default(cuid())
   title     String
   content   String         @db.Text
+  /// Article body backdrop: { templateId, brightness, lightWash, dim } — editor, reader, PDF.
+  articleCanvas Json?
   imageUrl  String?
   /// Optional extra media: [{ "url": "https://…", "caption"?, "contentType"? }] — public R2 URLs from create-post uploads.
   driveMediaLinks Json?
