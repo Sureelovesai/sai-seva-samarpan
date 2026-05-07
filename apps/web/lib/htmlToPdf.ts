@@ -1,6 +1,8 @@
 /**
  * Rasterizes a DOM subtree to a multi-page PDF (same idea as “Print to PDF” in the browser).
  * Uses html2pdf.js (html2canvas + jsPDF) so backgrounds, borders, and floated images match the screen.
+ * Certificate downloads use html2canvas + jsPDF `addImage` so Chrome’s PDF viewer centers the raster
+ * on mobile portrait (html2pdf.js image placement often leaves a skinny strip on the left).
  *
  * html2canvas cannot parse CSS Color 4 functions (`lab()`, `oklch()`, etc.) that Tailwind v4 emits in stylesheets.
  * We copy computed styles from the live DOM onto the clone so values resolve to `rgb()` / hex before rasterizing.
@@ -18,6 +20,7 @@ export type DownloadElementAsPdfOptions = {
     /** Lay out/capture as if the window had this width (helps mobile portrait PDFs). */
     windowWidth?: number;
     windowHeight?: number;
+    onclone?: (document: Document, element: HTMLElement) => void;
   };
   /**
    * When false, onclone only strips author stylesheets — use when this element (and subtree)
@@ -27,6 +30,61 @@ export type DownloadElementAsPdfOptions = {
 };
 
 const DEFAULT_MARGIN_MM: [number, number, number, number] = [10, 10, 10, 10];
+
+function resolveMargins(
+  opts: Pick<DownloadElementAsPdfOptions, "margin">,
+  pdfUnit: "mm" | "in" | "pt"
+): number | [number, number, number, number] {
+  if (opts.margin !== undefined) return opts.margin;
+  return pdfUnit === "in" ? [0.3, 0.3, 0.3, 0.3] : DEFAULT_MARGIN_MM;
+}
+
+function expandMargins(
+  margin: number | [number, number, number, number]
+): [number, number, number, number] {
+  if (typeof margin === "number") return [margin, margin, margin, margin];
+  return margin;
+}
+
+/** Fit raster into printable rect; centers with preserved aspect ratio. */
+async function jpegCanvasToPdfFile(
+  canvas: HTMLCanvasElement,
+  filename: string,
+  options?: DownloadElementAsPdfOptions
+): Promise<void> {
+  const { jsPDF } = await import("jspdf");
+  const ctorOpts = {
+    orientation: "portrait" as const,
+    unit: "mm" as const,
+    format: "a4" as string | number[],
+    compress: true,
+    ...options?.jsPDF,
+  };
+  const doc = new jsPDF(ctorOpts);
+  const unit = ctorOpts.unit;
+  const marginSpec = resolveMargins(options ?? {}, unit);
+  const [mt, mr, mb, ml] = expandMargins(marginSpec);
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const maxW = pageW - ml - mr;
+  const maxH = pageH - mt - mb;
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const ratio = cw / ch;
+  let drawW = maxW;
+  let drawH = drawW / ratio;
+  if (drawH > maxH) {
+    drawH = maxH;
+    drawW = drawH * ratio;
+  }
+  const x = ml + (maxW - drawW) / 2;
+  const y = mt + (maxH - drawH) / 2;
+
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
+  doc.addImage(dataUrl, "JPEG", x, y, drawW, drawH);
+  doc.save(filename);
+}
 
 /** WebKit can still report `lab()` / `oklch()` in getComputedStyle; html2canvas cannot parse them. */
 const UNSUPPORTED_CANVAS_COLOR_FN = /\b(lab|oklch|lch)\s*\(/i;
@@ -285,14 +343,30 @@ export async function downloadCertificateA4PortraitPdf(
   }
 
   try {
-    await downloadElementAsPdf(wrapper, filename, {
-      ...options,
-      html2canvas: {
-        windowWidth: W,
-        windowHeight: Math.max(H, tuckY + H + 8),
-        scale: options?.html2canvas?.scale ?? 2,
+    const { default: html2canvas } = await import("html2canvas");
+    const { onclone: userOnClone, ...h2cOpts } = options?.html2canvas ?? {};
+    const mirror = options?.mirrorComputedStylesInClone !== false;
+
+    const canvas = await html2canvas(wrapper, {
+      useCORS: true,
+      logging: false,
+      foreignObjectRendering: false,
+      width: W,
+      height: H,
+      windowWidth: W,
+      windowHeight: Math.max(H, tuckY + H + 8),
+      ...h2cOpts,
+      scale: h2cOpts.scale ?? 2,
+      onclone: (clonedDoc, clonedEl) => {
+        stripAuthorStylesheetsFromClone(clonedDoc);
+        if (mirror && clonedEl instanceof HTMLElement) {
+          copyComputedStylesOntoClone(wrapper, clonedEl);
+        }
+        userOnClone?.(clonedDoc, clonedEl);
       },
     });
+
+    await jpegCanvasToPdfFile(canvas, filename, options);
   } finally {
     wrapper.remove();
   }
