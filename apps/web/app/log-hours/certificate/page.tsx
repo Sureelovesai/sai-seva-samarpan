@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CERTIFICATE_LETTER_PDF_OPTIONS, downloadElementAsPdf } from "@/lib/htmlToPdf";
+import {
+  CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE,
+  downloadElementAsPdf,
+} from "@/lib/htmlToPdf";
 
 /** Mobile / touch browsers often ignore or mishandle `window.print()`; client PDF works reliably. */
 function shouldSavePdfInsteadOfPrint(): boolean {
@@ -71,7 +74,7 @@ function CertificateContent() {
       setPdfBusy(true);
       try {
         const name = `${safeCertificateFilenameBase(data.volunteerName)}.pdf`;
-        await downloadElementAsPdf(el, name, CERTIFICATE_LETTER_PDF_OPTIONS);
+        await downloadElementAsPdf(el, name, CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Could not save PDF.";
         setPdfError(msg);
@@ -85,11 +88,11 @@ function CertificateContent() {
   }
 
   return (
-    <div className="certificate-page-root flex w-full flex-col items-stretch">
+    <div className="certificate-page-root flex min-h-[calc(100svh-4.5rem)] w-full flex-1 flex-col bg-[#f6eadc] print:min-h-0">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* US Letter (8.5×11) — the usual certificate size for US print/PDF; fits standard frames & printers. */
-          @page { size: letter; margin: 0.3in; }
+          /* A4 landscape — printable area ≈ 11.09×7.67 in after 0.3 in margins on 297×210 mm. */
+          @page { size: A4 landscape; margin: 0.3in; }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -97,21 +100,38 @@ function CertificateContent() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
+          .certificate-page-root {
+            min-height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
           .certificate-print-wrap {
+            flex: 1 1 auto !important;
             width: 100% !important;
-            max-width: 7.75in !important;
-            min-height: auto !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
             padding: 0 !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             background: #f6eadc !important;
-            display: block !important;
-            align-items: unset !important;
-            justify-content: unset !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
             box-sizing: border-box !important;
+          }
+          .certificate-letter-frame {
+            width: 100% !important;
+            max-width: 11.09in !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
           }
           .certificate-print-wrap .mx-auto {
             width: 100% !important;
-            max-width: 7.75in !important;
+            max-width: 11.09in !important;
             margin: 0 auto !important;
           }
           .certificate-sheet {
@@ -154,12 +174,16 @@ function CertificateContent() {
           .certificate-sheet .certificate-inner .max-w-3xl { max-width: 100% !important; }
         }
       `}} />
-    <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.75in]">
-        {/* Certificate sheet */}
-        <div
-          ref={sheetRef}
-          className="certificate-sheet relative overflow-hidden rounded-md bg-white shadow-2xl"
-        >
+      <div className="certificate-print-wrap flex w-full flex-1 flex-col items-center justify-center px-4 py-8 print:py-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[11.09in]">
+          {/*
+            A4 landscape printable area (297mm − 2×margin × 210mm − 2×margin @ 0.3in) — wide frame for PDF/html2canvas.
+          */}
+          <div
+            ref={sheetRef}
+            className="certificate-letter-frame flex w-full max-w-6xl flex-col items-center justify-center bg-[#f6eadc] md:mx-auto md:box-border md:min-h-[7.67in] md:w-[11.09in] md:max-w-[11.09in] md:px-[0.15in]"
+          >
+            <div className="certificate-sheet relative w-full max-w-full overflow-hidden rounded-md bg-white shadow-2xl">
           {/* Border layer - clearly visible gold frame (responsive: thinner on mobile to match proportions) */}
           <div className="pointer-events-none absolute inset-0 z-0">
             {/* Outer band: visible tan/gold */}
@@ -275,16 +299,19 @@ function CertificateContent() {
               {pdfError ? <p className="max-w-md text-center text-sm text-red-700">{pdfError}</p> : null}
             </div>
           </div>
-        </div>
+            </div>
+          </div>
 
-        <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
-          <p>
-            <strong>Print / Save as PDF:</strong> Output is sized for <strong>US Letter</strong> (8.5×11 in), the usual
-            certificate paper in the U.S. On a <strong>phone or tablet</strong>, the button saves a PDF file directly. On
-            a <strong>computer</strong>, it opens the print dialog — choose <strong>Save as PDF</strong> (or Microsoft
-            Print to PDF). Set <strong>Scale to 100%</strong> — if the preview looks tiny, turn off &quot;Fit to page&quot;
-            / &quot;Shrink oversized pages&quot; so the certificate fills the page.
-          </p>
+          <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
+            <p>
+              <strong>Print / Save as PDF:</strong> Output is <strong>A4 landscape</strong> (297×210 mm wide). The design is
+              centered on the page. On a{" "}
+              <strong>phone or tablet</strong>, the button saves a PDF file directly. On a <strong>computer</strong>, it opens
+              the print dialog — choose <strong>Save as PDF</strong> (or Microsoft Print to PDF). Use{" "}
+              <strong>Scale 100%</strong> and avoid &quot;Fit to page&quot; / &quot;Shrink oversized pages&quot; if the
+              preview looks wrong.
+            </p>
+          </div>
         </div>
       </div>
     </div>
