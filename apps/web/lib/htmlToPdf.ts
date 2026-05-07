@@ -335,11 +335,14 @@ export async function downloadCertificateA4PortraitPdf(
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
   const nw = clone.offsetWidth || W;
-  const nh = clone.offsetHeight || H;
-  const scale = Math.min(W / nw, H / nh, 1);
+  /**
+   * Keep width full-bleed for mobile portrait PDFs. Uniform height fit can shrink
+   * width into a narrow strip, which users reported in Chrome's PDF viewer.
+   */
+  const scale = Math.min(W / nw, 1);
   if (scale < 1) {
     clone.style.transform = `scale(${scale})`;
-    clone.style.transformOrigin = "center center";
+    clone.style.transformOrigin = "top center";
   }
 
   try {
