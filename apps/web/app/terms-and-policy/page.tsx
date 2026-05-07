@@ -13,11 +13,8 @@ export default function TermsAndPolicyPage() {
           {/* Header */}
           <header className="border-b border-slate-200/80 bg-gradient-to-br from-slate-50 to-white px-6 py-8 sm:px-10 sm:py-10">
             <h1 className="text-center text-2xl font-extrabold tracking-tight text-slate-800 sm:text-3xl">
-              Waiver of Liability & Consent Form
+              Acknowledgment, Release, and Media Consent
             </h1>
-            <p className="mt-3 text-center text-lg font-semibold text-indigo-700">
-              Service Activities
-            </p>
             <div className="mx-auto mt-4 h-px w-16 bg-indigo-300/80" />
           </header>
 
@@ -35,9 +32,9 @@ export default function TermsAndPolicyPage() {
                 Voluntary Participation
               </h2>
               <p className="mt-3 leading-relaxed text-slate-700">
-                I / We are voluntarily participating in the Service Activities organized by the Participating
+                I / We voluntarily choose to participate in the Service Activities organized by the Participating
                 Organizations (Sri Sathya Sai Centers/Groups and associated partners). Participation is entirely
-                voluntary and of my own free will.
+                voluntary and undertaken of my / our own free will.
               </p>
             </section>
 
@@ -50,10 +47,11 @@ export default function TermsAndPolicyPage() {
                 Release and Indemnification
               </h2>
               <p className="mt-3 leading-relaxed text-slate-700">
-                I / We agree to release, indemnify, and hold harmless the Participating Organizations, their
-                officers, volunteers, partners, and representatives from any and all claims, demands, liabilities,
-                losses, damages, or expenses (including attorneys&apos; fees and court costs) arising out of or related
-                to actions taken or not taken during or after these Service Activities.
+                I / We agree to release, indemnify, and hold harmless the Participating Organizations, including their
+                officers, volunteers, representatives, affiliates, and partners, from and against any and all claims,
+                demands, liabilities, losses, damages, injuries, costs, or expenses (including reasonable
+                attorneys&apos; fees and court costs) arising out of or related to participation in these Service
+                Activities, including any actions taken or omitted before, during, or after such activities.
               </p>
             </section>
 
@@ -66,10 +64,42 @@ export default function TermsAndPolicyPage() {
                 Media Release
               </h2>
               <p className="mt-3 leading-relaxed text-slate-700">
-                I / We understand that activities during these Service Activities may be photographed or recorded.
-                Such photographs or recordings may include my image or likeness. I / We grant permission for these
-                images or recordings to be used in publications, promotional materials, websites, social media, or
-                other media formats for non-commercial and/or commercial purposes, without compensation.
+                I / We understand that photographs, videos, or audio recordings may be taken during these Service
+                Activities and may include my / our image, voice, or likeness. I / We hereby grant permission to the
+                Participating Organizations to use such photographs or recordings in publications, newsletters,
+                promotional materials, websites, presentations, social media, or other organizational communications,
+                without compensation or further approval.
+              </p>
+            </section>
+
+            {/* Section 4 */}
+            <section className="mt-6 rounded-xl border border-slate-100 bg-slate-50/60 p-5 sm:p-6">
+              <h2 className="flex items-center gap-3 text-lg font-bold text-slate-800 sm:text-xl">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-extrabold text-indigo-700">
+                  4
+                </span>
+                Participation of Minors
+              </h2>
+              <p className="mt-3 leading-relaxed text-slate-700">
+                If any participant is under the age of 18 years, I / We confirm that participation is authorized by the
+                child&apos;s parent or legal guardian. The parent or legal guardian agrees to all terms stated herein on
+                behalf of the minor participant, including participation, release of liability, indemnification, and
+                media consent.
+              </p>
+            </section>
+
+            {/* Section 5 */}
+            <section className="mt-6 rounded-xl border border-slate-100 bg-slate-50/60 p-5 sm:p-6">
+              <h2 className="flex items-center gap-3 text-lg font-bold text-slate-800 sm:text-xl">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-extrabold text-indigo-700">
+                  5
+                </span>
+                Assumption of Risk
+              </h2>
+              <p className="mt-3 leading-relaxed text-slate-700">
+                I / We understand that participation in these Service Activities may involve certain inherent risks,
+                including but not limited to travel, outdoor activities, physical activities, and use of tools or
+                equipment. I / We voluntarily assume all such risks associated with participation.
               </p>
             </section>
           </div>

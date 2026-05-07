@@ -65,6 +65,34 @@ function portraitFormatTuple(
   return f;
 }
 
+/** Programmatic Blob download tends to behave more reliably on Android Chrome than `doc.save()`. */
+function downloadPdfBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener noreferrer";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  queueMicrotask(() => URL.revokeObjectURL(url));
+}
+
+async function waitForSubtreeImages(container: HTMLElement) {
+  const imgs = Array.from(container.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true });
+        img.addEventListener("error", () => resolve(), { once: true });
+      });
+    })
+  );
+  await Promise.all(imgs.map((img) => img.decode().catch(() => undefined)));
+}
+
 /** Fit raster into printable rect; centers with preserved aspect ratio. */
 async function jpegCanvasToPdfFile(
   canvas: HTMLCanvasElement,
@@ -135,7 +163,8 @@ async function jpegCanvasToPdfFile(
   } else {
     doc.addImage(dataUrl, "JPEG", x, y, drawW, drawH);
   }
-  doc.save(filename);
+  const blob = doc.output("blob");
+  downloadPdfBlob(blob, filename);
 }
 
 /** WebKit can still report `lab()` / `oklch()` in getComputedStyle; html2canvas cannot parse them. */
@@ -386,6 +415,9 @@ export async function downloadCertificateA4PortraitPdf(
 
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+  /** Next/Image placeholders and lazy images often capture as a narrow strip on mobile html2canvas. */
+  await waitForSubtreeImages(viewport);
 
   /** Avoid CSS `transform: scale` here — html2canvas/mobile WebKit often mis‑rasterizes it. */
 

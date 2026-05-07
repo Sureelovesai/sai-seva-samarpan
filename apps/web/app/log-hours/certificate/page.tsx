@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -73,7 +72,8 @@ function CertificateContent() {
       }
       setPdfBusy(true);
       try {
-        const name = `${safeCertificateFilenameBase(data.volunteerName)}.pdf`;
+        /** Distinct suffix so you can tell the new mobile export ran (and cache isn’t serving old JS). */
+        const name = `${safeCertificateFilenameBase(data.volunteerName)}-A4portrait.pdf`;
         await downloadCertificateA4PortraitPdf(el, name, CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Could not save PDF.";
@@ -201,21 +201,42 @@ function CertificateContent() {
             {/* Top row: left logo - center swami - right logo (same 3-col layout on all sizes) */}
             <div className="grid grid-cols-3 items-start gap-2 sm:gap-4 md:gap-6 print:gap-2">
               <div className="flex min-w-0 justify-start">
-                <div className="relative h-16 w-16 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                  <Image src="/logo-left.jpeg" alt="Left logo" fill className="object-contain" />
-                </div>
+                {/*
+                  Plain <img> — next/image + `fill` clones badly under html2canvas on some phones
+                  (narrow / empty raster). Public files in /public resolve as same-origin.
+                */}
+                <img
+                  src="/logo-left.jpeg"
+                  alt="Left logo"
+                  className="h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20 md:h-24 md:w-24"
+                  width={96}
+                  height={96}
+                  decoding="async"
+                />
               </div>
 
               <div className="flex min-w-0 justify-center">
-                <div className="certificate-center-image relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-[#c9a861]/60 sm:h-24 sm:w-24 md:h-28 md:w-28">
-                  <Image src="/swami-circle.jpeg" alt="Swami" fill className="object-cover" />
+                <div className="certificate-center-image h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-[#c9a861]/60 sm:h-24 sm:w-24 md:h-28 md:w-28">
+                  <img
+                    src="/swami-circle.jpeg"
+                    alt="Swami"
+                    className="h-full w-full object-cover"
+                    width={112}
+                    height={112}
+                    decoding="async"
+                  />
                 </div>
               </div>
 
               <div className="flex min-w-0 justify-end">
-                <div className="relative h-16 w-16 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                  <Image src="/logo-right.jpeg" alt="Right logo" fill className="object-contain" />
-                </div>
+                <img
+                  src="/logo-right.jpeg"
+                  alt="Right logo"
+                  className="h-16 w-16 shrink-0 object-contain sm:h-20 sm:w-20 md:h-24 md:w-24"
+                  width={96}
+                  height={96}
+                  decoding="async"
+                />
               </div>
             </div>
 
