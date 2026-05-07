@@ -5,7 +5,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE,
-  downloadElementAsPdf,
+  downloadCertificateLandscapePdf,
 } from "@/lib/htmlToPdf";
 
 /** Mobile / touch browsers often ignore or mishandle `window.print()`; client PDF works reliably. */
@@ -74,7 +74,7 @@ function CertificateContent() {
       setPdfBusy(true);
       try {
         const name = `${safeCertificateFilenameBase(data.volunteerName)}.pdf`;
-        await downloadElementAsPdf(el, name, CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE);
+        await downloadCertificateLandscapePdf(el, name, CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Could not save PDF.";
         setPdfError(msg);

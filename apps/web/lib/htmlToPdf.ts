@@ -15,7 +15,15 @@ export type DownloadElementAsPdfOptions = {
   };
   html2canvas?: {
     scale?: number;
+    /** Lay out/capture as if the window had this width (helps mobile portrait PDFs). */
+    windowWidth?: number;
+    windowHeight?: number;
   };
+  /**
+   * When false, onclone only strips author stylesheets — use when this element (and subtree)
+   * already has full inline styles (e.g. off-screen mirror). Default true.
+   */
+  mirrorComputedStylesInClone?: boolean;
 };
 
 const DEFAULT_MARGIN_MM: [number, number, number, number] = [10, 10, 10, 10];
@@ -137,8 +145,11 @@ export async function downloadElementAsPdf(
         logging: false,
         letterRendering: true,
         foreignObjectRendering: false,
+        ...options?.html2canvas,
         onclone: (clonedDocument: Document, clonedElement: HTMLElement) => {
-          copyComputedStylesOntoClone(element, clonedElement);
+          if (options?.mirrorComputedStylesInClone !== false) {
+            copyComputedStylesOntoClone(element, clonedElement);
+          }
           stripAuthorStylesheetsFromClone(clonedDocument);
         },
       },
@@ -147,6 +158,90 @@ export async function downloadElementAsPdf(
     })
     .from(element)
     .save();
+}
+
+/** ~96dpi px for full A4 landscape (297×210 mm) — one canvas page, no portrait slicing. */
+const A4_LANDSCAPE_CAPTURE_PX = {
+  w: Math.round((297 * 96) / 25.4),
+  h: Math.round((210 * 96) / 25.4),
+};
+
+/**
+ * Mobile portrait (and narrow viewports) lay out the certificate in a tall box; html2pdf then
+ * tiles that image across several landscape pages. This builds a fixed A4-landscape off-screen
+ * tree, mirrors computed styles, scales to fit one page, and rasterizes that single surface.
+ */
+export async function downloadCertificateLandscapePdf(
+  sourceElement: HTMLElement,
+  filename: string,
+  options?: DownloadElementAsPdfOptions
+): Promise<void> {
+  const W = A4_LANDSCAPE_CAPTURE_PX.w;
+  const H = A4_LANDSCAPE_CAPTURE_PX.h;
+
+  const wrapper = document.createElement("div");
+  wrapper.setAttribute("aria-hidden", "true");
+  wrapper.style.cssText = [
+    "position:fixed",
+    "left:-20000px",
+    "top:0",
+    `width:${W}px`,
+    `height:${H}px`,
+    "overflow:hidden",
+    "margin:0",
+    "padding:0",
+    "box-sizing:border-box",
+    "background:#f6eadc",
+  ].join(";");
+
+  const viewport = document.createElement("div");
+  viewport.style.cssText = [
+    `width:${W}px`,
+    `height:${H}px`,
+    "overflow:hidden",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "box-sizing:border-box",
+    "margin:0",
+    "padding:0",
+  ].join(";");
+
+  const clone = sourceElement.cloneNode(true) as HTMLElement;
+  viewport.appendChild(clone);
+  wrapper.appendChild(viewport);
+  document.body.appendChild(wrapper);
+
+  copyComputedStylesOntoClone(sourceElement, clone);
+  clone.style.boxSizing = "border-box";
+  clone.style.width = `${W}px`;
+  clone.style.maxWidth = `${W}px`;
+  clone.style.flexShrink = "0";
+
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+  const nw = clone.offsetWidth || W;
+  const nh = clone.offsetHeight || H;
+  const scale = Math.min(W / nw, H / nh, 1);
+  if (scale < 1) {
+    clone.style.transform = `scale(${scale})`;
+    clone.style.transformOrigin = "center center";
+  }
+
+  try {
+    await downloadElementAsPdf(wrapper, filename, {
+      ...options,
+      mirrorComputedStylesInClone: false,
+      html2canvas: {
+        windowWidth: W,
+        windowHeight: H,
+        scale: options?.html2canvas?.scale ?? 2,
+      },
+    });
+  } finally {
+    wrapper.remove();
+  }
 }
 
 /** US Letter — matches volunteer certificate print CSS (`@page { size: letter }`). */
