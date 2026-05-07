@@ -14,6 +14,7 @@ export type DownloadElementAsPdfOptions = {
     unit?: "mm" | "in" | "pt";
     format?: string | [number, number];
     orientation?: "portrait" | "landscape";
+    compress?: boolean;
   };
   html2canvas?: {
     scale?: number;
@@ -27,6 +28,12 @@ export type DownloadElementAsPdfOptions = {
    * already has full inline styles (e.g. off-screen mirror). Default true.
    */
   mirrorComputedStylesInClone?: boolean;
+  /**
+   * When drawing a raster with `addImage`, `fillPrintableWidth` keeps the image as wide as the
+   * printable area and clips excess height (avoids side gutters if the bitmap is correct).
+   * Default `contain` letterboxes to fit the full image.
+   */
+  rasterPdfFit?: "contain" | "fillPrintableWidth";
 };
 
 const DEFAULT_MARGIN_MM: [number, number, number, number] = [10, 10, 10, 10];
@@ -46,6 +53,18 @@ function expandMargins(
   return margin;
 }
 
+/** Explicit [w,h] in `unit` so jsPDF/mobile viewers don’t infer the wrong orientation. */
+function portraitFormatTuple(
+  unit: "mm" | "in" | "pt",
+  format: string | [number, number] | undefined
+): string | [number, number] {
+  const f = format ?? "a4";
+  if (typeof f !== "string") return f;
+  if (unit === "mm" && f === "a4") return [210, 297];
+  if (unit === "in" && f === "letter") return [8.5, 11];
+  return f;
+}
+
 /** Fit raster into printable rect; centers with preserved aspect ratio. */
 async function jpegCanvasToPdfFile(
   canvas: HTMLCanvasElement,
@@ -53,15 +72,20 @@ async function jpegCanvasToPdfFile(
   options?: DownloadElementAsPdfOptions
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
-  const ctorOpts = {
-    orientation: "portrait" as const,
-    unit: "mm" as const,
-    format: "a4" as string | number[],
-    compress: true,
-    ...options?.jsPDF,
-  };
-  const doc = new jsPDF(ctorOpts);
-  const unit = ctorOpts.unit;
+
+  const userPdf = options?.jsPDF ?? {};
+  const unit = userPdf.unit ?? "mm";
+  const formatExplicit = portraitFormatTuple(unit, userPdf.format ?? "a4");
+
+  /** Force portrait; explicit dimensions avoid landscape pages on some mobile PDF stacks. */
+  const doc = new jsPDF({
+    ...userPdf,
+    orientation: "portrait",
+    unit,
+    format: formatExplicit,
+    compress: userPdf.compress !== false,
+  });
+
   const marginSpec = resolveMargins(options ?? {}, unit);
   const [mt, mr, mb, ml] = expandMargins(marginSpec);
 
@@ -72,17 +96,45 @@ async function jpegCanvasToPdfFile(
   const cw = canvas.width;
   const ch = canvas.height;
   const ratio = cw / ch;
-  let drawW = maxW;
-  let drawH = drawW / ratio;
-  if (drawH > maxH) {
-    drawH = maxH;
-    drawW = drawH * ratio;
+
+  let drawW: number;
+  let drawH: number;
+  let x: number;
+  let y: number;
+
+  const fitMode = options?.rasterPdfFit ?? "contain";
+
+  if (fitMode === "fillPrintableWidth") {
+    drawW = maxW;
+    drawH = drawW / ratio;
+    x = ml;
+    if (drawH <= maxH) {
+      y = mt + (maxH - drawH) / 2;
+    } else {
+      /** Full width can exceed page height — clip vertically so viewers don’t show a gutter. */
+      y = mt;
+    }
+  } else {
+    drawW = maxW;
+    drawH = drawW / ratio;
+    if (drawH > maxH) {
+      drawH = maxH;
+      drawW = drawH * ratio;
+    }
+    x = ml + (maxW - drawW) / 2;
+    y = mt + (maxH - drawH) / 2;
   }
-  const x = ml + (maxW - drawW) / 2;
-  const y = mt + (maxH - drawH) / 2;
 
   const dataUrl = canvas.toDataURL("image/jpeg", 0.93);
-  doc.addImage(dataUrl, "JPEG", x, y, drawW, drawH);
+  if (fitMode === "fillPrintableWidth" && drawH > maxH) {
+    doc.saveGraphicsState();
+    doc.rect(ml, mt, maxW, maxH);
+    doc.clip();
+    doc.addImage(dataUrl, "JPEG", x, y, drawW, drawH);
+    doc.restoreGraphicsState();
+  } else {
+    doc.addImage(dataUrl, "JPEG", x, y, drawW, drawH);
+  }
   doc.save(filename);
 }
 
@@ -317,6 +369,7 @@ export async function downloadCertificateA4PortraitPdf(
     "box-sizing:border-box",
     "margin:0",
     "padding:0",
+    "background:#f6eadc",
   ].join(";");
 
   const clone = sourceElement.cloneNode(true) as HTMLElement;
@@ -334,26 +387,19 @@ export async function downloadCertificateA4PortraitPdf(
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
-  const nw = clone.offsetWidth || W;
-  /**
-   * Keep width full-bleed for mobile portrait PDFs. Uniform height fit can shrink
-   * width into a narrow strip, which users reported in Chrome's PDF viewer.
-   */
-  const scale = Math.min(W / nw, 1);
-  if (scale < 1) {
-    clone.style.transform = `scale(${scale})`;
-    clone.style.transformOrigin = "top center";
-  }
+  /** Avoid CSS `transform: scale` here — html2canvas/mobile WebKit often mis‑rasterizes it. */
 
   try {
     const { default: html2canvas } = await import("html2canvas");
     const { onclone: userOnClone, ...h2cOpts } = options?.html2canvas ?? {};
-    const mirror = options?.mirrorComputedStylesInClone !== false;
 
-    const canvas = await html2canvas(wrapper, {
+    const canvas = await html2canvas(viewport, {
       useCORS: true,
       logging: false,
       foreignObjectRendering: false,
+      backgroundColor: "#f6eadc",
+      scrollX: 0,
+      scrollY: 0,
       width: W,
       height: H,
       windowWidth: W,
@@ -362,9 +408,6 @@ export async function downloadCertificateA4PortraitPdf(
       scale: h2cOpts.scale ?? 2,
       onclone: (clonedDoc, clonedEl) => {
         stripAuthorStylesheetsFromClone(clonedDoc);
-        if (mirror && clonedEl instanceof HTMLElement) {
-          copyComputedStylesOntoClone(wrapper, clonedEl);
-        }
         userOnClone?.(clonedDoc, clonedEl);
       },
     });
@@ -409,4 +452,5 @@ export const CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdf
   margin: 0,
   jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
   html2canvas: { scale: 2 },
+  rasterPdfFit: "fillPrintableWidth",
 };
