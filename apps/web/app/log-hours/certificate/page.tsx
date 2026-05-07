@@ -4,8 +4,8 @@ import Image from "next/image";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE,
-  downloadCertificateLandscapePdf,
+  CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE,
+  downloadCertificateA4PortraitPdf,
 } from "@/lib/htmlToPdf";
 
 /** Mobile / touch browsers often ignore or mishandle `window.print()`; client PDF works reliably. */
@@ -74,7 +74,7 @@ function CertificateContent() {
       setPdfBusy(true);
       try {
         const name = `${safeCertificateFilenameBase(data.volunteerName)}.pdf`;
-        await downloadCertificateLandscapePdf(el, name, CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE);
+        await downloadCertificateA4PortraitPdf(el, name, CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Could not save PDF.";
         setPdfError(msg);
@@ -91,8 +91,8 @@ function CertificateContent() {
     <div className="certificate-page-root flex min-h-[calc(100svh-4.5rem)] w-full flex-1 flex-col bg-[#f6eadc] print:min-h-0">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* A4 landscape — printable area ≈ 11.09×7.67 in after 0.3 in margins on 297×210 mm. */
-          @page { size: A4 landscape; margin: 0.3in; }
+          /* A4 portrait — printable area ≈ 7.67×11.09 in after 0.3 in margins on 210×297 mm (matches PDF save). */
+          @page { size: A4 portrait; margin: 0.3in; }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -121,7 +121,7 @@ function CertificateContent() {
           }
           .certificate-letter-frame {
             width: 100% !important;
-            max-width: 11.09in !important;
+            max-width: 7.67in !important;
             min-height: 0 !important;
             margin: 0 auto !important;
             display: flex !important;
@@ -131,7 +131,7 @@ function CertificateContent() {
           }
           .certificate-print-wrap .mx-auto {
             width: 100% !important;
-            max-width: 11.09in !important;
+            max-width: 7.67in !important;
             margin: 0 auto !important;
           }
           .certificate-sheet {
@@ -175,13 +175,13 @@ function CertificateContent() {
         }
       `}} />
       <div className="certificate-print-wrap flex w-full flex-1 flex-col items-center justify-center px-4 py-8 print:py-4">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[11.09in]">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.67in]">
           {/*
-            A4 landscape printable area (297mm − 2×margin × 210mm − 2×margin @ 0.3in) — wide frame for PDF/html2canvas.
+            A4 portrait printable (~7.67×11.09 in @ 0.3in margin) — matches Save-as-PDF raster on phones.
           */}
           <div
             ref={sheetRef}
-            className="certificate-letter-frame flex w-full max-w-6xl flex-col items-center justify-center bg-[#f6eadc] md:mx-auto md:box-border md:min-h-[7.67in] md:w-[11.09in] md:max-w-[11.09in] md:px-[0.15in]"
+            className="certificate-letter-frame flex w-full max-w-6xl flex-col items-center justify-center bg-[#f6eadc] md:mx-auto md:box-border md:w-[7.67in] md:max-w-[7.67in] md:min-h-[11.09in] md:px-[0.15in]"
           >
             <div className="certificate-sheet relative w-full max-w-full overflow-hidden rounded-md bg-white shadow-2xl">
           {/* Border layer - clearly visible gold frame (responsive: thinner on mobile to match proportions) */}
@@ -304,7 +304,7 @@ function CertificateContent() {
 
           <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
             <p>
-              <strong>Print / Save as PDF:</strong> Output is <strong>A4 landscape</strong> (297×210 mm wide). The design is
+              <strong>Print / Save as PDF:</strong> Output is <strong>A4 portrait</strong> (210×297 mm). The design is
               centered on the page. On a{" "}
               <strong>phone or tablet</strong>, the button saves a PDF file directly. On a <strong>computer</strong>, it opens
               the print dialog — choose <strong>Save as PDF</strong> (or Microsoft Print to PDF). Use{" "}

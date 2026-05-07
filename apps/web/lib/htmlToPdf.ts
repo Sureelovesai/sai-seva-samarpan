@@ -160,24 +160,73 @@ export async function downloadElementAsPdf(
     .save();
 }
 
-/** ~96dpi px for full A4 landscape (297×210 mm) — one canvas page, no portrait slicing. */
+/** ~96dpi px for full A4 landscape (297×210 mm). */
 const A4_LANDSCAPE_CAPTURE_PX = {
   w: Math.round((297 * 96) / 25.4),
   h: Math.round((210 * 96) / 25.4),
 };
 
+/** ~96dpi px for full A4 portrait (210×297 mm) — matches tall certificate artwork; avoids “narrow column”. */
+const A4_PORTRAIT_CAPTURE_PX = {
+  w: Math.round((210 * 96) / 25.4),
+  h: Math.round((297 * 96) / 25.4),
+};
+
 /**
- * Mobile portrait (and narrow viewports) lay out the certificate in a tall box; html2pdf then
- * tiles that image across several landscape pages. This builds a fixed A4-landscape off-screen
- * tree, mirrors computed styles, scales to fit one page, and rasterizes that single surface.
+ * Applied after mirroring computed styles (which set inline values) so the certificate
+ * stays shorter — uniform scale then uses full A4 portrait width instead of a skinny column.
  */
-export async function downloadCertificateLandscapePdf(
+function applyCertificatePdfCompactionInline(clone: HTMLElement) {
+  const sheet = clone.querySelector(".certificate-sheet");
+  if (sheet instanceof HTMLElement) {
+    sheet.style.setProperty("width", "100%", "important");
+    sheet.style.setProperty("max-width", "100%", "important");
+  }
+  const inner = clone.querySelector(".certificate-inner");
+  if (inner instanceof HTMLElement) {
+    inner.style.setProperty("padding", "12px 14px", "important");
+    inner.style.setProperty("padding-top", "18px", "important");
+    inner.style.setProperty("padding-bottom", "14px", "important");
+  }
+  clone.querySelectorAll(".certificate-heading-block .text-5xl").forEach((el) => {
+    if (el instanceof HTMLElement) {
+      el.style.setProperty("font-size", "1.75rem", "important");
+      el.style.setProperty("line-height", "1.1", "important");
+    }
+  });
+  clone.querySelectorAll(".certificate-heading-block .text-xl").forEach((el) => {
+    if (el instanceof HTMLElement) {
+      el.style.setProperty("font-size", "0.95rem", "important");
+    }
+  });
+  clone.querySelectorAll(".certificate-heading-block [class*='text-7xl']").forEach((el) => {
+    if (el instanceof HTMLElement) {
+      el.style.setProperty("font-size", "2rem", "important");
+      el.style.setProperty("line-height", "1.08", "important");
+    }
+  });
+  clone.querySelectorAll(".certificate-heading-block [class*='text-3xl']").forEach((el) => {
+    if (el instanceof HTMLElement) el.style.setProperty("font-size", "1.05rem", "important");
+  });
+  clone.querySelectorAll(".certificate-org-block .text-sm").forEach((el) => {
+    if (el instanceof HTMLElement) {
+      el.style.setProperty("font-size", "0.65rem", "important");
+      el.style.setProperty("line-height", "1.38", "important");
+    }
+  });
+}
+
+/**
+ * Mobile / touch: lays out certificate at A4 portrait width, mirrors styles, optionally compacts
+ * content height, scales once to fit a single raster page — standard certificate proportions.
+ */
+export async function downloadCertificateA4PortraitPdf(
   sourceElement: HTMLElement,
   filename: string,
   options?: DownloadElementAsPdfOptions
 ): Promise<void> {
-  const W = A4_LANDSCAPE_CAPTURE_PX.w;
-  const H = A4_LANDSCAPE_CAPTURE_PX.h;
+  const W = A4_PORTRAIT_CAPTURE_PX.w;
+  const H = A4_PORTRAIT_CAPTURE_PX.h;
 
   const wrapper = document.createElement("div");
   wrapper.setAttribute("aria-hidden", "true");
@@ -218,6 +267,7 @@ export async function downloadCertificateLandscapePdf(
   document.body.appendChild(wrapper);
 
   copyComputedStylesOntoClone(sourceElement, clone);
+  applyCertificatePdfCompactionInline(clone);
   clone.style.boxSizing = "border-box";
   clone.style.width = `${W}px`;
   clone.style.maxWidth = `${W}px`;
@@ -248,6 +298,9 @@ export async function downloadCertificateLandscapePdf(
   }
 }
 
+/** @deprecated Use downloadCertificateA4PortraitPdf — landscape capture left a narrow strip on phones. */
+export const downloadCertificateLandscapePdf = downloadCertificateA4PortraitPdf;
+
 /** US Letter — matches volunteer certificate print CSS (`@page { size: letter }`). */
 export const CERTIFICATE_LETTER_PDF_OPTIONS: DownloadElementAsPdfOptions = {
   margin: [0.3, 0.3, 0.3, 0.3],
@@ -266,11 +319,17 @@ export const CERTIFICATE_LETTER_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptio
 };
 
 /**
- * A4 landscape — matches volunteer certificate print CSS (`@page { size: A4 landscape }`).
- * No jsPDF margin: capture root is already ~11.09×7.67 in (A4 landscape minus 0.3 in margins).
+ * A4 landscape — rarely needed for certificates; prefer {@link CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE}.
  */
 export const CERTIFICATE_A4_LANDSCAPE_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptions = {
   margin: 0,
   jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+  html2canvas: { scale: 2 },
+};
+
+/** A4 portrait — matches certificate layout; Save-as-PDF on mobile uses {@link downloadCertificateA4PortraitPdf}. */
+export const CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptions = {
+  margin: 0,
+  jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
   html2canvas: { scale: 2 },
 };
