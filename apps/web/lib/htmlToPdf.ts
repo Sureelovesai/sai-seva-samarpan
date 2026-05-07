@@ -181,10 +181,13 @@ export async function downloadCertificateLandscapePdf(
 
   const wrapper = document.createElement("div");
   wrapper.setAttribute("aria-hidden", "true");
+  /** Below the fold but still painted — extreme negative coords often yield blank rasters on iOS/WebKit. */
+  const tuckY =
+    typeof window !== "undefined" ? Math.ceil(window.innerHeight + 120) : 120;
   wrapper.style.cssText = [
     "position:fixed",
-    "left:-20000px",
-    "top:0",
+    "left:0",
+    `top:${tuckY}px`,
     `width:${W}px`,
     `height:${H}px`,
     "overflow:hidden",
@@ -192,6 +195,8 @@ export async function downloadCertificateLandscapePdf(
     "padding:0",
     "box-sizing:border-box",
     "background:#f6eadc",
+    "z-index:2147483645",
+    "pointer-events:none",
   ].join(";");
 
   const viewport = document.createElement("div");
@@ -232,10 +237,9 @@ export async function downloadCertificateLandscapePdf(
   try {
     await downloadElementAsPdf(wrapper, filename, {
       ...options,
-      mirrorComputedStylesInClone: false,
       html2canvas: {
         windowWidth: W,
-        windowHeight: H,
+        windowHeight: Math.max(H, tuckY + H + 8),
         scale: options?.html2canvas?.scale ?? 2,
       },
     });
