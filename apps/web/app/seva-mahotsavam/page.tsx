@@ -72,6 +72,44 @@ function MahotsavamContent() {
     };
   }, []);
 
+  /**
+   * When this page is embedded in an iframe, notify the parent page about content height
+   * so the parent can resize the iframe and avoid a second inner scrollbar.
+   */
+  useEffect(() => {
+    const sendEmbeddedHeight = () => {
+      const h = Math.max(
+        document.documentElement.scrollHeight || 0,
+        document.body?.scrollHeight || 0
+      );
+      window.parent?.postMessage(
+        { type: "sevaMahotsavamHeight", height: h },
+        "*"
+      );
+    };
+
+    // Initial + async content/layout updates.
+    sendEmbeddedHeight();
+    const rafId = window.requestAnimationFrame(sendEmbeddedHeight);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => sendEmbeddedHeight());
+      if (document.body) ro.observe(document.body);
+      ro.observe(document.documentElement);
+    }
+
+    window.addEventListener("load", sendEmbeddedHeight);
+    window.addEventListener("resize", sendEmbeddedHeight);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("load", sendEmbeddedHeight);
+      window.removeEventListener("resize", sendEmbeddedHeight);
+      ro?.disconnect();
+    };
+  }, []);
+
   /** List is pre-filtered by `sevaProgram=regional-mahotsavam` on the API; apply same sort as Find Seva. */
   const sortedItems = useMemo(
     () => items.slice().sort(compareFindSevaActivities),
