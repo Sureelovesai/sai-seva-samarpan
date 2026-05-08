@@ -145,85 +145,113 @@ export function SiteHeader() {
 
           <div className="min-w-0 flex-1 pl-[15px] hidden md:block landscape-desktop:block">
             {/* Same pl-[15px] on this column aligns row 1 (main nav), row 2 (admin), row 3 (login). */}
-            <nav className="flex flex-nowrap items-center gap-x-4 overflow-visible pb-0.5 text-sm sm:gap-x-5 sm:text-base">
-              <div className="flex min-w-0 flex-nowrap items-center gap-x-4 overflow-x-auto sm:gap-x-5 [scrollbar-width:thin]">
-                {topLinks.map((l) => (
-                  <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
-                    {l.label}
-                  </Link>
-                ))}
-              </div>
-              <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    setAboutOpen(false);
-                    setResourcesOpen(false);
-                    setCommunityOpen((o) => !o);
-                  }}
-                  className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${communityOpen || communitySectionActive ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
-                >
-                  Community Network
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                </button>
-                {communityOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
-                    {COMMUNITY_OUTREACH_LINKS.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setCommunityOpen(false)}
-                        className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    setResourcesOpen(false);
-                    setCommunityOpen(false);
-                    setAboutOpen((o) => !o);
-                  }}
-                  className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
-                >
-                  About Us
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
-                </button>
-                {aboutOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
-                    {ABOUT_LINKS.map((item) =>
-                      item.openInNewTab ? (
-                        <a
-                          key={item.href}
-                          href={item.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setAboutOpen(false)}
-                          className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
+            <div className="flex items-start justify-between gap-6">
+              <nav className="min-w-0 flex flex-nowrap items-center gap-x-3 overflow-visible pb-0 text-sm sm:gap-x-4 sm:text-base">
+                <div className="flex min-w-0 flex-nowrap items-center gap-x-3 sm:gap-x-4">
+                  {topLinks.map((l) => (
+                    <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
+                      {l.label}
+                    </Link>
+                  ))}
+                </div>
+                <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setAboutOpen(false);
+                      setResourcesOpen(false);
+                      setCommunityOpen((o) => !o);
+                    }}
+                    className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${communityOpen || communitySectionActive ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
+                  >
+                    Community Network
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                  </button>
+                  {communityOpen && (
+                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
+                      {COMMUNITY_OUTREACH_LINKS.map((item) => (
                         <Link
                           key={item.href}
-                          href={externalViewHref(item.href)}
-                          onClick={() => setAboutOpen(false)}
+                          href={item.href}
+                          onClick={() => setCommunityOpen(false)}
                           className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
                         >
                           {item.label}
                         </Link>
-                      )
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setResourcesOpen(false);
+                      setCommunityOpen(false);
+                      setAboutOpen((o) => !o);
+                    }}
+                    className={`inline-flex items-center gap-0.5 whitespace-nowrap transition-colors ${aboutOpen ? "text-blue-700 font-semibold" : "text-zinc-800 hover:text-blue-700"}`}
+                  >
+                    About Us
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+                  </button>
+                  {aboutOpen && (
+                    <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
+                      {ABOUT_LINKS.map((item) =>
+                        item.openInNewTab ? (
+                          <a
+                            key={item.href}
+                            href={item.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setAboutOpen(false)}
+                            className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
+                          >
+                            {item.label}
+                          </a>
+                        ) : (
+                          <Link
+                            key={item.href}
+                            href={externalViewHref(item.href)}
+                            onClick={() => setAboutOpen(false)}
+                            className="block px-4 py-2 text-sm text-zinc-800 hover:bg-slate-100 hover:text-blue-700"
+                          >
+                            {item.label}
+                          </Link>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              </nav>
+
+              {/* Desktop-only auth block: positioned to the right of Resources */}
+              <div className="shrink-0 pt-0 flex flex-col items-end gap-0">
+                {authChecked && (
+                  user ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2"
+                      >
+                        Logout
+                      </button>
+                      <span className="text-xs text-zinc-600 sm:text-sm text-right">
+                        Hi, {user.firstName || user.name || user.email}
+                      </span>
+                    </>
+                  ) : (
+                    <Link href="/login" className={linkClass("/login")}>
+                      Login
+                    </Link>
+                  )
                 )}
               </div>
+            </div>
+            <nav className="-mt-0.5 flex flex-wrap items-center gap-x-8 gap-y-0.5 text-sm sm:text-base">
               <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   type="button"
@@ -239,7 +267,7 @@ export function SiteHeader() {
                   <svg className="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
                 </button>
                 {resourcesOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1 min-w-[240px] rounded-md border border-slate-200 bg-white py-1 shadow-lg md:left-0 md:right-auto">
+                  <div className="absolute left-0 top-full z-50 mt-1 min-w-[240px] rounded-md border border-slate-200 bg-white py-1 shadow-lg">
                     {RESOURCES_LINKS.map((item) =>
                       item.openInNewTab ? (
                         <a
@@ -266,9 +294,6 @@ export function SiteHeader() {
                   </div>
                 )}
               </div>
-            </nav>
-            {secondRow.length > 0 && (
-            <nav className="mt-0.5 flex flex-wrap items-center gap-x-8 gap-y-1 text-sm sm:text-base">
               {secondRow.map((l) => (
                 <Link
                   key={l.href}
@@ -284,23 +309,6 @@ export function SiteHeader() {
                 </Link>
               ))}
             </nav>
-            )}
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-6 gap-y-1">
-              {authChecked && (
-                user ? (
-                  <>
-                    <span className="text-xs text-zinc-600 sm:text-sm">Hi, {user.firstName || user.name || user.email}</span>
-                    <button type="button" onClick={handleLogout} className="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2">
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <Link href="/login" className={linkClass("/login")}>
-                    Login
-                  </Link>
-                )
-              )}
-            </div>
           </div>
 
           <button

@@ -195,10 +195,8 @@ export function FindSevaActivityRow({
               )}
 
               <div className="mt-6 md:mt-8">
-                {/* target="_top" breaks out when this page is embedded in an iframe (e.g. parent site embeds /seva-mahotsavam). */}
                 <a
                   href={viewDetailsHref}
-                  target="_top"
                   className="block w-full bg-white px-6 py-3 text-center text-base font-medium text-zinc-800 shadow hover:bg-zinc-50 md:inline-block md:w-auto md:px-10 md:text-left"
                 >
                   View Details
