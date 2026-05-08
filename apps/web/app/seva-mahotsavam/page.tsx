@@ -30,13 +30,18 @@ function SevaMahotsavamBanner() {
     return null;
   }
 
+  /**
+   * Mobile portrait: match at least the activity-card image stack in FindSevaActivityRow
+   * (~280px max width × 8/9 aspect ≈ 249px). Slightly rounded up for breathing room.
+   * Desktop / landscape: no forced min-height (banner scales naturally).
+   */
   return (
-    <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3">
+    <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3 [@media(max-width:767px)_and_(orientation:portrait)]:flex [@media(max-width:767px)_and_(orientation:portrait)]:min-h-[252px] [@media(max-width:767px)_and_(orientation:portrait)]:items-center [@media(max-width:767px)_and_(orientation:portrait)]:justify-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={MAHOTSAVAM_BANNER_URLS[srcIndex]}
         alt="Sri Sathya Sai Seva Mahotsavam"
-        className="block h-auto w-full max-h-[min(420px,45svh)] rounded-lg object-contain object-center md:max-h-none"
+        className="block h-auto w-full rounded-lg object-contain object-center [@media(max-width:767px)_and_(orientation:portrait)]:min-h-[252px]"
         loading="eager"
         decoding="async"
         fetchPriority="high"
@@ -67,7 +72,7 @@ type SevaActivity = {
 
 /**
  * Standalone URL for the Sri Sathya Sai Seva Mahotsavam regional program: no main site header/footer,
- * no level tabs or filters. Same `View Details` / Seva Details join flow as Find Seva.
+ * no level tabs or filters. Same Seva Details join flow as Find Seva.
  * @see /find-seva (unchanged full browser)
  */
 function MahotsavamContent() {
@@ -114,10 +119,12 @@ function MahotsavamContent() {
    */
   useEffect(() => {
     const sendEmbeddedHeight = () => {
-      const h = Math.max(
+      const raw = Math.max(
         document.documentElement.scrollHeight || 0,
         document.body?.scrollHeight || 0
       );
+      /** +2px avoids sub-pixel rounding leaving a thin inner iframe scrollbar. */
+      const h = raw + 2;
       window.parent?.postMessage(
         { type: "sevaMahotsavamHeight", height: h },
         "*"
@@ -170,15 +177,9 @@ function MahotsavamContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
+    <div className="w-full bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
       <div className="mx-auto max-w-3xl px-4 pb-10 pt-5 sm:max-w-4xl sm:px-6 md:max-w-6xl">
         <SevaMahotsavamBanner />
-
-        <header className="mb-8 text-center">
-          <p className="mx-auto max-w-2xl text-xs leading-relaxed text-zinc-700 sm:text-base">
-            Use <strong>View Details</strong> for Seva Details and sign up.
-          </p>
-        </header>
 
         {loading && <p className="text-center text-zinc-600">Loading activities…</p>}
         {error && !loading && <p className="text-center text-red-700">{error}</p>}

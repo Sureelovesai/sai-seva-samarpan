@@ -637,9 +637,9 @@ function FindSevaContent() {
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-700">
                   {ge.items.length === 1
-                    ? "One seva activity in this program (details and sign-up are on the card below)."
+                    ? "One seva activity in this program."
                     : levelTab === "regional" || levelTab === "national"
-                      ? `${ge.items.length} seva activities in this program. Use View Details on each card; you can open several in tabs and choose which to join on the Seva Details page.`
+                      ? `${ge.items.length} seva activities in this program.`
                       : `${ge.items.length} seva activities in this program — each card is its own activity with its own details.`}
                 </p>
               </header>
