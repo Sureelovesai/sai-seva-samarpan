@@ -31,17 +31,16 @@ function SevaMahotsavamBanner() {
   }
 
   /**
-   * Mobile portrait: match at least the activity-card image stack in FindSevaActivityRow
-   * (~280px max width × 8/9 aspect ≈ 249px). Slightly rounded up for breathing room.
-   * Desktop / landscape: no forced min-height (banner scales naturally).
+   * Mobile portrait: increase visual banner height without adding empty padding around it.
+   * Use a fixed banner frame and `object-cover` so the image fills the frame (no blank space).
    */
   return (
-    <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3 [@media(max-width:767px)_and_(orientation:portrait)]:flex [@media(max-width:767px)_and_(orientation:portrait)]:min-h-[252px] [@media(max-width:767px)_and_(orientation:portrait)]:items-center [@media(max-width:767px)_and_(orientation:portrait)]:justify-center">
+    <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={MAHOTSAVAM_BANNER_URLS[srcIndex]}
         alt="Sri Sathya Sai Seva Mahotsavam"
-        className="block h-auto w-full rounded-lg object-contain object-center [@media(max-width:767px)_and_(orientation:portrait)]:min-h-[252px]"
+        className="block h-auto w-full rounded-lg object-contain object-center [@media(max-width:767px)_and_(orientation:portrait)]:h-[252px] [@media(max-width:767px)_and_(orientation:portrait)]:w-full [@media(max-width:767px)_and_(orientation:portrait)]:object-cover"
         loading="eager"
         decoding="async"
         fetchPriority="high"
