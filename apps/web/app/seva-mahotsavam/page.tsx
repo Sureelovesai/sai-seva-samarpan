@@ -10,6 +10,42 @@ import {
 import { compareFindSevaActivities } from "@/lib/findSevaListSort";
 import { MAHOTSAVAM_REGIONAL_PROGRAM_DISPLAY_TITLE } from "@/lib/mahotsavamRegionalLanding";
 
+/**
+ * Tried in order. Production (Linux) is case-sensitive on the extension — `banner.png` ≠ `banner.PNG`.
+ * Put the file in `apps/web/public/` as `seva_mahotsavam_banner.png` or `seva_mahotsavam_banner.PNG` and deploy.
+ * Last item is a committed SVG fallback so the hero never 404s if the PNG is missing from deploy.
+ */
+const MAHOTSAVAM_BANNER_URLS = [
+  "/seva_mahotsavam_banner.png",
+  "/seva_mahotsavam_banner.PNG",
+  "/seva-mahotsavam-banner.png",
+  "/seva-mahotsavam-banner.PNG",
+  "/seva_mahotsavam_banner.svg",
+] as const;
+
+function SevaMahotsavamBanner() {
+  const [srcIndex, setSrcIndex] = useState(0);
+
+  if (srcIndex >= MAHOTSAVAM_BANNER_URLS.length) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={MAHOTSAVAM_BANNER_URLS[srcIndex]}
+        alt="Sri Sathya Sai Seva Mahotsavam"
+        className="block h-auto w-full max-h-[min(420px,45svh)] rounded-lg object-contain object-center md:max-h-none"
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+        onError={() => setSrcIndex((i) => i + 1)}
+      />
+    </div>
+  );
+}
+
 /** Public API list row — only fields the card needs, plus `group` for the Mahotsavam filter. */
 type SevaActivity = {
   id: string;
@@ -136,16 +172,7 @@ function MahotsavamContent() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
       <div className="mx-auto max-w-3xl px-4 pb-10 pt-5 sm:max-w-4xl sm:px-6 md:max-w-6xl">
-        <div className="mb-4 overflow-hidden rounded-xl bg-white/60 p-2 shadow-sm sm:mb-6 sm:p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/seva_mahotsavam_banner.PNG"
-            alt="Sri Sathya Sai Seva Mahotsavam"
-            className="block w-full h-auto rounded-lg object-contain"
-            loading="eager"
-            decoding="async"
-          />
-        </div>
+        <SevaMahotsavamBanner />
 
         <header className="mb-8 text-center">
           <p className="mx-auto max-w-2xl text-xs leading-relaxed text-zinc-700 sm:text-base">

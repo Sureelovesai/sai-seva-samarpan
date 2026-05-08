@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" width="1200" height="280" role="img" aria-label="Sri Sathya Sai Seva Mahotsavam">
+  <defs>
+    <linearGradient id="mahotsavamBannerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd" />
+      <stop offset="50%" stop-color="#ddd6fe" />
+      <stop offset="100%" stop-color="#fed7aa" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="280" rx="16" fill="url(#mahotsavamBannerGrad)" />
+  <text
+    x="600"
+    y="150"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="40"
+    fill="#1e293b"
+    letter-spacing="0.02em"
+  >
+    Sri Sathya Sai Seva Mahotsavam
+  </text>
+</svg>
