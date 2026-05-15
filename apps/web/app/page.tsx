@@ -3,35 +3,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AppPageLoader } from "./_components/AppPageLoader";
 import { SevaPublicCalendarSection } from "./_components/SevaPublicCalendarSection";
 
+/** Light category tints (home featured cards) — dark text for contrast, aligned with mint hero. */
 const CATEGORY_COLORS: Record<string, string> = {
-  "Animal Care": "bg-amber-700",
-  "Children": "bg-pink-600",
-  "Cultural or Places of Worship": "bg-purple-700",
-  "Educare": "bg-emerald-800",
-  "Environmental": "bg-teal-700",
-  "Go Green": "bg-green-700",
-  "Homeless Shelters": "bg-slate-600",
-  "Medicare": "bg-blue-700",
-  "Narayana Seva/Food": "bg-orange-700",
-  "Online": "bg-sky-700",
-  "Other": "bg-zinc-600",
-  "Senior Citizens": "bg-rose-700",
-  "Sociocare": "bg-orange-900",
-  "Veterans": "bg-indigo-800",
-  "Women Seva": "bg-pink-700",
+  "Animal Care": "border border-amber-200/90 bg-amber-100 text-amber-950",
+  "Children": "border border-pink-200/90 bg-pink-100 text-pink-950",
+  "Cultural or Places of Worship": "border border-violet-200/90 bg-violet-100 text-violet-950",
+  "Educare": "border border-emerald-200/90 bg-emerald-100 text-emerald-950",
+  "Environmental": "border border-teal-200/90 bg-teal-100 text-teal-950",
+  "Go Green": "border border-green-200/90 bg-green-100 text-green-950",
+  "Homeless Shelters": "border border-slate-200/90 bg-slate-100 text-slate-900",
+  "Medicare": "border border-sky-200/90 bg-sky-100 text-sky-950",
+  "Narayana Seva/Food": "border border-orange-200/90 bg-orange-100 text-orange-950",
+  "Online": "border border-cyan-200/90 bg-cyan-100 text-cyan-950",
+  "Other": "border border-zinc-200/90 bg-zinc-100 text-zinc-900",
+  "Senior Citizens": "border border-rose-200/90 bg-rose-100 text-rose-950",
+  "Sociocare": "border border-orange-200/90 bg-orange-100 text-orange-950",
+  "Veterans": "border border-indigo-200/90 bg-indigo-100 text-indigo-950",
+  "Women Seva": "border border-fuchsia-200/90 bg-fuchsia-100 text-fuchsia-950",
 };
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mx-auto my-10 text-center">
-      <div className="text-5xl font-extrabold tracking-wide text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.15)]">
-        ----{children}----
-      </div>
-    </div>
-  );
-}
 
 type FeaturedActivity = {
   id: string;
@@ -75,11 +67,6 @@ function FeaturedSevaSection() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
-
-  useEffect(() => {
-    const max = Math.max(0, activities.length - cardsPerView);
-    setSlideIndex((i) => Math.min(i, max));
-  }, [cardsPerView, activities.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,33 +117,38 @@ function FeaturedSevaSection() {
 
   const total = activities.length;
   const maxIndex = Math.max(0, total - cardsPerView);
+  const safeSlideIndex = Math.min(slideIndex, maxIndex);
   const goPrev = () => setSlideIndex((i) => (i <= 0 ? maxIndex : i - 1));
   const goNext = () => setSlideIndex((i) => (i >= maxIndex ? 0 : i + 1));
   // Track width = total * (100/cardsPerView) % of container; each card = (100/total) % of track so card = (100/cardsPerView) % of container
   const trackWidthPercent = total > 0 ? (total * 100) / cardsPerView : 100;
   const cardWidthPercentOfTrack = total > 0 ? 100 / total : 100;
-  const translatePercent = total > 0 ? (slideIndex / total) * 100 : 0;
+  const translatePercent = total > 0 ? (safeSlideIndex / total) * 100 : 0;
 
   return (
     <section
       ref={sectionRef}
-      className="bg-[linear-gradient(90deg,rgba(55,160,140,0.78),rgba(70,130,210,0.78),rgba(95,85,185,0.78))] py-10"
+      className="bg-gradient-to-b from-[#dce8dc] via-emerald-100/95 to-stone-200 py-16 sm:py-20"
     >
-      <div className="flex flex-col items-center justify-center py-10">
+      <div className="flex flex-col items-center justify-center py-10 sm:py-12">
         <div className="flex items-center justify-center gap-4">
-          <span className="h-px w-12 bg-white/60 sm:w-16 md:w-20" aria-hidden />
-          <h2 className="text-4xl font-extrabold tracking-[0.2em] text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] sm:text-5xl" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+          <span className="h-px w-12 bg-emerald-300/70 sm:w-16 md:w-20" aria-hidden />
+          <h2 className="text-4xl font-extrabold tracking-[0.18em] text-slate-800 sm:text-5xl">
             Featured Seva Activities
           </h2>
-          <span className="h-px w-12 bg-white/60 sm:w-16 md:w-20" aria-hidden />
+          <span className="h-px w-12 bg-emerald-300/70 sm:w-16 md:w-20" aria-hidden />
         </div>
-        <span className="mt-3 block h-0.5 w-24 bg-white/80" aria-hidden />
+        <span className="mt-3 block h-0.5 w-24 rounded-full bg-emerald-400/60" aria-hidden />
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-lg text-slate-600">
-          Loading…
-        </div>
+        <AppPageLoader
+          layout="section"
+          label="Loading featured activities"
+          message="Loading…"
+          size="md"
+          className="py-16"
+        />
       ) : activities.length === 0 ? (
         <div className="py-16 text-center text-lg text-slate-600">
           No featured activities yet. Mark activities as Featured in Add Seva Activity or Manage Seva → Edit.
@@ -179,14 +171,14 @@ function FeaturedSevaSection() {
                   style={{ width: `${cardWidthPercentOfTrack}%`, minWidth: `${cardWidthPercentOfTrack}%` }}
                 >
                   <div
-                    className={`mx-auto grid w-full max-w-none grid-cols-[1fr_1.15fr] overflow-hidden rounded-lg shadow-[0_14px_30px_rgba(0,0,0,0.25)] ${
+                    className={`mx-auto grid w-full max-w-none grid-cols-[1fr_1.15fr] overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_10px_28px_-6px_rgba(15,23,42,0.12)] ${
                       cardsPerView === 1
                         ? "h-[300px] min-[400px]:h-[360px] sm:h-[400px] md:h-[440px]"
                         : "h-[280px] min-[400px]:h-[320px] sm:h-[380px] md:h-[440px]"
                     }`}
                   >
                     <div
-                      className={`flex min-h-0 min-w-0 flex-col ${CATEGORY_COLORS[c.category] ?? "bg-indigo-600"} p-3 text-white min-[400px]:p-4 sm:p-6 md:p-8`}
+                      className={`flex min-h-0 min-w-0 flex-col ${CATEGORY_COLORS[c.category] ?? "border border-indigo-200/90 bg-indigo-100 text-indigo-950"} p-3 min-[400px]:p-4 sm:p-6 md:p-8`}
                     >
                       <div className="text-sm font-bold leading-tight min-[400px]:text-base sm:text-xl md:text-2xl">
                         {c.title}
@@ -198,7 +190,7 @@ function FeaturedSevaSection() {
                       </div>
                       <Link
                         href={`/seva-activities?id=${encodeURIComponent(c.id)}`}
-                        className="mt-auto inline-block shrink-0 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 min-[400px]:px-4 min-[400px]:py-2 min-[400px]:text-sm sm:mt-8 sm:px-6 sm:py-2.5 sm:text-base md:mt-10 md:px-8 md:py-3 md:text-lg"
+                        className="mt-auto inline-block shrink-0 rounded-md border border-slate-300/90 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-emerald-50/90 min-[400px]:px-4 min-[400px]:py-2 min-[400px]:text-sm sm:mt-8 sm:px-6 sm:py-2.5 sm:text-base md:mt-10 md:px-8 md:py-3 md:text-lg"
                       >
                         View More
                       </Link>
@@ -261,7 +253,7 @@ function FeaturedSevaSection() {
                   key={i}
                   type="button"
                   onClick={() => setSlideIndex(i)}
-                  className={`h-2.5 w-2.5 rounded-full transition-colors sm:h-3 sm:w-3 ${i === slideIndex ? "bg-white" : "bg-white/50 hover:bg-white/70"}`}
+                  className={`h-2.5 w-2.5 rounded-full transition-colors sm:h-3 sm:w-3 ${i === safeSlideIndex ? "bg-white" : "bg-white/50 hover:bg-white/70"}`}
                   aria-label={`Go to view ${i + 1}`}
                 />
               ))}
@@ -320,7 +312,8 @@ function OurImpactSection() {
     <section
       className="py-16 text-center"
       style={{
-        background: "linear-gradient(90deg, #6b5b6f 0%, #5a4d5e 25%, #4a4d4a 50%, #3d4a3d 75%, #2d3b2f 100%)",
+        background:
+          "linear-gradient(90deg, #d0c4cc 0%, #c2b8c4 22%, #b4beb0 48%, #a7b5a4 72%, #9bad9a 100%)",
       }}
     >
       <div className="mx-auto max-w-2xl px-6 py-5 sm:px-8 sm:py-6">
@@ -335,13 +328,13 @@ function OurImpactSection() {
       </div>
       <div className="my-10 flex flex-col items-center justify-center">
         <div className="flex items-center justify-center gap-4">
-          <span className="h-px w-12 bg-white/60 sm:w-16 md:w-20" aria-hidden />
-          <h2 className="text-4xl font-extrabold tracking-[0.2em] text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] sm:text-5xl" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}>
+          <span className="h-px w-12 bg-slate-700/35 sm:w-16 md:w-20" aria-hidden />
+          <h2 className="text-4xl font-extrabold tracking-[0.2em] text-slate-900 drop-shadow-sm sm:text-5xl">
             Our Impact
           </h2>
-          <span className="h-px w-12 bg-white/60 sm:w-16 md:w-20" aria-hidden />
+          <span className="h-px w-12 bg-slate-700/35 sm:w-16 md:w-20" aria-hidden />
         </div>
-        <span className="mt-3 block h-0.5 w-24 bg-amber-400/80" aria-hidden />
+        <span className="mt-3 block h-0.5 w-24 bg-amber-600/50" aria-hidden />
       </div>
 
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-10 px-4 md:flex-row">
@@ -542,7 +535,7 @@ export default function HomePage() {
       </section>
 
       {/* BUTTONS ROW — equal width: My Seva Dashboard natural, Find Seva stretches to match */}
-      <section className="bg-[linear-gradient(90deg,rgba(112,153,63,0.55),rgba(200,214,117,0.55),rgba(255,170,120,0.55))] py-14">
+      <section className="bg-[linear-gradient(90deg,rgba(180,208,152,0.36)_0%,rgba(198,218,148,0.42)_50%,rgba(255,212,188,0.37)_100%)] py-14">
         <div className="mx-auto flex max-w-5xl flex-col items-stretch justify-center gap-10 px-4 landscape-desktop:flex-row md:flex-row">
           <div className="flex w-full max-w-xl flex-col gap-6 landscape-desktop:max-w-none landscape-desktop:flex-1 landscape-desktop:flex-row landscape-desktop:basis-0 landscape-desktop:gap-10 md:max-w-none md:flex-1 md:flex-row md:basis-0 md:gap-10">
             <Link
@@ -565,7 +558,7 @@ export default function HomePage() {
       {/* Public seva calendar — visible to everyone, no login */}
       <section
         className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-4"
-        aria-label="Seva activity calendar"
+        aria-label="Seva Activity Calendar"
       >
         <SevaPublicCalendarSection />
       </section>

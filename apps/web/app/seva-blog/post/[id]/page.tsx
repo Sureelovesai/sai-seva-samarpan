@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { ArticleCanvasChrome } from "@/app/seva-blog/ArticleCanvasChrome";
-import { BlogDriveMediaSection } from "@/app/seva-blog/BlogDriveMediaSection";
-import { BlogPostFormModal } from "@/app/seva-blog/BlogPostFormModal";
 import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
 import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
 import { downloadElementAsPdf } from "@/lib/htmlToPdf";
@@ -166,8 +165,8 @@ export default function BlogPostPage({
 
   if (loading || !id) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <p className="text-[#6b5344]">Loading…</p>
+      <div className="min-h-[40vh]">
+        <AppPageLoader layout="section" label="Loading post" message="Loading…" size="lg" className="py-16" />
       </div>
     );
   }

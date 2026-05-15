@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type Partner = {
   id: string;
@@ -137,7 +138,11 @@ export default function PartnerOrganizationsPage() {
         </div>
 
         <div className="mt-6 text-center text-sm font-semibold text-zinc-800">
-          {loading && "Loading…"}
+          {loading && (
+            <span className="mt-2 block">
+              <AppPageLoader layout="inline" label="Loading partners" message="Loading…" />
+            </span>
+          )}
           {error && <span className="text-red-700">{error}</span>}
         </div>
 

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CENTERS_FOR_FILTER } from "@/lib/cities";
 import { SEVA_CATEGORIES_FOR_FILTER } from "@/lib/categories";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { USA_REGIONS_FOR_FILTER, parseUsaRegionParam } from "@/lib/usaRegions";
 
 type Row = {
@@ -245,7 +246,11 @@ function Content() {
         </div>
 
         <div className="mt-6 text-center text-sm font-semibold text-zinc-800">
-          {loading && "Loading…"}
+          {loading && (
+            <span className="mt-2 block">
+              <AppPageLoader layout="inline" label="Loading community activities" message="Loading…" />
+            </span>
+          )}
           {error && <span className="text-red-700">{error}</span>}
         </div>
 
@@ -312,7 +317,11 @@ function Content() {
 export default function Page() {
   return (
     <Suspense
-      fallback={<div className="flex min-h-[40vh] items-center justify-center text-zinc-600">Loading…</div>}
+      fallback={
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
+        </div>
+      }
     >
       <Keyed />
     </Suspense>

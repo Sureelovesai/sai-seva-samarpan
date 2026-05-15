@@ -8,7 +8,11 @@ import { USA_REGIONS_FOR_FILTER, usaRegionFromUrlParams } from "@/lib/usaRegions
 import { FindSevaActivityRow } from "@/app/_components/FindSevaActivityRow";
 import { SevaLevelTabInfoIcon, SEVA_LEVEL_TAB_INFO } from "@/app/_components/SevaLevelTabInfoIcon";
 import { compareFindSevaActivities } from "@/lib/findSevaListSort";
-import { buildSevaActivitiesPageUrlFromFindSeva, type FindSevaBrowseContext } from "@/lib/sevaActivitiesBrowseQuery";
+import {
+  buildSevaActivitiesPageUrlFromFindSeva,
+  type FindSevaBrowseContext,
+} from "@/lib/sevaActivitiesBrowseQuery";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 function persistLastFindSevaCenter(center: string) {
   try {
@@ -455,27 +459,21 @@ function FindSevaContent() {
           </span>
         </div>
 
-        <p className="mb-6 text-center text-sm text-zinc-700">
-          {levelTab === "center" && (
-            <>
-              Center-level seva is tied to a Sai center / city. This is the usual local Find Seva list.
-            </>
-          )}
-          {levelTab === "regional" && (
-            <>
-              Activities posted by <strong>Regional Seva Coordinators</strong> for a USA region. Use{" "}
-              <strong>USA Region</strong> below to narrow to your area.
-            </>
-          )}
-          {levelTab === "national" && (
-            <>
-              Activities posted by <strong>National Seva Coordinators</strong> for the whole organization.
-            </>
-          )}
-        </p>
-        <p className="mb-6 text-center text-xs text-zinc-600">
-          Category, center, region, and dates update the list as soon as you change them.
-        </p>
+        {(levelTab === "regional" || levelTab === "national") && (
+          <p className="mb-6 text-center text-sm text-zinc-700">
+            {levelTab === "regional" && (
+              <>
+                Activities posted by <strong>Regional Seva Coordinators</strong> for a USA region. Use{" "}
+                <strong>USA Region</strong> below to narrow to your area.
+              </>
+            )}
+            {levelTab === "national" && (
+              <>
+                Activities posted by <strong>National Seva Coordinators</strong> for the whole organization.
+              </>
+            )}
+          </p>
+        )}
 
         {/* FILTERS — one grid cell per control so date inputs get the same min-width constraints as selects (nested col-span was letting dates overflow). */}
         <div className="grid min-w-0 max-w-full grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 md:items-end">
@@ -612,7 +610,11 @@ function FindSevaContent() {
               Showing activities that include <span className="whitespace-nowrap">{toDate}</span>.
             </p>
           )}
-          {loading && "Loading activities..."}
+          {loading && (
+            <span className="mt-2 block">
+              <AppPageLoader layout="inline" label="Loading activities" message="Loading activities…" />
+            </span>
+          )}
           {!loading && error && <span className="text-red-700">{error}</span>}
         </div>
 
@@ -714,8 +716,8 @@ export default function FindSevaPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40vh] items-center justify-center bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))] text-lg font-semibold text-zinc-700">
-          Loading Find Seva…
+        <div className="min-h-[40vh] bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
+          <AppPageLoader layout="section" label="Loading Find Seva" message="Loading Find Seva…" size="lg" className="py-16" />
         </div>
       }
     >

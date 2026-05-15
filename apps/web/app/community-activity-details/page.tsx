@@ -4,6 +4,7 @@ import NextImage from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { isActivityEnded } from "@/lib/activityEnded";
 
 type SevaActivity = {
@@ -479,8 +480,14 @@ function CommunityActivityDetailsContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,180,220,0.4),transparent),linear-gradient(180deg,rgba(200,220,240,0.5)_0%,rgba(180,200,230,0.6)_100%)]">
-        <p className="text-zinc-600">Loading community activity…</p>
+      <div className="min-h-[40vh] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,180,220,0.4),transparent),linear-gradient(180deg,rgba(200,220,240,0.5)_0%,rgba(180,200,230,0.6)_100%)]">
+        <AppPageLoader
+          layout="section"
+          label="Loading community activity"
+          message="Loading community activity…"
+          size="lg"
+          className="py-16"
+        />
       </div>
     );
   }
@@ -701,7 +708,7 @@ function CommunityActivityDetailsContent() {
 
         {/* Sign-up area — scroll target from Seva Details link */}
         <h2 id="sign-up-to-volunteer" className="scroll-mt-6 mt-14 text-center text-2xl font-bold tracking-tight text-indigo-900">
-          Volunteer &amp; item sign-up
+          Volunteer &amp; Item Sign-Up
         </h2>
         <p className="mx-auto mt-3 max-w-lg px-4 text-center text-sm leading-relaxed text-zinc-600">
           <strong>Join Seva</strong> first if you will take part on site — that adds you to the roster and counts toward
@@ -1066,7 +1073,13 @@ function CommunityActivityDetailsContent() {
 
 export default function CommunityActivityDetailsPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><p className="text-zinc-600">Loading…</p></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
+        </div>
+      }
+    >
       <CommunityActivityDetailsContent />
     </Suspense>
   );

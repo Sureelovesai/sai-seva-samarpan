@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { GenerateBlogReportWizard } from "@/app/_components/GenerateBlogReportWizard";
 
 type Row = {
@@ -89,7 +90,9 @@ export default function AdminBlogReportsPage() {
         <section className="rounded-xl border border-amber-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-amber-950">Saved reports</h2>
           {loading ? (
-            <p className="mt-4 text-zinc-600">Loading…</p>
+            <div className="mt-4">
+              <AppPageLoader layout="compact" label="Loading saved reports" message="Loading…" />
+            </div>
           ) : error ? (
             <p className="mt-4 text-red-700">{error}</p>
           ) : rows.length === 0 ? (

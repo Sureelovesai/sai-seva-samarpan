@@ -5,8 +5,9 @@ import { getSessionFromCookie } from "@/lib/auth";
 /**
  * GET /api/log-hours
  * Logged-in user's Log Hours rows (by session email), newest first. Used for dashboard + viewing certificates later.
- * Query: limit (default 20, max 50), offset (default 0).
- * Response: { entries, total } — total is the count for this user (same filter as entries).
+ * Query: limit (default 20, max 50), offset (default 0), includeTotal (optional).
+ * - When offset > 0 and includeTotal is not "true", only `entries` are returned (no DB count) — use the total from the first page.
+ * - When offset === 0 or includeTotal=true, response includes `total` (count for this user).
  */
 export async function GET(req: Request) {
   try {
@@ -20,29 +21,33 @@ export async function GET(req: Request) {
     const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, limitRaw)) : 20;
     const offsetRaw = parseInt(searchParams.get("offset") || "0", 10);
     const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+    const forceTotal = searchParams.get("includeTotal") === "true";
+    const includeTotal = forceTotal || offset === 0;
 
     const where = { email };
 
-    const [entries, total] = await Promise.all([
-      prisma.loggedHours.findMany({
-        where,
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          volunteerName: true,
-          location: true,
-          activityCategory: true,
-          hours: true,
-          date: true,
-          comments: true,
-          createdAt: true,
-        },
-      }),
-      prisma.loggedHours.count({ where }),
-    ]);
+    const entries = await prisma.loggedHours.findMany({
+      where,
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        volunteerName: true,
+        location: true,
+        activityCategory: true,
+        hours: true,
+        date: true,
+        comments: true,
+        createdAt: true,
+      },
+    });
 
+    if (!includeTotal) {
+      return NextResponse.json({ entries });
+    }
+
+    const total = await prisma.loggedHours.count({ where });
     return NextResponse.json({ entries, total });
   } catch (e: unknown) {
     console.error("Log hours GET error:", e);

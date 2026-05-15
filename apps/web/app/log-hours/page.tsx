@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CITIES } from "@/lib/cities";
@@ -152,26 +151,34 @@ export default function LogHoursPage() {
 
   function onViewCertificate() {
     if (submitSuccess) {
-      const params = new URLSearchParams();
-      params.set("name", volunteerName.trim());
-      params.set("activity", activity.trim());
-      params.set("hours", hours.trim());
-      params.set("date", date.trim());
-      params.set("location", (location || "").trim());
-      params.set("comments", (comments || "").trim());
-      router.push(`/log-hours/certificate?${params.toString()}`);
+      router.push(
+        certificatePathFromLoggedHoursRow(
+          {
+            volunteerName: volunteerName.trim(),
+            location: location.trim(),
+            activityCategory: activity.trim(),
+            hours: parseFloat(hours) || 0,
+            date: date.trim(),
+            comments: comments.trim() || undefined,
+          },
+          { from: "log-hours" }
+        )
+      );
       return;
     }
     if (latestSaved) {
       router.push(
-        certificatePathFromLoggedHoursRow({
-          volunteerName: latestSaved.volunteerName,
-          location: latestSaved.location,
-          activityCategory: latestSaved.activityCategory,
-          hours: latestSaved.hours,
-          date: latestSaved.date,
-          comments: latestSaved.comments,
-        })
+        certificatePathFromLoggedHoursRow(
+          {
+            volunteerName: latestSaved.volunteerName,
+            location: latestSaved.location,
+            activityCategory: latestSaved.activityCategory,
+            hours: latestSaved.hours,
+            date: latestSaved.date,
+            comments: latestSaved.comments,
+          },
+          { from: "log-hours" }
+        )
       );
     }
   }
@@ -392,17 +399,6 @@ export default function LogHoursPage() {
                     Clear
                   </button>
                 </div>
-
-                {latestSaved && !submitSuccess && (
-                  <p className="max-w-md text-center text-sm text-zinc-700">
-                    <strong>View Certificate</strong> uses your{" "}
-                    <strong>most recent</strong> saved entry. For older entries, open{" "}
-                    <Link href="/dashboard" className="font-semibold text-indigo-800 underline">
-                      My Seva Dashboard
-                    </Link>{" "}
-                    → Your logged hours.
-                  </p>
-                )}
 
                 <div className="text-lg font-semibold text-zinc-800">
                   Jai Sai Ram!

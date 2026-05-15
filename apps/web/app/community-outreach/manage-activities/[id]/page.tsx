@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CITIES } from "@/lib/cities";
-import { SEVA_CATEGORIES } from "@/lib/categories";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import {
   ContributionItemsEditor,
   type ContributionRow,
 } from "@/app/_components/ContributionItemsEditor";
+import { CITIES } from "@/lib/cities";
+import { SEVA_CATEGORIES } from "@/lib/categories";
 
 function rowsFromApi(items: unknown): ContributionRow[] {
   if (!Array.isArray(items)) return [];
@@ -276,8 +277,8 @@ export default function EditCommunityActivityPage() {
 
   if (bootLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center bg-zinc-50 text-zinc-600">
-        Loading…
+      <div className="min-h-[40vh] bg-zinc-50">
+        <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
       </div>
     );
   }

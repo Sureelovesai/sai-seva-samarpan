@@ -2,10 +2,140 @@
 
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import {
-  CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE,
-  downloadCertificateA4PortraitPdf,
+  CERTIFICATE_LETTER_LANDSCAPE_PDF_OPTIONS_FULL_PAGE,
+  CERTIFICATE_LETTER_PORTRAIT_PDF_OPTIONS_FULL_PAGE,
+  downloadCertificateLetterLandscapePdf,
+  downloadCertificateLetterPortraitPdf,
 } from "@/lib/htmlToPdf";
+
+type CertificatePrintLayout = "portrait" | "landscape";
+
+/** US Letter — printable area after 0.3 in margins on 8.5×11 in. */
+const LETTER_PRINTABLE = { w: "7.9in", h: "10.4in" } as const;
+
+const CERTIFICATE_PRINT_SHEET_RULES = `
+  .certificate-sheet {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+  .certificate-sheet .certificate-inner {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 18px 22px 14px !important;
+  }
+  .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:first-child .relative {
+    height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
+  }
+  .certificate-sheet .certificate-inner .certificate-center-image {
+    height: 76px !important; width: 76px !important; min-height: 76px !important; min-width: 76px !important;
+  }
+  .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:last-child .relative {
+    height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
+  }
+  .certificate-sheet .certificate-inner .text-5xl { font-size: 2.1rem !important; line-height: 1.1 !important; }
+  .certificate-sheet .certificate-inner .md\\:text-7xl { font-size: 2.5rem !important; line-height: 1.05 !important; }
+  .certificate-sheet .certificate-inner .text-xl { font-size: 1.2rem !important; }
+  .certificate-sheet .certificate-inner .md\\:text-3xl { font-size: 1.35rem !important; }
+  .certificate-sheet .certificate-inner .text-2xl { font-size: 1.35rem !important; }
+  .certificate-sheet .certificate-inner .text-base { font-size: 0.95rem !important; line-height: 1.45 !important; }
+  .certificate-sheet .certificate-inner .md\\:text-lg { font-size: 1rem !important; line-height: 1.45 !important; }
+  .certificate-sheet .certificate-inner .text-sm { font-size: 0.875rem !important; }
+  .certificate-sheet .certificate-inner .text-xs { font-size: 0.8rem !important; }
+  .certificate-sheet .certificate-inner .max-w-4xl { max-width: 100% !important; }
+  .certificate-sheet .certificate-inner .max-w-3xl { max-width: 100% !important; }
+`;
+
+function certificatePrintCss(layout: CertificatePrintLayout): string {
+  const { w } = LETTER_PRINTABLE;
+  const pageRule =
+    layout === "landscape"
+      ? `@page { size: letter landscape; margin: 0.3in; }`
+      : `@page { size: letter portrait; margin: 0.3in; }`;
+
+  const frameRules =
+    layout === "landscape"
+      ? `
+          .certificate-letter-frame {
+            width: 100% !important;
+            max-width: ${w} !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
+          }
+          .certificate-print-wrap .mx-auto {
+            width: 100% !important;
+            max-width: ${w} !important;
+            margin: 0 auto !important;
+          }
+          .certificate-sheet {
+            transform: scale(0.72) !important;
+            transform-origin: center center !important;
+          }
+        `
+      : `
+          .certificate-letter-frame {
+            width: 100% !important;
+            max-width: ${w} !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: transparent !important;
+          }
+          .certificate-print-wrap .mx-auto {
+            width: 100% !important;
+            max-width: ${w} !important;
+            margin: 0 auto !important;
+          }
+        `;
+
+  return `
+        @media print {
+          ${pageRule}
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #f6eadc !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .certificate-page-root {
+            min-height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          .certificate-print-wrap {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #f6eadc !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+          }
+          ${frameRules}
+          ${CERTIFICATE_PRINT_SHEET_RULES}
+        }
+      `;
+}
 
 /** Mobile / touch browsers often ignore or mishandle `window.print()`; client PDF works reliably. */
 function shouldSavePdfInsteadOfPrint(): boolean {
@@ -36,6 +166,7 @@ function formatDateFromInput(yyyyMmDd: string) {
 function CertificateContent() {
   const sp = useSearchParams();
   const sheetRef = useRef<HTMLDivElement>(null);
+  const [printLayout, setPrintLayout] = useState<CertificatePrintLayout>("portrait");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -62,8 +193,9 @@ function CertificateContent() {
     };
   }, [sp]);
 
-  async function handlePrintOrSavePdf() {
+  async function handlePrintOrSavePdf(layout: CertificatePrintLayout) {
     setPdfError(null);
+    setPrintLayout(layout);
     if (shouldSavePdfInsteadOfPrint()) {
       const el = sheetRef.current;
       if (!el) {
@@ -72,9 +204,20 @@ function CertificateContent() {
       }
       setPdfBusy(true);
       try {
-        /** Distinct suffix so you can tell the new mobile export ran (and cache isn’t serving old JS). */
-        const name = `${safeCertificateFilenameBase(data.volunteerName)}-A4portrait.pdf`;
-        await downloadCertificateA4PortraitPdf(el, name, CERTIFICATE_A4_PORTRAIT_PDF_OPTIONS_FULL_PAGE);
+        const base = safeCertificateFilenameBase(data.volunteerName);
+        if (layout === "landscape") {
+          await downloadCertificateLetterLandscapePdf(
+            el,
+            `${base}-letter-landscape.pdf`,
+            CERTIFICATE_LETTER_LANDSCAPE_PDF_OPTIONS_FULL_PAGE
+          );
+        } else {
+          await downloadCertificateLetterPortraitPdf(
+            el,
+            `${base}-letter-portrait.pdf`,
+            CERTIFICATE_LETTER_PORTRAIT_PDF_OPTIONS_FULL_PAGE
+          );
+        }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Could not save PDF.";
         setPdfError(msg);
@@ -84,104 +227,18 @@ function CertificateContent() {
       }
       return;
     }
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
     window.print();
   }
 
   return (
     <div className="certificate-page-root flex min-h-[calc(100svh-4.5rem)] w-full flex-1 flex-col bg-[#f6eadc] print:min-h-0">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          /* A4 portrait — printable area ≈ 7.67×11.09 in after 0.3 in margins on 210×297 mm (matches PDF save). */
-          @page { size: A4 portrait; margin: 0.3in; }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #f6eadc !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .certificate-page-root {
-            min-height: 100vh !important;
-            display: flex !important;
-            flex-direction: column !important;
-          }
-          .certificate-print-wrap {
-            flex: 1 1 auto !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: #f6eadc !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-sizing: border-box !important;
-          }
-          .certificate-letter-frame {
-            width: 100% !important;
-            max-width: 7.67in !important;
-            min-height: 0 !important;
-            margin: 0 auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            background: transparent !important;
-          }
-          .certificate-print-wrap .mx-auto {
-            width: 100% !important;
-            max-width: 7.67in !important;
-            margin: 0 auto !important;
-          }
-          .certificate-sheet {
-            box-shadow: none !important;
-            page-break-inside: avoid;
-            break-inside: avoid;
-            width: 100% !important;
-            max-width: 100% !important;
-            /* No transform:scale — scaling was making Save-as-PDF previews tiny */
-            transform: none !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            overflow: visible !important;
-          }
-          .certificate-sheet .certificate-inner {
-            width: 100% !important;
-            box-sizing: border-box !important;
-            padding: 18px 22px 14px !important;
-          }
-          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:first-child .relative {
-            height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
-          }
-          .certificate-sheet .certificate-inner .certificate-center-image {
-            height: 76px !important; width: 76px !important; min-height: 76px !important; min-width: 76px !important;
-          }
-          .certificate-sheet .certificate-inner .grid.grid-cols-3 > div:last-child .relative {
-            height: 64px !important; min-height: 64px !important; width: 64px !important; min-width: 64px !important;
-          }
-          /* Readable print sizes (avoid 9–11px text) */
-          .certificate-sheet .certificate-inner .text-5xl { font-size: 2.1rem !important; line-height: 1.1 !important; }
-          .certificate-sheet .certificate-inner .md\\:text-7xl { font-size: 2.5rem !important; line-height: 1.05 !important; }
-          .certificate-sheet .certificate-inner .text-xl { font-size: 1.2rem !important; }
-          .certificate-sheet .certificate-inner .md\\:text-3xl { font-size: 1.35rem !important; }
-          .certificate-sheet .certificate-inner .text-2xl { font-size: 1.35rem !important; }
-          .certificate-sheet .certificate-inner .text-base { font-size: 0.95rem !important; line-height: 1.45 !important; }
-          .certificate-sheet .certificate-inner .md\\:text-lg { font-size: 1rem !important; line-height: 1.45 !important; }
-          .certificate-sheet .certificate-inner .text-sm { font-size: 0.875rem !important; }
-          .certificate-sheet .certificate-inner .text-xs { font-size: 0.8rem !important; }
-          .certificate-sheet .certificate-inner .max-w-4xl { max-width: 100% !important; }
-          .certificate-sheet .certificate-inner .max-w-3xl { max-width: 100% !important; }
-        }
-      `}} />
+      <style dangerouslySetInnerHTML={{ __html: certificatePrintCss(printLayout) }} />
       <div className="certificate-print-wrap flex w-full flex-1 flex-col items-center justify-center px-4 py-8 print:py-4">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.67in]">
-          {/*
-            A4 portrait printable (~7.67×11.09 in @ 0.3in margin) — matches Save-as-PDF raster on phones.
-          */}
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch print:max-w-[7.9in]">
           <div
             ref={sheetRef}
-            className="certificate-letter-frame flex w-full max-w-6xl flex-col items-center justify-center bg-[#f6eadc] md:mx-auto md:box-border md:w-[7.67in] md:max-w-[7.67in] md:min-h-[11.09in] md:px-[0.15in]"
+            className="certificate-letter-frame flex w-full max-w-6xl flex-col items-center justify-center bg-[#f6eadc] md:mx-auto md:box-border md:w-[7.9in] md:max-w-[7.9in] md:min-h-[10.4in] md:px-[0.15in]"
           >
             <div className="certificate-sheet relative w-full max-w-full overflow-hidden rounded-md bg-white shadow-2xl">
           {/* Border layer - clearly visible gold frame (responsive: thinner on mobile to match proportions) */}
@@ -307,16 +364,27 @@ function CertificateContent() {
             </div>
 
             {/* Print / save — excluded from html2pdf capture */}
-            <div className="mt-10 flex flex-col items-center gap-2 print:hidden" data-html2canvas-ignore="true">
-              <button
-                type="button"
-                onClick={() => void handlePrintOrSavePdf()}
-                disabled={pdfBusy}
-                style={{ touchAction: "manipulation" }}
-                className="rounded-md bg-[#a67c2e] px-6 py-3 font-semibold text-white shadow hover:brightness-95 disabled:opacity-70"
-              >
-                {pdfBusy ? "Generating PDF…" : "Print / Save as PDF"}
-              </button>
+            <div className="mt-10 flex flex-col items-center gap-3 print:hidden" data-html2canvas-ignore="true">
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handlePrintOrSavePdf("portrait")}
+                  disabled={pdfBusy}
+                  style={{ touchAction: "manipulation" }}
+                  className="rounded-md bg-[#a67c2e] px-5 py-3 font-semibold text-white shadow hover:brightness-95 disabled:opacity-70"
+                >
+                  {pdfBusy && printLayout === "portrait" ? "Generating PDF…" : "Print portrait (8.5×11 in)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePrintOrSavePdf("landscape")}
+                  disabled={pdfBusy}
+                  style={{ touchAction: "manipulation" }}
+                  className="rounded-md border-2 border-[#a67c2e] bg-white px-5 py-3 font-semibold text-[#a67c2e] shadow-sm hover:bg-[#faf6ef] disabled:opacity-70"
+                >
+                  {pdfBusy && printLayout === "landscape" ? "Generating PDF…" : "Print landscape (11×8.5 in)"}
+                </button>
+              </div>
               {pdfError ? <p className="max-w-md text-center text-sm text-red-700">{pdfError}</p> : null}
             </div>
           </div>
@@ -325,12 +393,11 @@ function CertificateContent() {
 
           <div className="mx-auto mt-4 max-w-lg text-center text-xs leading-relaxed text-zinc-600 print:hidden">
             <p>
-              <strong>Print / Save as PDF:</strong> Output is <strong>A4 portrait</strong> (210×297 mm). The design is
-              centered on the page. On a{" "}
-              <strong>phone or tablet</strong>, the button saves a PDF file directly. On a <strong>computer</strong>, it opens
-              the print dialog — choose <strong>Save as PDF</strong> (or Microsoft Print to PDF). Use{" "}
-              <strong>Scale 100%</strong> and avoid &quot;Fit to page&quot; / &quot;Shrink oversized pages&quot; if the
-              preview looks wrong.
+              <strong>US Letter (8.5×11 in):</strong> Choose <strong>portrait</strong> for a full-page certificate, or{" "}
+              <strong>landscape</strong> for one certificate scaled to fit an 11×8.5 in page. On a{" "}
+              <strong>phone or tablet</strong>, each button saves a PDF directly. On a <strong>computer</strong>, the button
+              opens the print dialog — pick your printer or <strong>Save as PDF</strong>, use <strong>Scale 100%</strong>,
+              and avoid &quot;Fit to page&quot; if the preview looks wrong.
             </p>
           </div>
         </div>
@@ -343,8 +410,8 @@ export default function CertificatePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-1 flex-col items-center justify-center bg-[#f6eadc] py-16">
-          <p>Loading…</p>
+        <div className="flex flex-1 flex-col bg-[#f6eadc] py-16">
+          <AppPageLoader layout="section" label="Loading certificate" message="Loading…" size="lg" className="py-8" />
         </div>
       }
     >

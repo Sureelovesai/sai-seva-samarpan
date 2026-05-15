@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type Mode = "login" | "signup";
 
@@ -244,7 +245,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><p>Loading…</p></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

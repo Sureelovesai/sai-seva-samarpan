@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type EventOpt = { id: string; title: string };
 type SignupRow = {
@@ -185,7 +186,11 @@ function EventSignupsInner() {
         </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {loading ? <p className="text-zinc-600">Loading…</p> : null}
+        {loading ? (
+          <div className="py-2">
+            <AppPageLoader layout="compact" label="Loading sign-ups" message="Loading…" className="items-start py-2" />
+          </div>
+        ) : null}
 
         <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
           <table className="min-w-full text-left text-sm">
@@ -237,7 +242,13 @@ function EventSignupsInner() {
 
 export default function EventSignupsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-zinc-600">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="p-8">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" />
+        </div>
+      }
+    >
       <EventSignupsInner />
     </Suspense>
   );

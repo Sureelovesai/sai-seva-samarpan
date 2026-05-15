@@ -1,10 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BlogPostFormModal } from "./BlogPostFormModal";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
+
+const BlogPostFormModal = dynamic(
+  () => import("./BlogPostFormModal").then((m) => ({ default: m.BlogPostFormModal })),
+  { ssr: false }
+);
 
 const SECTIONS = [
   { id: "Seva in Action", label: "Seva in Action" },
@@ -76,7 +82,6 @@ export default function SevaBlogClient() {
   const searchParams = useSearchParams();
   const qFromUrl = searchParams.get("q")?.trim() ?? "";
   const [searchDraft, setSearchDraft] = useState(qFromUrl);
-  const [data, setData] = useState<BlogData | null>(null);
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -178,8 +183,12 @@ export default function SevaBlogClient() {
 
     (async () => {
       try {
-        const blogRes = await fetch("/api/seva-blog", { credentials: "include", cache: "no-store" });
+        const [blogRes, postsRes] = await Promise.all([
+          fetch("/api/seva-blog", { credentials: "include", cache: "no-store" }),
+          fetch(postsListUrl, { credentials: "include", cache: "no-store" }),
+        ]);
         if (cancelled) return;
+
         if (!blogRes.ok) {
           const body = (await blogRes.json().catch(() => ({}))) as { detail?: string };
           const msg =
@@ -188,26 +197,26 @@ export default function SevaBlogClient() {
               : "Failed to load blog data";
           throw new Error(msg);
         }
-        const blogData = (await blogRes.json()) as BlogData;
-        if (cancelled) return;
-        setData(blogData);
 
-        const postsRes = await fetch(postsListUrl, { credentials: "include", cache: "no-store" });
+        const [blogData, postsRaw] = await Promise.all([
+          blogRes.json() as Promise<BlogData>,
+          postsRes.json().catch(() => ({})),
+        ]);
         if (cancelled) return;
+        void blogData;
+
         if (!postsRes.ok) {
-          const body = (await postsRes.json().catch(() => ({}))) as { error?: string; detail?: string };
+          const body = postsRaw as { error?: string; detail?: string };
           const msg =
             (typeof body?.error === "string" && body.error) ||
             (typeof body?.detail === "string" && body.detail) ||
             `Could not load stories (HTTP ${postsRes.status})`;
           setPostsFetchError(msg);
           setCommunityPosts([]);
-          return;
+        } else {
+          setCommunityPosts(Array.isArray(postsRaw) ? postsRaw : []);
+          setPostsFetchError(null);
         }
-        const posts = (await postsRes.json()) as unknown;
-        if (cancelled) return;
-        setCommunityPosts(Array.isArray(posts) ? posts : []);
-        setPostsFetchError(null);
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load blog data");
       } finally {
@@ -235,8 +244,14 @@ export default function SevaBlogClient() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-[#fdf2f0]">
-        <p className="text-[#6b5344]">Loading Seva stories…</p>
+      <div className="min-h-[60vh] bg-[#fdf2f0]">
+        <AppPageLoader
+          layout="section"
+          label="Loading stories"
+          message="Loading stories…"
+          size="lg"
+          className="py-20"
+        />
       </div>
     );
   }
@@ -248,15 +263,6 @@ export default function SevaBlogClient() {
       </div>
     );
   }
-
-  const impact = data?.impact ?? {
-    hours: 0,
-    volunteers: 0,
-    familiesServed: 0,
-    centers: 0,
-  };
-  const featured = data?.featured ?? null;
-  const activities = data?.activities ?? [];
 
   const successBanner =
     typeof document !== "undefined" &&
@@ -286,43 +292,34 @@ export default function SevaBlogClient() {
     <div className={`min-h-screen bg-[#fefaf8] ${postSubmitSuccess ? "pt-[80px]" : ""}`}>
       {successBanner}
 
-      {/* Hero: title, tagline, heart-framed image + taglines (reference: Sai Heart Beats style) */}
+      {/* Hero: Sai Hridaya title (Swami image between words) + taglines */}
       <section
-        className="relative overflow-hidden px-4 pt-4 pb-2 sm:pt-5 sm:pb-3 md:pt-6 md:pb-4"
+        className="relative overflow-hidden px-3 py-2 sm:px-4 sm:py-3 md:py-3.5"
         style={{
           background:
             "linear-gradient(145deg, #fdf2f0 0%, #f8e8e6 40%, #f0e0f5 70%, #f8e4e1 100%)",
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4)",
         }}
       >
-        <div className="mx-auto max-w-5xl">
-          {/* Title + tagline */}
-          <div className="mb-0 text-center">
+        <div className="mx-auto max-w-4xl">
+          <div className="text-center">
             <h1
-              className="font-serif text-2xl font-bold uppercase tracking-[0.18em] sm:text-3xl sm:tracking-[0.22em] md:text-4xl md:tracking-[0.26em]"
+              className="font-serif flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-bold leading-none text-[#5a4538] sm:gap-x-3 md:gap-x-4"
               style={{
-                color: "#5a4538",
+                fontSize: "clamp(2.25rem, 8.5vw, 4.75rem)",
                 textShadow:
                   "0 2px 4px rgba(90, 69, 56, 0.12), 0 1px 0 rgba(255,255,255,0.35) inset",
               }}
             >
-              SAI <span className="text-red-500 drop-shadow-sm" aria-hidden>❤</span> HEART BEATS
-            </h1>
-            <p className="mt-1.5 text-sm font-medium text-[#8b6b5c] sm:text-base md:text-lg">
-              LOVE IN ACTION
-            </p>
-          </div>
-          <div className="-mt-1 flex flex-col items-center gap-3 landscape-desktop:flex-row landscape-desktop:items-center landscape-desktop:justify-center landscape-desktop:gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-6">
-            {/* Left: heart-framed portrait (soft pink outline, symmetrical) */}
-            <div
-              className="flex shrink-0 justify-center landscape-desktop:flex-1 landscape-desktop:justify-end lg:flex-1 lg:justify-end"
-              style={{ minHeight: "160px" }}
-            >
-              <div
-                className="h-[160px] w-[160px] landscape-desktop:h-[200px] landscape-desktop:w-[200px] sm:h-[200px] sm:w-[200px] md:h-[220px] md:w-[220px] lg:h-[240px] lg:w-[240px]"
+              <span>Sai</span>
+              <span
+                className="inline-flex shrink-0 items-center justify-center"
                 style={{
-                  filter: "drop-shadow(0 8px 24px rgba(244, 182, 182, 0.35))",
+                  height: "1.35em",
+                  width: "1.35em",
+                  filter: "drop-shadow(0 6px 18px rgba(244, 182, 182, 0.5))",
                 }}
+                aria-hidden
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -330,17 +327,21 @@ export default function SevaBlogClient() {
                   alt=""
                   className="h-full w-full object-contain object-center"
                 />
-              </div>
-            </div>
-            {/* Right: quotes (balanced with image) */}
-            <div className="flex flex-1 flex-col justify-center text-center landscape-desktop:max-w-xl landscape-desktop:text-left lg:max-w-xl lg:text-left">
-              <p className="text-base font-medium italic text-[#6b5344] sm:text-lg md:text-xl md:whitespace-nowrap">
-                Stories of Love in Action · Seva that Transforms · Hearts that Unite
-              </p>
-              <p className="mt-2 font-serif text-xl font-semibold text-[#8b6b5c] sm:text-2xl md:text-3xl">
-                Where Service Becomes Sadhana
-              </p>
-            </div>
+              </span>
+              <span>Hridaya</span>
+            </h1>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#8b6b5c] sm:mt-1.5 sm:text-sm sm:tracking-[0.28em] md:text-base md:tracking-[0.3em]">
+              LOVE IN ACTION
+            </p>
+          </div>
+
+          <div className="mx-auto mt-2 max-w-3xl px-1 text-center sm:mt-2.5 md:mt-3">
+            <p className="text-base font-medium italic leading-snug text-[#6b5344] sm:text-lg md:text-xl">
+              Stories of Love in Action · Seva that Transforms · Hearts that Unite
+            </p>
+            <p className="mt-1 font-serif text-xl font-semibold leading-snug text-[#8b6b5c] sm:mt-1.5 sm:text-2xl md:text-3xl">
+              Where Service Becomes Sadhana
+            </p>
           </div>
         </div>
       </section>
@@ -610,7 +611,9 @@ export default function SevaBlogClient() {
         {qFromUrl ? (
           <p className="mt-3 text-sm text-[#6b5344]">
             {postsLoading ? (
-              <span>Searching…</span>
+              <span className="inline-flex items-center gap-2 align-middle">
+                <AppPageLoader layout="inline" label="Searching stories" message="Searching…" className="!text-[#6b5344]" />
+              </span>
             ) : (
               <>
                 {communityPosts.length === 1
@@ -624,7 +627,9 @@ export default function SevaBlogClient() {
         ) : null}
 
         {postsLoading && !loading ? (
-          <p className="mt-4 text-center text-sm text-[#8b6b5c]">Updating results…</p>
+          <div className="mt-6 flex justify-center">
+            <AppPageLoader layout="compact" label="Updating stories" message="Updating stories…" className="py-4" />
+          </div>
         ) : null}
 
         {postsFetchError ? (

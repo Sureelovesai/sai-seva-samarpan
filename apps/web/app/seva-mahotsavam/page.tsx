@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { FindSevaActivityRow } from "@/app/_components/FindSevaActivityRow";
 import {
   buildSevaMahotsavamActivitiesPageUrlFromFindSeva,
@@ -177,7 +178,11 @@ function MahotsavamContent() {
       <div className="mx-auto max-w-3xl px-4 pb-10 pt-5 sm:max-w-4xl sm:px-6 md:max-w-6xl">
         <SevaMahotsavamBanner />
 
-        {loading && <p className="text-center text-zinc-600">Loading activities…</p>}
+        {loading && (
+          <div className="py-8">
+            <AppPageLoader layout="section" label="Loading activities" message="Loading activities…" />
+          </div>
+        )}
         {error && !loading && <p className="text-center text-red-700">{error}</p>}
         {!loading && !error && sortedItems.length === 0 && (
           <div className="space-y-3 rounded-lg bg-white/70 p-6 text-center text-zinc-800">
@@ -222,8 +227,8 @@ export default function SevaMahotsavamPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40vh] items-center justify-center bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))] text-lg text-zinc-600">
-          Loading…
+        <div className="min-h-[40vh] bg-[radial-gradient(circle_at_40%_20%,rgba(255,255,255,0.65),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(180,190,210,0.85),rgba(120,210,230,0.75),rgba(180,190,210,0.85))]">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
         </div>
       }
     >

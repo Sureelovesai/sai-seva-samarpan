@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
@@ -171,9 +172,14 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[calc(100vh-1px)] flex items-center justify-center bg-slate-200">
-          <p className="text-slate-600">Loading…</p>
-        </div>
+        <AppPageLoader
+          layout="fullPage"
+          surface="plain"
+          fullPageMinHeightClass="min-h-[calc(100vh-1px)]"
+          label="Loading"
+          message="Loading…"
+          size="lg"
+        />
       }
     >
       <ResetPasswordContent />

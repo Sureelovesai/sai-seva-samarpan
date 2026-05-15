@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type ProfileRow = {
   id: string;
@@ -133,7 +134,11 @@ export default function AdminCommunityOutreachPage() {
         <code className="rounded bg-zinc-100 px-1">EMAIL_ENABLED=true</code> is set.
       </p>
 
-      {loading && <p className="mt-8 text-zinc-600">Loading…</p>}
+      {loading && (
+        <div className="mt-8">
+          <AppPageLoader layout="compact" label="Loading profiles" message="Loading…" className="items-start py-2" />
+        </div>
+      )}
       {err && <p className="mt-8 text-red-700">{err}</p>}
 
       {!loading && !err && rows.length === 0 && (

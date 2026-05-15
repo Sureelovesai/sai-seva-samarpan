@@ -10,6 +10,7 @@ const ALLOWED_PATHNAMES = new Set([
   "/login",
   "/log-hours",
   "/log-hours/certificate",
+  "/log-hours/certificate/prepare",
   "/community-outreach",
   "/community-outreach/profile",
   "/community-outreach/post-activity",

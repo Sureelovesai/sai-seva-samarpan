@@ -16,7 +16,7 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 type LevelTab = "center" | "regional" | "national";
 
 /**
- * Public seva activity calendar (home page). Uses /api/seva-calendar — no login required.
+ * Public Seva Activity Calendar (home page). Uses /api/seva-calendar — no login required.
  * Level tabs and filters mirror Find Seva.
  */
 export function SevaPublicCalendarSection() {
@@ -106,26 +106,21 @@ export function SevaPublicCalendarSection() {
   };
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <section className="mx-auto w-full max-w-[calc(64rem*0.95)] px-4 py-8 sm:px-6 sm:py-10">
       <div className="overflow-hidden rounded-xl border border-sky-800 bg-gradient-to-b from-sky-950 to-slate-900 shadow-lg">
-        <div className="border-b border-sky-800/80 px-6 py-4">
+        <div className="border-b border-sky-800/80 px-5 py-3 sm:px-6">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-4">
             <span className="h-px w-full max-w-[60px] bg-gradient-to-r from-transparent to-sky-400/60 sm:block" aria-hidden />
-            <h2 className="text-center text-2xl font-extrabold tracking-[0.12em] text-sky-100 sm:text-3xl">
-              Seva activity calendar
+            <h2 className="text-center text-xl font-extrabold tracking-[0.12em] text-sky-100 sm:text-2xl">
+              Seva Activity Calendar
             </h2>
             <span className="h-px w-full max-w-[60px] bg-gradient-to-l from-transparent to-sky-400/60 sm:block" aria-hidden />
           </div>
-          <p className="mt-2 text-center text-sm text-sky-200/80">
-            Published activities by day. Pick a level (same as{" "}
-            <strong className="text-sky-100">Find Seva</strong>), set filters, then click a date to open
-            Find Seva with matching scope. No account required.
-          </p>
         </div>
 
-        <div className="border-b border-sky-800/80 px-4 py-4 sm:px-6">
-          <div className="mb-4 flex flex-col items-stretch gap-3 sm:items-center">
-            <div className="inline-flex w-full max-w-3xl overflow-visible rounded-lg border-2 border-sky-600/80 bg-slate-900/80 shadow-md">
+        <div className="border-b border-sky-800/80 px-4 py-3 sm:px-6">
+          <div className="mb-3 flex flex-col items-stretch gap-2 sm:items-center">
+            <div className="inline-flex w-full overflow-visible rounded-lg border-2 border-sky-600/80 bg-slate-900/80 shadow-md">
               {(
                 [
                   { id: "center" as const, label: "Center level", info: SEVA_LEVEL_TAB_INFO.center },
@@ -160,23 +155,22 @@ export function SevaPublicCalendarSection() {
                 );
               })}
             </div>
-            <p className="max-w-3xl text-center text-xs text-sky-200/90">
-              {levelTab === "center" && (
-                <>Center-level seva is tied to a Sai center / city (usual local listings).</>
-              )}
-              {levelTab === "regional" && (
-                <>
-                  Regional coordinators post by USA region — use <strong className="text-sky-50">USA Region</strong>{" "}
-                  below.
-                </>
-              )}
-              {levelTab === "national" && (
-                <>National coordinators post organization-wide activities (no center or region filters).</>
-              )}
-            </p>
+            {(levelTab === "regional" || levelTab === "national") && (
+              <p className="w-full text-center text-xs text-sky-200/90">
+                {levelTab === "regional" && (
+                  <>
+                    Regional coordinators post by USA region — use <strong className="text-sky-50">USA Region</strong>{" "}
+                    below.
+                  </>
+                )}
+                {levelTab === "national" && (
+                  <>National coordinators post organization-wide activities (no center or region filters).</>
+                )}
+              </p>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-end gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-end gap-2 sm:gap-3">
             {levelTab === "center" && (
               <div className="min-w-[140px] flex-1 sm:flex-none">
                 <label className="block text-xs font-semibold text-sky-200">Center</label>
@@ -248,41 +242,43 @@ export function SevaPublicCalendarSection() {
           </div>
         </div>
 
-        <div className="px-3 py-4 sm:px-6 sm:py-6">
-          {error && <p className="mb-4 text-center text-sm text-red-300">{error}</p>}
-          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-sky-300 sm:gap-2 sm:text-sm">
-            {WEEKDAYS.map((w) => (
-              <div key={w} className="py-2">
-                {w}
-              </div>
-            ))}
-          </div>
-          <div className="mt-1 grid grid-cols-7 gap-1 sm:gap-2">
-            {Array.from({ length: leadingBlanks }, (_, i) => (
-              <div key={`pad-${i}`} className="aspect-square rounded-lg bg-slate-900/40" aria-hidden />
-            ))}
-            {dayKeys.map((dateKey) => {
-              const n = counts[dateKey] ?? 0;
-              const dayNum = Number(dateKey.slice(-2));
-              return (
-                <Link
-                  key={dateKey}
-                  href={buildFindSevaHref(dateKey)}
-                  className={`flex aspect-square flex-col items-center justify-center rounded-lg border text-sm font-semibold transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-sky-400 ${
-                    n > 0
-                      ? "border-sky-500/80 bg-sky-900/50 text-sky-50"
-                      : "border-slate-700/80 bg-slate-900/60 text-slate-500"
-                  }`}
-                >
-                  <span>{dayNum}</span>
-                  {n > 0 && (
-                    <span className="mt-0.5 text-[10px] font-bold text-amber-300 sm:text-xs">
-                      {n} {n === 1 ? "activity" : "activities"}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+        <div className="px-3 py-2 sm:px-6 sm:py-3">
+          {error && <p className="mb-2 text-center text-sm text-red-300">{error}</p>}
+          <div className="w-full">
+            <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold leading-none text-sky-300 sm:gap-1 sm:text-[11px]">
+              {WEEKDAYS.map((w) => (
+                <div key={w} className="py-0.5 sm:py-1">
+                  {w}
+                </div>
+              ))}
+            </div>
+            <div className="mt-0.5 grid grid-cols-7 gap-0.5 sm:mt-1 sm:gap-1">
+              {Array.from({ length: leadingBlanks }, (_, i) => (
+                <div key={`pad-${i}`} className="aspect-[8/5] min-h-0 rounded-md bg-slate-900/40" aria-hidden />
+              ))}
+              {dayKeys.map((dateKey) => {
+                const n = counts[dateKey] ?? 0;
+                const dayNum = Number(dateKey.slice(-2));
+                return (
+                  <Link
+                    key={dateKey}
+                    href={buildFindSevaHref(dateKey)}
+                    className={`flex aspect-[8/5] min-h-0 flex-col items-center justify-center gap-0 rounded-md border px-0.5 py-0.5 text-[11px] font-semibold leading-none transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-sky-400 sm:text-xs ${
+                      n > 0
+                        ? "border-sky-500/80 bg-sky-900/50 text-sky-50"
+                        : "border-slate-700/80 bg-slate-900/60 text-slate-500"
+                    }`}
+                  >
+                    <span className="leading-none">{dayNum}</span>
+                    {n > 0 && (
+                      <span className="mt-px text-[8px] font-bold leading-tight text-amber-300 sm:text-[9px]">
+                        {n} {n === 1 ? "activity" : "activities"}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

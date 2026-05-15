@@ -71,7 +71,11 @@ export async function GET() {
       // Impact: hours and volunteers only from Seva Activity signups (activities that have ended). No Logged Hours.
       (async () => {
         const [signupsWithActivity, activitiesCount, centersResult] = await Promise.all([
+          // Only signups tied to published, active activities (same scope as the blog grid). Avoids scanning the full signup table.
           prisma.sevaSignup.findMany({
+            where: {
+              activity: { ...activityWhere },
+            },
             select: { status: true, activity: { select: activityDateSelect } },
           }),
           prisma.sevaActivity.count({ where: { ...activityWhere } }),

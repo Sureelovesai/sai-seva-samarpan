@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 export default function AdminLayout({
   children,
@@ -66,9 +67,14 @@ export default function AdminLayout({
 
   if (!checked && !bypassAdminLoginForEventPages) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-lg font-semibold text-zinc-600">Loading…</p>
-      </div>
+      <AppPageLoader
+        layout="fullPage"
+        surface="plain"
+        fullPageMinHeightClass="min-h-[50vh]"
+        label="Loading admin"
+        message="Loading…"
+        size="lg"
+      />
     );
   }
 

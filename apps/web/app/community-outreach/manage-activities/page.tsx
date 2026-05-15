@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type Row = {
   id: string;
@@ -130,8 +131,8 @@ export default function ManageCommunityActivitiesPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-zinc-500">
-                    Loading…
+                  <td colSpan={6} className="px-3 py-6">
+                    <AppPageLoader layout="compact" label="Loading activities" message="Loading…" className="py-4" />
                   </td>
                 </tr>
               ) : rows.length === 0 ? (

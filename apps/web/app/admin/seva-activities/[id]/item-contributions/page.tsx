@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type Claim = {
   id: string;
@@ -134,7 +135,7 @@ export default function ItemContributionsDashboardPage() {
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             {loading ? (
-              <p className="text-slate-600">Loading…</p>
+              <AppPageLoader layout="compact" label="Loading contributions" message="Loading…" className="items-start py-2" />
             ) : error ? (
               <p className="text-red-700">{error}</p>
             ) : (

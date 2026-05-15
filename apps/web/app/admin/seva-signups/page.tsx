@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type ActivityOption = { id: string; title: string; levelTag: string };
 
@@ -534,7 +535,13 @@ function SevaSignUpsContent() {
 
 export default function SevaSignUpsPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><p>Loading…</p></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading sign-ups" message="Loading…" size="lg" className="py-16" />
+        </div>
+      }
+    >
       <SevaSignUpsContent />
     </Suspense>
   );

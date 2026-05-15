@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 const ALLOWED_ORIGINS = [
   "https://www.srisathyasaiglobalcouncil.org",
@@ -78,8 +79,8 @@ export default function ExternalPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40vh] items-center justify-center">
-          <p className="text-zinc-500">Loading…</p>
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" size="lg" className="py-16" />
         </div>
       }
     >

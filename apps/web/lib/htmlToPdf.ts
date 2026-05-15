@@ -53,15 +53,20 @@ function expandMargins(
   return margin;
 }
 
-/** Explicit [w,h] in `unit` so jsPDF/mobile viewers don’t infer the wrong orientation. */
-function portraitFormatTuple(
+/** Page dimensions in `unit` — respects orientation for explicit tuples (avoids wrong aspect on mobile PDF). */
+function resolvePageFormat(
   unit: "mm" | "in" | "pt",
-  format: string | [number, number] | undefined
+  format: string | [number, number] | undefined,
+  orientation: "portrait" | "landscape"
 ): string | [number, number] {
   const f = format ?? "a4";
   if (typeof f !== "string") return f;
-  if (unit === "mm" && f === "a4") return [210, 297];
-  if (unit === "in" && f === "letter") return [8.5, 11];
+  if (unit === "in" && f === "letter") {
+    return orientation === "landscape" ? [11, 8.5] : [8.5, 11];
+  }
+  if (unit === "mm" && f === "a4") {
+    return orientation === "landscape" ? [297, 210] : [210, 297];
+  }
   return f;
 }
 
@@ -103,12 +108,12 @@ async function jpegCanvasToPdfFile(
 
   const userPdf = options?.jsPDF ?? {};
   const unit = userPdf.unit ?? "mm";
-  const formatExplicit = portraitFormatTuple(unit, userPdf.format ?? "a4");
+  const orientation = (userPdf.orientation ?? "portrait") as "portrait" | "landscape";
+  const formatExplicit = resolvePageFormat(unit, userPdf.format ?? "a4", orientation);
 
-  /** Force portrait; explicit dimensions avoid landscape pages on some mobile PDF stacks. */
   const doc = new jsPDF({
     ...userPdf,
-    orientation: "portrait",
+    orientation,
     unit,
     format: formatExplicit,
     compress: userPdf.compress !== false,
@@ -311,6 +316,18 @@ const A4_PORTRAIT_CAPTURE_PX = {
   h: Math.round((297 * 96) / 25.4),
 };
 
+/** ~96dpi — US Letter portrait (8.5 × 11 in). */
+const LETTER_PORTRAIT_CAPTURE_PX = {
+  w: Math.round(8.5 * 96),
+  h: Math.round(11 * 96),
+};
+
+/** ~96dpi — US Letter landscape (11 × 8.5 in) capture viewport. */
+const LETTER_LANDSCAPE_CAPTURE_PX = {
+  w: Math.round(11 * 96),
+  h: Math.round(8.5 * 96),
+};
+
 /**
  * Applied after mirroring computed styles (which set inline values) so the certificate
  * stays shorter — uniform scale then uses full A4 portrait width instead of a skinny column.
@@ -450,6 +467,202 @@ export async function downloadCertificateA4PortraitPdf(
   }
 }
 
+/**
+ * Mobile / touch: US Letter portrait (8.5×11 in at ~96dpi capture) — matches print CSS `size: letter portrait`.
+ */
+export async function downloadCertificateLetterPortraitPdf(
+  sourceElement: HTMLElement,
+  filename: string,
+  options?: DownloadElementAsPdfOptions
+): Promise<void> {
+  const W = LETTER_PORTRAIT_CAPTURE_PX.w;
+  const H = LETTER_PORTRAIT_CAPTURE_PX.h;
+
+  const wrapper = document.createElement("div");
+  wrapper.setAttribute("aria-hidden", "true");
+  const tuckY =
+    typeof window !== "undefined" ? Math.ceil(window.innerHeight + 120) : 120;
+  wrapper.style.cssText = [
+    "position:fixed",
+    "left:0",
+    `top:${tuckY}px`,
+    `width:${W}px`,
+    `height:${H}px`,
+    "overflow:hidden",
+    "margin:0",
+    "padding:0",
+    "box-sizing:border-box",
+    "background:#f6eadc",
+    "z-index:2147483645",
+    "pointer-events:none",
+  ].join(";");
+
+  const viewport = document.createElement("div");
+  viewport.style.cssText = [
+    `width:${W}px`,
+    `height:${H}px`,
+    "overflow:hidden",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "box-sizing:border-box",
+    "margin:0",
+    "padding:0",
+    "background:#f6eadc",
+  ].join(";");
+
+  const clone = sourceElement.cloneNode(true) as HTMLElement;
+  viewport.appendChild(clone);
+  wrapper.appendChild(viewport);
+  document.body.appendChild(wrapper);
+
+  copyComputedStylesOntoClone(sourceElement, clone);
+  applyCertificatePdfCompactionInline(clone);
+  clone.style.boxSizing = "border-box";
+  clone.style.width = `${W}px`;
+  clone.style.maxWidth = `${W}px`;
+  clone.style.flexShrink = "0";
+
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await waitForSubtreeImages(viewport);
+
+  try {
+    const { default: html2canvas } = await import("html2canvas");
+    const { onclone: userOnClone, ...h2cOpts } = options?.html2canvas ?? {};
+
+    const canvas = await html2canvas(viewport, {
+      useCORS: true,
+      logging: false,
+      foreignObjectRendering: false,
+      backgroundColor: "#f6eadc",
+      scrollX: 0,
+      scrollY: 0,
+      width: W,
+      height: H,
+      windowWidth: W,
+      windowHeight: Math.max(H, tuckY + H + 8),
+      ...h2cOpts,
+      scale: h2cOpts.scale ?? 2,
+      onclone: (clonedDoc, clonedEl) => {
+        stripAuthorStylesheetsFromClone(clonedDoc);
+        userOnClone?.(clonedDoc, clonedEl);
+      },
+    });
+
+    await jpegCanvasToPdfFile(canvas, filename, options);
+  } finally {
+    wrapper.remove();
+  }
+}
+
+/**
+ * One certificate scaled to fit US Letter landscape (11×8.5 in) — single page, centered.
+ */
+export async function downloadCertificateLetterLandscapePdf(
+  sourceElement: HTMLElement,
+  filename: string,
+  options?: DownloadElementAsPdfOptions
+): Promise<void> {
+  const LW = LETTER_LANDSCAPE_CAPTURE_PX.w;
+  const LH = LETTER_LANDSCAPE_CAPTURE_PX.h;
+  const PW = LETTER_PORTRAIT_CAPTURE_PX.w;
+  const PH = LETTER_PORTRAIT_CAPTURE_PX.h;
+
+  const wrapper = document.createElement("div");
+  wrapper.setAttribute("aria-hidden", "true");
+  const tuckY =
+    typeof window !== "undefined" ? Math.ceil(window.innerHeight + 120) : 120;
+  wrapper.style.cssText = [
+    "position:fixed",
+    "left:0",
+    `top:${tuckY}px`,
+    `width:${LW}px`,
+    `height:${LH}px`,
+    "overflow:hidden",
+    "margin:0",
+    "padding:0",
+    "box-sizing:border-box",
+    "background:#f6eadc",
+    "z-index:2147483645",
+    "pointer-events:none",
+  ].join(";");
+
+  const viewport = document.createElement("div");
+  viewport.style.cssText = [
+    `width:${LW}px`,
+    `height:${LH}px`,
+    "overflow:hidden",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "box-sizing:border-box",
+    "margin:0",
+    "padding:0",
+    "background:#f6eadc",
+  ].join(";");
+
+  const scaleStage = document.createElement("div");
+  scaleStage.style.cssText = [
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "transform-origin:center center",
+    "box-sizing:border-box",
+  ].join(";");
+
+  const clone = sourceElement.cloneNode(true) as HTMLElement;
+  scaleStage.appendChild(clone);
+  viewport.appendChild(scaleStage);
+  wrapper.appendChild(viewport);
+  document.body.appendChild(wrapper);
+
+  copyComputedStylesOntoClone(sourceElement, clone);
+  applyCertificatePdfCompactionInline(clone);
+  clone.style.boxSizing = "border-box";
+  clone.style.width = `${PW}px`;
+  clone.style.maxWidth = `${PW}px`;
+  clone.style.flexShrink = "0";
+
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await waitForSubtreeImages(viewport);
+
+  const nh = Math.max(clone.scrollHeight, PH);
+  const scale = Math.min(LW / PW, LH / nh);
+  scaleStage.style.transform = `scale(${scale})`;
+
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+  try {
+    const { default: html2canvas } = await import("html2canvas");
+    const { onclone: userOnClone, ...h2cOpts } = options?.html2canvas ?? {};
+
+    const canvas = await html2canvas(viewport, {
+      useCORS: true,
+      logging: false,
+      foreignObjectRendering: false,
+      backgroundColor: "#f6eadc",
+      scrollX: 0,
+      scrollY: 0,
+      width: LW,
+      height: LH,
+      windowWidth: LW,
+      windowHeight: Math.max(LH, tuckY + LH + 8),
+      ...h2cOpts,
+      scale: h2cOpts.scale ?? 2,
+      onclone: (clonedDoc, clonedEl) => {
+        stripAuthorStylesheetsFromClone(clonedDoc);
+        userOnClone?.(clonedDoc, clonedEl);
+      },
+    });
+
+    await jpegCanvasToPdfFile(canvas, filename, options);
+  } finally {
+    wrapper.remove();
+  }
+}
+
 /** @deprecated Use downloadCertificateA4PortraitPdf — landscape capture left a narrow strip on phones. */
 export const downloadCertificateLandscapePdf = downloadCertificateA4PortraitPdf;
 
@@ -461,12 +674,19 @@ export const CERTIFICATE_LETTER_PDF_OPTIONS: DownloadElementAsPdfOptions = {
 };
 
 /**
- * Letter PDF with no extra jsPDF margin — use when the captured element is already
- * sized to the printable area (~7.9×10.4 in) and centers the certificate inside (typical formal layout).
+ * Letter portrait full bleed — mobile certificate PDF (matches Letter portrait capture).
  */
-export const CERTIFICATE_LETTER_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptions = {
+export const CERTIFICATE_LETTER_PORTRAIT_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptions = {
   margin: 0,
   jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+  html2canvas: { scale: 2 },
+  rasterPdfFit: "fillPrintableWidth",
+};
+
+/** Letter landscape — one scaled certificate per 11×8.5 in page. */
+export const CERTIFICATE_LETTER_LANDSCAPE_PDF_OPTIONS_FULL_PAGE: DownloadElementAsPdfOptions = {
+  margin: 0,
+  jsPDF: { unit: "in", format: "letter", orientation: "landscape" },
   html2canvas: { scale: 2 },
 };
 

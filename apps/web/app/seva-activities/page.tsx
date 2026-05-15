@@ -10,6 +10,7 @@ import {
   SEVA_MAHOTSAVAM_ACTIVITIES_PATH,
   sevaActivitiesPageSearchParamsToApiQuery,
 } from "@/lib/sevaActivitiesBrowseQuery";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type SevaActivity = {
   id: string;
@@ -754,7 +755,7 @@ function SevaActivitiesContent() {
   if (loading && !activities.length) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,180,220,0.4),transparent),linear-gradient(180deg,rgba(200,220,240,0.5)_0%,rgba(180,200,230,0.6)_100%)]">
-        <p className="text-zinc-600">Loading activities…</p>
+        <AppPageLoader layout="section" label="Loading activities" message="Loading activities…" size="lg" />
       </div>
     );
   }
@@ -989,7 +990,7 @@ function SevaActivitiesContent() {
 
         {/* Sign-up area — scroll target from Seva Details link */}
         <h2 id="sign-up-to-volunteer" className="scroll-mt-6 mt-14 text-center text-2xl font-bold tracking-tight text-indigo-900">
-          {isMahotsavamActivitiesPage ? "Volunteer sign-up" : "Volunteer & Item sign-up"}
+          {isMahotsavamActivitiesPage ? "Volunteer sign-up" : "Volunteer & Item Sign-Up"}
         </h2>
         <div className="mx-auto mt-4 flex max-w-md gap-2">
           <button
@@ -1450,7 +1451,9 @@ Location: ${locationSummary}`}
                     Items to bring <span className="text-base font-semibold text-zinc-500">(optional)</span>
                   </h2>
                   <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
-                    {contribLoading && <p className="text-center text-zinc-600">Loading supply list…</p>}
+                    {contribLoading && (
+                      <AppPageLoader layout="compact" label="Loading supply list" message="Loading supply list…" />
+                    )}
                     {contribError && !contribLoading && (
                       <p className="text-center text-sm text-red-700">{contribError}</p>
                     )}
@@ -1630,7 +1633,13 @@ Location: ${locationSummary}`}
 
 export default function SevaActivitiesPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><p className="text-zinc-600">Loading…</p></div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <AppPageLoader layout="section" label="Loading" message="Loading…" />
+        </div>
+      }
+    >
       <SevaActivitiesContent />
     </Suspense>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type Row = {
   id: string;
@@ -79,7 +80,11 @@ export default function ManageEventsPage() {
           </div>
         </div>
 
-        {loading ? <p className="text-zinc-600">Loading…</p> : null}
+        {loading ? (
+          <div className="py-2">
+            <AppPageLoader layout="compact" label="Loading events" message="Loading…" className="items-start py-2" />
+          </div>
+        ) : null}
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
         {!loading && rows.length === 0 ? (

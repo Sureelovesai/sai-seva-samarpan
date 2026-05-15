@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { PortalEventForm, type PortalEventFormInitial } from "@/app/admin/_components/PortalEventForm";
 
 /** If the source start is in the past, bump forward in 7-day steps until it is in the future (same clock time). */
@@ -152,7 +153,11 @@ export default function EditEventPage() {
           </div>
         </div>
 
-        {loading ? <p className="text-zinc-600">Loading…</p> : null}
+        {loading ? (
+          <div className="py-2">
+            <AppPageLoader layout="compact" label="Loading event" message="Loading…" className="items-start py-2" />
+          </div>
+        ) : null}
         {loadError ? <p className="text-red-600">{loadError}</p> : null}
 
         {!loading && initial ? (

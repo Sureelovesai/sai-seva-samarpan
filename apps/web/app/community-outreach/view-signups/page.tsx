@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type ActivityOption = { id: string; title: string };
 
@@ -431,7 +432,13 @@ function ViewSignUpsInner() {
 
 export default function ViewCommunitySignUpsPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-[40vh]">
+          <AppPageLoader layout="section" label="Loading sign-ups" message="Loading…" size="lg" className="py-16" />
+        </div>
+      }
+    >
       <ViewSignUpsInner />
     </Suspense>
   );

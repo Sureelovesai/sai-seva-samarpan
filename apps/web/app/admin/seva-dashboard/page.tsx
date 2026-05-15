@@ -524,8 +524,10 @@ export default function SevaAdminDashboardPage() {
 
           <div className="absolute inset-0 flex items-center justify-start">
             <div className="w-full max-w-[12rem] pl-5 pr-2 sm:max-w-sm sm:pl-10 sm:pr-6 md:max-w-2xl lg:max-w-6xl">
-              <div className="text-xl font-semibold leading-tight tracking-wide text-indigo-500 sm:text-3xl md:text-4xl lg:text-5xl lg:leading-normal">
-                Seva Admin Dashboard
+              <div className="inline-block [filter:drop-shadow(0_2px_8px_rgba(0,0,0,0.6))_drop-shadow(0_0_22px_rgba(37,99,235,0.65))]">
+                <div className="bg-gradient-to-r from-blue-500 via-blue-700 to-indigo-900 bg-clip-text text-xl font-light leading-tight tracking-wide text-transparent sm:text-3xl md:text-4xl lg:text-5xl lg:leading-normal">
+                  Seva Admin Dashboard
+                </div>
               </div>
 
               <div className="mt-2 text-sm font-semibold leading-tight text-white sm:mt-3 sm:text-lg md:text-xl lg:text-2xl lg:leading-normal">

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { certificatePathFromLoggedHoursRow } from "@/lib/logHoursCertificate";
-import { SsLogoRingLoader } from "@/app/_components/SsLogoRingLoader";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type UpcomingActivity = {
   id: string;
@@ -145,10 +145,14 @@ function DashboardContent() {
     }
     setLoggedHoursError(null);
     const offset = (logHoursPage - 1) * LOG_HOURS_PAGE_SIZE;
-    fetch(`/api/log-hours?limit=${LOG_HOURS_PAGE_SIZE}&offset=${offset}`, {
-      credentials: "include",
-      cache: "no-store",
-    })
+    const includeTotal = offset === 0 ? "true" : "false";
+    fetch(
+      `/api/log-hours?limit=${LOG_HOURS_PAGE_SIZE}&offset=${offset}&includeTotal=${includeTotal}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+      }
+    )
       .then(async (res) => {
         if (!res.ok) {
           if (!cancelled) {
@@ -167,7 +171,9 @@ function DashboardContent() {
       .then((data) => {
         if (cancelled || !data) return;
         setLoggedHoursList(Array.isArray(data.entries) ? data.entries : []);
-        setLogHoursTotal(typeof data.total === "number" ? data.total : 0);
+        if (typeof data.total === "number") {
+          setLogHoursTotal(data.total);
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -201,10 +207,7 @@ function DashboardContent() {
 
   if (!authChecked) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#FFF2A8]">
-        <SsLogoRingLoader size="lg" label="Checking session" />
-        <p className="text-sm font-medium text-indigo-900/80">Loading…</p>
-      </div>
+      <AppPageLoader layout="fullPage" label="Checking session" message="Loading…" size="lg" />
     );
   }
 
@@ -263,18 +266,19 @@ function DashboardContent() {
           <h2 className="text-center text-2xl font-extrabold text-indigo-800 md:text-3xl">
             Your Log Hours history
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-zinc-800">
-            This grid lists <strong>only your</strong> submissions from the{" "}
-            <Link href="/log-hours" className="font-semibold text-indigo-800 underline">
-              Log Hours
-            </Link>{" "}
-            page while signed in as <strong>this account</strong> (filtered by your email in the database). Other people’s hours never appear here. This is separate from{" "}
-            <strong>Upcoming Seva Activities</strong> below, which shows activities you joined.
+          <p className="mx-auto mt-3 max-w-2xl text-center text-xs leading-relaxed text-indigo-900/85 sm:text-sm">
+            <span className="font-semibold text-indigo-900">Certificate:</span> Request a certificate only when you are
+            applying on behalf of a volunteer who is <strong>18 years old or younger</strong>. If the volunteer is an
+            adult, please do not use this option.
           </p>
           {loggedHoursLoading ? (
-            <div className="mx-auto mt-6 flex flex-col items-center justify-center gap-3 py-10">
-              <SsLogoRingLoader size="md" label="Loading log hours history" />
-              <p className="text-sm text-zinc-600">Loading your log history…</p>
+            <div className="mx-auto mt-6">
+              <AppPageLoader
+                layout="section"
+                size="md"
+                label="Loading log hours history"
+                message="Loading your log history…"
+              />
             </div>
           ) : loggedHoursError ? (
             <div className="mx-auto mt-6 rounded-md bg-red-50 px-6 py-4 text-center text-sm text-red-900 shadow-sm">
@@ -313,14 +317,17 @@ function DashboardContent() {
                           <td className="whitespace-nowrap px-4 py-3">{row.hours}</td>
                           <td className="px-4 py-3 text-right">
                             <Link
-                              href={certificatePathFromLoggedHoursRow({
-                                volunteerName: row.volunteerName,
-                                location: row.location,
-                                activityCategory: row.activityCategory,
-                                hours: row.hours,
-                                date: row.date,
-                                comments: row.comments,
-                              })}
+                              href={certificatePathFromLoggedHoursRow(
+                                {
+                                  volunteerName: row.volunteerName,
+                                  location: row.location,
+                                  activityCategory: row.activityCategory,
+                                  hours: row.hours,
+                                  date: row.date,
+                                  comments: row.comments,
+                                },
+                                { from: "dashboard" }
+                              )}
                               className="inline-block rounded-full bg-emerald-800 px-4 py-2 text-xs font-bold tracking-wide text-white shadow hover:bg-emerald-900"
                             >
                               View certificate
@@ -385,9 +392,13 @@ function DashboardContent() {
           </h2>
 
           {upcomingLoading ? (
-            <div className="mx-auto mt-6 flex flex-col items-center justify-center gap-3 py-8">
-              <SsLogoRingLoader size="md" label="Loading upcoming activities" />
-              <p className="text-sm text-zinc-600">Loading upcoming activities…</p>
+            <div className="mx-auto mt-6">
+              <AppPageLoader
+                layout="section"
+                size="md"
+                label="Loading upcoming activities"
+                message="Loading upcoming activities…"
+              />
             </div>
           ) : upcoming.length === 0 ? (
             <div className="mx-auto mt-4 max-w-3xl rounded-md bg-white/35 px-6 py-8 text-zinc-700 shadow-sm">
@@ -429,10 +440,7 @@ export default function MyDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#FFF2A8]">
-          <SsLogoRingLoader size="lg" label="Loading dashboard" />
-          <p className="text-sm font-medium text-indigo-900/80">Loading…</p>
-        </div>
+        <AppPageLoader layout="fullPage" label="Loading dashboard" message="Loading…" size="lg" />
       }
     >
       <DashboardContent />
@@ -606,7 +614,7 @@ function UpcomingSignupModal({
         </div>
         <div className="px-6 py-4">
           {loading ? (
-            <p className="text-zinc-600">Loading…</p>
+            <AppPageLoader layout="compact" label="Loading sign-up" message="Loading…" />
           ) : error && !signup ? (
             <p className="text-red-600">{error}</p>
           ) : signup ? (

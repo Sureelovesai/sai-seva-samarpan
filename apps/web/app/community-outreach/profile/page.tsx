@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { CITIES } from "@/lib/cities";
 
 function OrganizationLogoPreview({
@@ -173,8 +174,8 @@ export default function CommunityOutreachProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-zinc-50 text-zinc-600">
-        Loading…
+      <div className="min-h-[50vh] bg-zinc-50">
+        <AppPageLoader layout="section" label="Loading profile" message="Loading…" size="lg" className="py-16" />
       </div>
     );
   }
