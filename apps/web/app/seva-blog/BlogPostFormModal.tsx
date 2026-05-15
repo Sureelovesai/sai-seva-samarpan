@@ -81,6 +81,13 @@ type AdminBlogPostPayload = {
   articleCanvas?: unknown;
 };
 
+export type BlogPostFormSuccessOptions = {
+  id?: string;
+  pendingVerification?: boolean;
+  message?: string;
+  saved?: boolean;
+};
+
 export function BlogPostFormModal({
   mode,
   createSection,
@@ -94,12 +101,7 @@ export function BlogPostFormModal({
   /** When mode is "edit", post id to load and PATCH */
   postId?: string;
   onClose: () => void;
-  onSuccess: (arg?: {
-    id?: string;
-    pendingVerification?: boolean;
-    message?: string;
-    saved?: boolean;
-  }) => void;
+  onSuccess: (arg?: BlogPostFormSuccessOptions) => void;
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");

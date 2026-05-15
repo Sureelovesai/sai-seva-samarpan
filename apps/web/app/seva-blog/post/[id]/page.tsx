@@ -5,7 +5,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { ArticleCanvasChrome } from "@/app/seva-blog/ArticleCanvasChrome";
 import { BlogDriveMediaSection } from "@/app/seva-blog/BlogDriveMediaSection";
-import { BlogPostFormModal } from "@/app/seva-blog/BlogPostFormModal";
+import {
+  BlogPostFormModal,
+  type BlogPostFormSuccessOptions,
+} from "@/app/seva-blog/BlogPostFormModal";
 import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
 import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
 import { downloadElementAsPdf } from "@/lib/htmlToPdf";
@@ -335,7 +338,7 @@ export default function BlogPostPage({
           mode="edit"
           postId={id}
           onClose={() => setEditOpen(false)}
-          onSuccess={(opts) => {
+          onSuccess={(opts?: BlogPostFormSuccessOptions) => {
             if (opts?.saved) {
               setEditOpen(false);
               setLoading(true);

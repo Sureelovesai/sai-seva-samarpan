@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AppPageLoader } from "@/app/_components/AppPageLoader";
+import type { BlogPostFormSuccessOptions } from "./BlogPostFormModal";
 
 const BlogPostFormModal = dynamic(
   () => import("./BlogPostFormModal").then((m) => ({ default: m.BlogPostFormModal })),
@@ -707,7 +708,7 @@ export default function SevaBlogClient() {
           mode="create"
           createSection={createModal.section}
           onClose={() => setCreateModal((m) => ({ ...m, open: false }))}
-          onSuccess={(opts) => {
+          onSuccess={(opts?: BlogPostFormSuccessOptions) => {
             setCreateModal((m) => ({ ...m, open: false }));
             const newPostId = opts?.id;
             const pendingVerification = opts?.pendingVerification;
@@ -738,7 +739,7 @@ export default function SevaBlogClient() {
           mode="edit"
           postId={editModal.postId}
           onClose={() => setEditModal(null)}
-          onSuccess={(opts) => {
+          onSuccess={(opts?: BlogPostFormSuccessOptions) => {
             if (opts?.saved) {
               setEditModal(null);
               fetchCommunityPosts();
