@@ -126,13 +126,6 @@ export async function GET(request: Request) {
             a._count.id >= b._count.id ? a : b
           ).category
         : null;
-    const topCenter =
-      cityGroups.length > 0
-        ? cityGroups.reduce((a: (typeof cityGroups)[number], b: (typeof cityGroups)[number]) =>
-            a._count.id >= b._count.id ? a : b
-          ).city
-        : null;
-
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const thisMonthCount = await prisma.sevaActivity.count({
@@ -185,7 +178,6 @@ export async function GET(request: Request) {
       categoryCounts,
       cityCounts,
       topCategory,
-      topCenter,
       thisMonthCount,
       monthlySevaHours,
       recentActivities: recentActivities.map((a: (typeof recentActivities)[number]) => ({

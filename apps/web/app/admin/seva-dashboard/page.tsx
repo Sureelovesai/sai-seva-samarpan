@@ -60,7 +60,6 @@ type AnalyticsData = {
   categoryCounts: Record<string, number>;
   cityCounts: Record<string, number>;
   topCategory: string | null;
-  topCenter: string | null;
   thisMonthCount: number;
   monthlySevaHours?: { month: string; hours: number }[];
   recentActivities: Array<{
@@ -1057,7 +1056,6 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
         hours: "rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white",
         month: "rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 to-white",
         category: "rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50 to-white",
-        center: "rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50 to-white",
       }
     : {
         active: "rounded-lg bg-gradient-to-br from-emerald-900/50 to-slate-800",
@@ -1065,7 +1063,6 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
         hours: "rounded-lg bg-gradient-to-br from-amber-900/50 to-slate-800",
         month: "rounded-lg bg-gradient-to-br from-violet-900/50 to-slate-800",
         category: "rounded-lg bg-gradient-to-br from-indigo-900/50 to-slate-800",
-        center: "rounded-lg bg-gradient-to-br from-rose-900/50 to-slate-800",
       };
   const cardText = isLight ? "text-slate-800" : "text-white";
   const cardMuted = isLight ? "text-slate-500" : "text-slate-400";
@@ -1078,7 +1075,7 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
   const linkClr = isLight ? "text-indigo-600 hover:underline" : "text-indigo-300 hover:underline";
   return (
     <div className={`px-6 py-8 ${isLight ? "text-slate-800" : "text-slate-100"}`}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <div className={`${cardBg.active} px-4 py-3`}>
           <div className={`text-2xl font-bold ${cardText}`}>{data.activeActivities}</div>
           <div className={`text-sm ${cardMuted}`}>Active Projects</div>
@@ -1103,16 +1100,6 @@ function AnalyticsBlock({ data, theme = "dark" }: { data: AnalyticsData; theme?:
             <span className={`text-lg font-bold truncate ${cardText}`}>{data.topCategory ?? "—"}</span>
           </div>
           <div className={`text-sm ${cardMuted}`}>Top Category</div>
-        </div>
-        <div className={`${cardBg.center} px-4 py-3`}>
-          <div className="flex items-center gap-2">
-            <svg className={`h-5 w-5 shrink-0 ${isLight ? "text-rose-500" : "text-rose-300"}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-            </svg>
-            <span className={`text-lg font-bold truncate ${cardText}`}>{data.topCenter ?? "—"}</span>
-          </div>
-          <div className={`text-sm ${cardMuted}`}>Top Center</div>
         </div>
       </div>
 
