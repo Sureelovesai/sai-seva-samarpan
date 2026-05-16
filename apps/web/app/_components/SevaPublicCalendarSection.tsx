@@ -88,6 +88,8 @@ export function SevaPublicCalendarSection() {
     return Array.from({ length: 7 }, (_, i) => y - 3 + i);
   }, [now]);
 
+  const weekRows = Math.ceil((leadingBlanks + dayKeys.length) / 7);
+
   const buildFindSevaHref = (dateKey: string) => {
     const params = new URLSearchParams();
     if (levelTab === "center") {
@@ -106,8 +108,8 @@ export function SevaPublicCalendarSection() {
   };
 
   return (
-    <section className="mx-auto w-full max-w-[calc(64rem*0.95)] px-4 py-8 sm:px-6 sm:py-10">
-      <div className="overflow-hidden rounded-xl border border-sky-800 bg-gradient-to-b from-sky-950 to-slate-900 shadow-lg">
+    <section className="mx-auto flex w-full max-w-[calc(64rem*0.95)] min-h-[min(100vh,920px)] flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <div className="flex min-h-[min(88vh,840px)] flex-1 flex-col overflow-hidden rounded-xl border border-sky-800 bg-gradient-to-b from-sky-950 to-slate-900 shadow-lg">
         <div className="border-b border-sky-800/80 px-5 py-3 sm:px-6">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-4">
             <span className="h-px w-full max-w-[60px] bg-gradient-to-r from-transparent to-sky-400/60 sm:block" aria-hidden />
@@ -242,19 +244,22 @@ export function SevaPublicCalendarSection() {
           </div>
         </div>
 
-        <div className="px-3 py-2 sm:px-6 sm:py-3">
+        <div className="flex min-h-0 flex-1 flex-col px-3 py-2 sm:px-6 sm:py-4">
           {error && <p className="mb-2 text-center text-sm text-red-300">{error}</p>}
-          <div className="w-full">
-            <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold leading-none text-sky-300 sm:gap-1 sm:text-[11px]">
+          <div className="flex min-h-0 w-full flex-1 flex-col">
+            <div className="grid shrink-0 grid-cols-7 gap-1 text-center text-[10px] font-semibold leading-none text-sky-300 sm:text-[11px]">
               {WEEKDAYS.map((w) => (
-                <div key={w} className="py-0.5 sm:py-1">
+                <div key={w} className="py-1 sm:py-1.5">
                   {w}
                 </div>
               ))}
             </div>
-            <div className="mt-0.5 grid grid-cols-7 gap-0.5 sm:mt-1 sm:gap-1">
+            <div
+              className="mt-1 grid min-h-[min(52vh,560px)] flex-1 grid-cols-7 gap-1 sm:mt-2 sm:gap-1.5 sm:min-h-[min(58vh,640px)] lg:min-h-[min(62vh,720px)]"
+              style={{ gridTemplateRows: `repeat(${weekRows}, minmax(3.25rem, 1fr))` }}
+            >
               {Array.from({ length: leadingBlanks }, (_, i) => (
-                <div key={`pad-${i}`} className="aspect-[8/5] min-h-0 rounded-md bg-slate-900/40" aria-hidden />
+                <div key={`pad-${i}`} className="h-full min-h-[3.25rem] rounded-md bg-slate-900/40" aria-hidden />
               ))}
               {dayKeys.map((dateKey) => {
                 const n = counts[dateKey] ?? 0;
@@ -263,15 +268,15 @@ export function SevaPublicCalendarSection() {
                   <Link
                     key={dateKey}
                     href={buildFindSevaHref(dateKey)}
-                    className={`flex aspect-[8/5] min-h-0 flex-col items-center justify-center gap-0 rounded-md border px-0.5 py-0.5 text-[11px] font-semibold leading-none transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-sky-400 sm:text-xs ${
+                    className={`flex h-full min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-[11px] font-semibold leading-none transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-sky-400 sm:min-h-[3.75rem] sm:text-xs md:min-h-[4.25rem] ${
                       n > 0
                         ? "border-sky-500/80 bg-sky-900/50 text-sky-50"
                         : "border-slate-700/80 bg-slate-900/60 text-slate-500"
                     }`}
                   >
-                    <span className="leading-none">{dayNum}</span>
+                    <span className="text-sm leading-none sm:text-base">{dayNum}</span>
                     {n > 0 && (
-                      <span className="mt-px text-[8px] font-bold leading-tight text-amber-300 sm:text-[9px]">
+                      <span className="text-[8px] font-bold leading-tight text-amber-300 sm:text-[10px]">
                         {n} {n === 1 ? "activity" : "activities"}
                       </span>
                     )}

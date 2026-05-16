@@ -17,7 +17,10 @@
     "prisma:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=./prisma/schema.prisma",
-    "reset-seva-activities": "node scripts/reset-all-data.js"
+    "reset-seva-activities": "node scripts/reset-all-data.js",
+    "qa:export": "node scripts/qa/export-qa-by-role.cjs",
+    "qa:export:home": "node scripts/qa/export-qa-by-role.cjs",
+    "qa:export:coordinator-quick": "node scripts/qa/export-seva-coordinator-quick-checklist.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",

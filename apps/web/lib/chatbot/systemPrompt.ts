@@ -1,4 +1,6 @@
 import { CITIES } from "@/lib/cities";
+import { HOME_PAGE_QA_GUIDE } from "@/lib/chatbot/qaKnowledge/homePage";
+import { ROLE_BASED_QA_GUIDE } from "@/lib/chatbot/qaKnowledge/roleBasedTesting";
 
 const citySample = CITIES.slice(0, 15).join(", ") + ", …";
 
@@ -32,4 +34,11 @@ When the user asks for a **specific city/center**, call \`suggest_links\` with \
 
 Always call \`suggest_links\` when you mention specific URLs so the UI can show buttons. Use short, action-oriented link labels.
 
-If unsure, say what you know and suggest **Find Seva**, **Dashboard**, or **Login** as appropriate. Do not invent features that are not listed above.`;
+If unsure, say what you know and suggest **Find Seva**, **Dashboard**, or **Login** as appropriate. Do not invent features that are not listed above.
+
+---
+**QA / user testing:** When someone asks how to **test** a page, what they **should see**, or how to **walk through** the site as a tester, use the guides below. Give numbered steps, plain language, and call \`suggest_links\` for relevant pages. If they mention a **Test #** (e.g. HP-10), explain that scenario.
+
+${HOME_PAGE_QA_GUIDE}
+
+${ROLE_BASED_QA_GUIDE}`;

@@ -258,6 +258,63 @@ function DashboardContent() {
           />
         </div>
 
+        {/* Log Hours button - same style as Home page */}
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/log-hours"
+            className="rounded-full bg-[linear-gradient(180deg,#6d28d9,#b91c1c)] px-6 py-4 text-xl font-extrabold tracking-[0.15em] text-white shadow-[0_18px_30px_rgba(0,0,0,0.25)] [text-shadow:0_1px_2px_rgba(0,0,0,0.4)] transition-colors hover:[background:#059669] sm:px-8 sm:py-4 sm:text-2xl sm:tracking-[0.18em] md:px-12 md:py-5 md:text-3xl md:tracking-[0.20em] lg:px-16 lg:py-6 lg:text-4xl"
+          >
+            Log Hours <span className="ml-2 inline-block text-2xl leading-none sm:ml-3 sm:text-3xl md:text-4xl lg:text-5xl">❣</span>
+          </Link>
+        </div>
+
+        {/* Upcoming Seva Activities */}
+        <div className="mt-10 text-center">
+          <h2 className="text-2xl font-extrabold text-indigo-800 md:text-3xl">
+            Upcoming Seva Activities
+          </h2>
+
+          {upcomingLoading ? (
+            <div className="mx-auto mt-6">
+              <AppPageLoader
+                layout="section"
+                size="md"
+                label="Loading upcoming activities"
+                message="Loading upcoming activities…"
+              />
+            </div>
+          ) : upcoming.length === 0 ? (
+            <div className="mx-auto mt-4 max-w-3xl rounded-md bg-white/35 px-6 py-8 text-zinc-700 shadow-sm">
+              No upcoming activities yet.
+            </div>
+          ) : (
+            <div className="mx-auto mt-6 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {upcoming.map((activity, index) => (
+                <UpcomingCard
+                  key={activity.id}
+                  activity={activity}
+                  colorClass={CARD_COLORS[index % CARD_COLORS.length]}
+                  onClick={() => activity.signupId && setSignupModalSignupId(activity.signupId)}
+                />
+              ))}
+            </div>
+          )}
+
+          {signupModalSignupId && (
+            <UpcomingSignupModal
+              signupId={signupModalSignupId}
+              onClose={() => setSignupModalSignupId(null)}
+              onSaved={(withdrawnSignupId?: string) => {
+                setSignupModalSignupId(null);
+                if (withdrawnSignupId) {
+                  setUpcoming((prev) => prev.filter((a) => a.signupId !== withdrawnSignupId));
+                }
+                loadUpcoming(true);
+              }}
+            />
+          )}
+        </div>
+
         {/* GET /api/log-hours uses session email only — each user sees only their own rows */}
         <div
           id="dashboard-your-logged-hours"
@@ -286,7 +343,7 @@ function DashboardContent() {
             </div>
           ) : loggedHoursList.length === 0 ? (
             <div className="mx-auto mt-6 rounded-md bg-amber-50/90 px-6 py-6 text-center text-zinc-800 shadow-sm ring-1 ring-amber-200">
-              No Log Hours rows yet for <strong>this</strong> account. Use the <strong>Log Hours</strong> button below, submit while signed in, and rows will appear here with{" "}
+              No Log Hours rows yet for <strong>this</strong> account. Use the <strong>Log Hours</strong> button above, submit while signed in, and rows will appear here with{" "}
               <strong>View certificate</strong>.
             </div>
           ) : (
@@ -372,63 +429,6 @@ function DashboardContent() {
                 </nav>
               )}
             </>
-          )}
-        </div>
-
-        {/* Log Hours button - same style as Home page */}
-        <div className="mt-10 flex justify-center">
-          <Link
-            href="/log-hours"
-            className="rounded-full bg-[linear-gradient(180deg,#6d28d9,#b91c1c)] px-6 py-4 text-xl font-extrabold tracking-[0.15em] text-white shadow-[0_18px_30px_rgba(0,0,0,0.25)] [text-shadow:0_1px_2px_rgba(0,0,0,0.4)] transition-colors hover:[background:#059669] sm:px-8 sm:py-4 sm:text-2xl sm:tracking-[0.18em] md:px-12 md:py-5 md:text-3xl md:tracking-[0.20em] lg:px-16 lg:py-6 lg:text-4xl"
-          >
-            Log Hours <span className="ml-2 inline-block text-2xl leading-none sm:ml-3 sm:text-3xl md:text-4xl lg:text-5xl">❣</span>
-          </Link>
-        </div>
-
-        {/* Upcoming Seva Activities */}
-        <div className="mt-10 text-center">
-          <h2 className="text-2xl font-extrabold text-indigo-800 md:text-3xl">
-            Upcoming Seva Activities
-          </h2>
-
-          {upcomingLoading ? (
-            <div className="mx-auto mt-6">
-              <AppPageLoader
-                layout="section"
-                size="md"
-                label="Loading upcoming activities"
-                message="Loading upcoming activities…"
-              />
-            </div>
-          ) : upcoming.length === 0 ? (
-            <div className="mx-auto mt-4 max-w-3xl rounded-md bg-white/35 px-6 py-8 text-zinc-700 shadow-sm">
-              No upcoming activities yet.
-            </div>
-          ) : (
-            <div className="mx-auto mt-6 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {upcoming.map((activity, index) => (
-                <UpcomingCard
-                  key={activity.id}
-                  activity={activity}
-                  colorClass={CARD_COLORS[index % CARD_COLORS.length]}
-                  onClick={() => activity.signupId && setSignupModalSignupId(activity.signupId)}
-                />
-              ))}
-            </div>
-          )}
-
-          {signupModalSignupId && (
-            <UpcomingSignupModal
-              signupId={signupModalSignupId}
-              onClose={() => setSignupModalSignupId(null)}
-              onSaved={(withdrawnSignupId?: string) => {
-                setSignupModalSignupId(null);
-                if (withdrawnSignupId) {
-                  setUpcoming((prev) => prev.filter((a) => a.signupId !== withdrawnSignupId));
-                }
-                loadUpcoming(true);
-              }}
-            />
           )}
         </div>
       </section>

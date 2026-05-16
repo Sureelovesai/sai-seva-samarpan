@@ -557,7 +557,7 @@ export default function HomePage() {
 
       {/* Public seva calendar — visible to everyone, no login */}
       <section
-        className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-4"
+        className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-6 sm:py-8"
         aria-label="Seva Activity Calendar"
       >
         <SevaPublicCalendarSection />

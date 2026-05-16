@@ -15,6 +15,8 @@ type ChatTurn = {
 };
 
 const QUICK_PROMPTS_AFTER_FIND = [
+  "I am testing as Volunteer — what should I see?",
+  "How do I test the home page?",
   "How do I join a seva activity?",
   "What is the difference between Join Seva and Register for items?",
   "How do I withdraw from a signup?",

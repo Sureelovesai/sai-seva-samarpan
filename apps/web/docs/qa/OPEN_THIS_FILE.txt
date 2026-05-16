@@ -1,0 +1,20 @@
+USE THE ROLE FOLDERS — NOT OLD FILES IN THIS FOLDER
+
+Correct file for Guest testing:
+  Guest\Guest_Testing_Checklist.xlsx
+
+Open the tab:  Home (all sections)
+
+That tab has 15 tests including:
+  - Find Seva button
+  - My Seva Dashboard button
+  - Seva Activity Calendar (4 tests)
+  - Our Impact (2 tests)
+  - Featured Seva Activities (3 tests)
+  - Footer
+
+Regenerate after updates:
+  cd apps\web
+  npm run qa:export
+
+Do NOT use Home_Page_Use_Cases.xlsx (removed — was outdated).

@@ -222,6 +222,113 @@ export function fallbackReply(userText: string): ChatReply {
     };
   }
 
+  const roleTestIntent =
+    /\b(testing as|i am a|i'm a|as a)\s*(guest|volunteer|admin|coordinator|blog admin|event admin)/i.test(userText) ||
+    (q.includes("testing") && q.includes("role"));
+
+  if (roleTestIntent) {
+    let roleName = "your role";
+    let folder = "your role folder under apps/web/docs/qa";
+    let shouldNot = "";
+    if (q.includes("guest")) {
+      roleName = "Guest";
+      folder = "apps/web/docs/qa/Guest/Guest_Testing_Checklist.xlsx";
+      shouldNot = "You should **not** see Seva Admin Dashboard, Roles, or Event Admin Dashboard.";
+    } else if (q.includes("volunteer") && !q.includes("coordinator")) {
+      roleName = "Volunteer";
+      folder = "apps/web/docs/qa/Volunteer/Volunteer_Testing_Checklist.xlsx";
+      shouldNot = "You should **not** see Seva Admin Dashboard unless you also have a coordinator/admin role.";
+    } else if (q.includes("coordinator")) {
+      roleName = "Seva Coordinator";
+      folder = "apps/web/docs/qa/Seva_Coordinator/Seva_Coordinator_Testing_Checklist.xlsx";
+      shouldNot = "You should see **Seva Admin Dashboard** but **not Roles** (Admin only).";
+    } else if (q.includes("blog")) {
+      roleName = "Blog Admin";
+      folder = "apps/web/docs/qa/Blog_Admin/Blog_Admin_Testing_Checklist.xlsx";
+      shouldNot = "Focus on blog approval and reports; **Roles** only if you are also Admin.";
+    } else if (q.includes("event admin")) {
+      roleName = "Event Admin";
+      folder = "apps/web/docs/qa/Event_Admin_Only/Event_Admin_Testing_Checklist.xlsx";
+      shouldNot = "You should see **Event Admin Dashboard** only — not Seva Admin Dashboard.";
+    } else if (q.includes("admin")) {
+      roleName = "Admin";
+      folder = "apps/web/docs/qa/Admin/Admin_Testing_Checklist.xlsx";
+      shouldNot = "You should see **Seva Admin Dashboard** and **Roles**.";
+    }
+    return {
+      message:
+        `**Testing as ${roleName}:**\n\n` +
+        `Use the Excel checklist: **${folder}** (open the **Start here** sheet, then each page tab).\n\n` +
+        `${shouldNot}\n\n` +
+        `On the website, open the page you are testing and follow the steps on that tab. Mark **Pass?** and write issues in **Your comments**.\n\n` +
+        `Ask me about a specific page, e.g. “What should I see on Find Seva as ${roleName}?”`,
+      links: [
+        { label: "Home", href: "/" },
+        { label: "Find Seva", href: "/find-seva" },
+        { label: "My Seva Dashboard", href: "/dashboard" },
+        { label: "Login", href: "/login" },
+      ],
+    };
+  }
+
+  const homeTestIntent =
+    q.includes("home page") ||
+    q.includes("home screen") ||
+    (q.includes("home") && (q.includes("test") || q.includes("qa") || q.includes("checklist"))) ||
+    q.includes("what should i see on the home") ||
+    q.includes("walk me through the home") ||
+    q.includes("hp-0") ||
+    q.includes("hp-1");
+
+  if (
+    homeTestIntent ||
+    (q.includes("home") &&
+      (q.includes("what") || q.includes("see") || q.includes("section") || q.includes("banner") || q.includes("featured")))
+  ) {
+    const testing = q.includes("test") || q.includes("qa") || q.includes("checklist") || q.includes("hp-");
+    return {
+      message: testing
+        ? "**Home page testing (quick guide):**\n\n" +
+          "1. Open **Home** from the top menu.\n" +
+          "2. **Guest:** confirm **Login** shows and there is **no** Seva Admin Dashboard row.\n" +
+          "3. **Volunteer:** log in — still no admin row unless you have a coordinator/admin role.\n" +
+          "4. Click **Find Seva** and **My Seva Dashboard** — both should navigate.\n" +
+          "5. Scroll: **Seva Activity Calendar**, **Our Impact** (three numbers load), **Featured Seva** (cards or empty message).\n" +
+          "6. On phone, open the **menu** icon and try links.\n" +
+          "7. Mark each row in the **Home_Page_Testing.xlsx** sheet: Pass Yes/No and add notes.\n\n" +
+          "Ask: “Why don’t I see Seva Admin Dashboard?” if menu links are missing."
+        : "**Home page — what you should see:**\n\n" +
+          "• Top menu: Home, Find Seva, My Seva Dashboard, Seva Blog, Community Network, About Us, Resources, Login/Logout.\n" +
+          "• **Second row** only for coordinators/admins: **Seva Admin Dashboard** (and **Roles** for Admin only).\n" +
+          "• Hero banner, **Find Seva** + **My Seva Dashboard** buttons.\n" +
+          "• **Seva Activity Calendar**, **Our Impact** stats, **Featured Seva** carousel.\n" +
+          "• Footer and **chat** (bottom-right) for help.",
+      links: [
+        { label: "Home", href: "/" },
+        { label: "Find Seva", href: "/find-seva" },
+        { label: "My Seva Dashboard", href: "/dashboard" },
+        { label: "Login", href: "/login" },
+      ],
+    };
+  }
+
+  if (
+    (q.includes("seva admin") || q.includes("admin dashboard")) &&
+    (q.includes("don't see") || q.includes("cannot see") || q.includes("can't see") || q.includes("why") || q.includes("missing"))
+  ) {
+    return {
+      message:
+        "**Seva Admin Dashboard** appears only for **Seva Coordinator**, **Blog Admin**, **Regional/National Coordinator**, or **Admin** — not for regular volunteers or guests.\n\n" +
+        "**Roles** link is **Admin only**. **Event Admin only** users see **Event Admin Dashboard**, not the full Seva admin menu.\n\n" +
+        "If your role was just changed, **log out and log back in**, then open **Home** and check the second menu row.",
+      links: [
+        { label: "Home", href: "/" },
+        { label: "Login", href: "/login" },
+        { label: "Seva Admin Dashboard", href: "/admin/seva-dashboard" },
+      ],
+    };
+  }
+
   const looseCity = resolveCityFromText(userText);
   if (looseCity && (q.includes("center") || q.includes("city") || q.includes("near"))) {
     return {
