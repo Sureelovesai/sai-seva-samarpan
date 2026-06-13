@@ -377,6 +377,8 @@ model PortalEvent {
   timeZoneId     String            @default("America/New_York")
   /// Venue name and/or address
   venue          String            @db.Text
+  /// City/Center where the event is held (e.g. Charlotte, Atlanta, Chicago)
+  city           String
   /// Receives RSVP notification emails; defaults to creator login email when saved from admin.
   organizerEmail String?
   /// When false, public page hides the RSVP form
@@ -390,6 +392,7 @@ model PortalEvent {
 
   @@index([status])
   @@index([startsAt])
+  @@index([city])
 }
 
 model EventSignup {

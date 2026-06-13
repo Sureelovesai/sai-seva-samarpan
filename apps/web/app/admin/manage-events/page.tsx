@@ -7,6 +7,7 @@ import { AppPageLoader } from "@/app/_components/AppPageLoader";
 type Row = {
   id: string;
   title: string;
+  city: string;
   status: string;
   startsAt: string;
   signupsEnabled: boolean;
@@ -18,6 +19,7 @@ export default function ManageEventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,6 +34,22 @@ export default function ManageEventsPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => {
+        const user = data?.user;
+        if (user?.coordinatorCities && Array.isArray(user.coordinatorCities)) {
+          setAllowedCities(user.coordinatorCities);
+        } else {
+          setAllowedCities(null);
+        }
+      })
+      .catch(() => {
+        setAllowedCities(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -92,7 +110,9 @@ export default function ManageEventsPage() {
         ) : null}
 
         <ul className="mt-4 space-y-3">
-          {rows.map((r) => (
+          {rows
+            .filter((r) => !allowedCities || allowedCities.includes(r.city))
+            .map((r) => (
             <li
               key={r.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
@@ -100,6 +120,7 @@ export default function ManageEventsPage() {
               <div className="min-w-0">
                 <p className="font-semibold text-zinc-900">{r.title}</p>
                 <p className="text-xs text-zinc-500">
+                  <span className="font-medium text-sky-700">{r.city}</span> ·{" "}
                   {new Date(r.startsAt).toLocaleString()} ·{" "}
                   <span className="font-medium">{r.status}</span>
                   {r.signupsEnabled ? " · Sign-ups on" : " · Sign-ups off"}

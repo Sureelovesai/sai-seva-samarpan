@@ -1,5 +1,6 @@
 "use client";
 
+import { Cinzel } from "next/font/google";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -68,6 +69,12 @@ const PLACEHOLDER_IMAGE =
 
 const POST_SUBMIT_SUCCESS_MESSAGE =
   "Sairam. Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!";
+
+const saiHridayaFont = Cinzel({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  display: "swap",
+});
 
 function formatStat(n: number) {
   return n >= 1000 ? n.toLocaleString() : String(n);
@@ -293,7 +300,7 @@ export default function SevaBlogClient() {
     <div className={`min-h-screen bg-[#fefaf8] ${postSubmitSuccess ? "pt-[80px]" : ""}`}>
       {successBanner}
 
-      {/* Hero: Sai Hridaya title (Swami image between words) + taglines */}
+      {/* Hero: SAI HRIDAYA title (Swami image between words) + taglines */}
       <section
         className="relative overflow-hidden px-3 py-2 sm:px-4 sm:py-3 md:py-3.5"
         style={{
@@ -305,14 +312,14 @@ export default function SevaBlogClient() {
         <div className="mx-auto max-w-4xl">
           <div className="text-center">
             <h1
-              className="font-serif flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-bold leading-none text-[#5a4538] sm:gap-x-3 md:gap-x-4"
+              className={`${saiHridayaFont.className} flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-bold uppercase leading-none tracking-[0.14em] text-[#5a4538] sm:gap-x-3 sm:tracking-[0.18em] md:gap-x-4 md:tracking-[0.22em]`}
               style={{
                 fontSize: "clamp(2.25rem, 8.5vw, 4.75rem)",
                 textShadow:
                   "0 2px 4px rgba(90, 69, 56, 0.12), 0 1px 0 rgba(255,255,255,0.35) inset",
               }}
             >
-              <span>Sai</span>
+              <span>SAI</span>
               <span
                 className="inline-flex shrink-0 items-center justify-center"
                 style={{
@@ -329,7 +336,7 @@ export default function SevaBlogClient() {
                   className="h-full w-full object-contain object-center"
                 />
               </span>
-              <span>Hridaya</span>
+              <span>HRIDAYA</span>
             </h1>
             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#8b6b5c] sm:mt-1.5 sm:text-sm sm:tracking-[0.28em] md:text-base md:tracking-[0.3em]">
               LOVE IN ACTION

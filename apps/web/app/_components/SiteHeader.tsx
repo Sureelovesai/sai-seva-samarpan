@@ -119,12 +119,21 @@ export function SiteHeader() {
     roles.includes("REGIONAL_SEVA_COORDINATOR") ||
     roles.includes("NATIONAL_SEVA_COORDINATOR") ||
     roles.includes("BLOG_ADMIN");
+  const isEventAdmin = user?.eventAdminOnly || roles.includes("ADMIN");
 
   let secondRow: { href: string; label: string }[] = [];
-  if (user?.eventAdminOnly) {
-    secondRow = [{ href: "/admin/events-dashboard", label: "Event Admin Dashboard" }];
-  } else if (canSevaAdminRow) {
+  
+  // Add Seva Admin links if applicable
+  if (canSevaAdminRow) {
     secondRow = canSeeRoles ? [...adminLinks] : adminLinks.filter((l) => l.href !== "/admin/roles");
+  }
+  
+  // Add Event Admin links if applicable (in addition to Seva Admin links)
+  if (isEventAdmin) {
+    secondRow.push(
+      { href: "/events", label: "Events" },
+      { href: "/admin/events-dashboard", label: "Event Admin Dashboard" }
+    );
   }
 
   return (

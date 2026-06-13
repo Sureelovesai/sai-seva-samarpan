@@ -4,39 +4,52 @@ import { loadPublicEventSignups } from "@/lib/loadPublicEventSignups";
 import { prisma } from "@/lib/prisma";
 import { isPortalEventTableMissing } from "@/lib/prismaMissingPortalEvent";
 import { getPortalEventTimezone } from "@/lib/formatPortalEventStart";
-import { EventsPageShell } from "../EventsPageShell";
+import { EventsPageShell } from "../../EventsPageShell";
 import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+interface Params {
+  city: string;
+  id: string;
+}
+
+export default async function EventDetailPage({ params }: { params: Promise<Params> }) {
+  const { city, id } = await params;
+  const cityName = decodeURIComponent(city).replace(/-/g, " ");
+  const formattedCity = cityName.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
   let event;
   try {
     event = await prisma.portalEvent.findFirst({
-      where: { id, status: "PUBLISHED" },
+      where: { id, status: "PUBLISHED", city: formattedCity },
     });
   } catch (e: unknown) {
     if (isPortalEventTableMissing(e)) {
       return (
         <EventsPageShell>
-          <div className="mx-auto max-w-lg px-4 py-16 text-center">
-            <div className="events-notice-panel px-6 py-10">
-              <h1 className="text-xl font-bold text-slate-900">Events database not migrated</h1>
-              <p className="mt-2 text-sm text-slate-700">
-                Run{" "}
-                <code className="rounded-md border-2 border-sky-400 bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-slate-900">
-                  npx prisma migrate deploy
-                </code>{" "}
-                in{" "}
-                <code className="rounded-md bg-white px-1.5 py-0.5 text-xs font-medium text-slate-900 ring-2 ring-amber-300">
-                  apps/web
-                </code>
-                , then refresh.
+          <div className="mx-auto max-w-lg px-4 py-16">
+            <div className="rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-8 py-10 text-center shadow-lg">
+              <div className="mb-4 flex justify-center">
+                <div className="rounded-full bg-amber-100 p-3">
+                  <svg className="h-10 w-10 text-amber-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c.866.866 2.291 1.379 3.828 1.379s2.962-.513 3.828-1.379m0 0a6.374 6.374 0 0111.964 3.07M12 9a3 3 0 100-6 3 3 0 000 6zm9 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-amber-950">Database Setup Required</h2>
+              <p className="mt-3 text-sm text-amber-900">
+                The events database tables need to be initialized. Run this command:
               </p>
-              <Link href="/events" className="events-backlink mt-6 inline-block text-sm">
-                ← Events
+              <pre className="mx-auto mt-4 max-w-full overflow-x-auto rounded-lg border-2 border-amber-300 bg-amber-100 p-4 text-left text-xs font-medium text-amber-950 shadow-sm">
+                npx prisma migrate deploy
+              </pre>
+              <p className="mt-4 text-xs text-amber-800">
+                From the <code className="rounded bg-amber-200 px-1 font-mono text-amber-950">apps/web</code> folder
+              </p>
+              <Link href="/events" className="mt-6 inline-block rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 transition-colors">
+                ← Back to Events
               </Link>
             </div>
           </div>
@@ -73,8 +86,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   return (
     <EventsPageShell>
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:pt-10">
-        <Link href="/events" className="events-backlink inline-flex items-center gap-1 text-sm">
-          ← All events
+        <Link href={`/events/${city}`} className="events-backlink inline-flex items-center gap-1 text-sm">
+          ← {formattedCity} events
         </Link>
 
         <article className="events-article mt-6">
@@ -131,6 +144,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <div className="grid grid-cols-[88px_1fr] items-start gap-2">
                 <p className="text-xs font-bold uppercase tracking-wide text-amber-900">Venue</p>
                 <p className="whitespace-pre-wrap text-base font-medium text-slate-900">{event.venue}</p>
+              </div>
+              <div className="grid grid-cols-[88px_1fr] items-start gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-900">City</p>
+                <p className="text-base font-medium text-slate-900">{event.city}</p>
               </div>
             </div>
           </div>

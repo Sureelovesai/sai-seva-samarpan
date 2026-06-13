@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { CITIES } from "@/lib/cities";
 
 type RoleAssignment = {
   id: string;
@@ -30,13 +31,22 @@ const ROLE_LABELS: Record<string, string> = {
   EVENT_ADMIN: "Event Admin (events only)",
 };
 
+/** City options for edit — keeps legacy value visible if not in canonical list. */
+function cityOptionsForEdit(current: string) {
+  const primary = current.split(",")[0]?.trim() ?? "";
+  if (primary && !CITIES.includes(primary as (typeof CITIES)[number])) {
+    return [primary, ...CITIES];
+  }
+  return [...CITIES];
+}
+
 export default function RolesPage() {
   const [list, setList] = useState<RoleAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [addEmail, setAddEmail] = useState("");
-  const [addRole, setAddRole] = useState<(typeof ROLES)[number]>("VOLUNTEER");
+  const [addRole, setAddRole] = useState<(typeof ROLES)[number] | "">("");
   const [addCities, setAddCities] = useState("");
   const [addRegions, setAddRegions] = useState("");
   const [adding, setAdding] = useState(false);
@@ -66,7 +76,7 @@ export default function RolesPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!addEmail.trim()) return;
+    if (!addEmail.trim() || !addRole) return;
     setMsg(null);
     setAdding(true);
     try {
@@ -76,7 +86,7 @@ export default function RolesPage() {
         body: JSON.stringify({
           email: addEmail.trim(),
           role: addRole,
-          cities: addRole === "SEVA_COORDINATOR" ? addCities.trim() || null : null,
+          cities: (addRole === "SEVA_COORDINATOR" || addRole === "EVENT_ADMIN") ? addCities.trim() || null : null,
           regions:
             addRole === "REGIONAL_SEVA_COORDINATOR" ? addRegions.trim() || null : null,
         }),
@@ -84,6 +94,8 @@ export default function RolesPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to add");
       setMsg({ kind: "ok", text: "Role added. Add another role for the same person by selecting a different role and clicking Add again." });
+      setAddEmail("");
+      setAddRole("");
       setAddCities("");
       setAddRegions("");
       loadRoles();
@@ -98,7 +110,7 @@ export default function RolesPage() {
     setEditingId(r.id);
     setEditEmail(r.email);
     setEditRole(r.role as (typeof ROLES)[number]);
-    setEditCities(r.cities ?? "");
+    setEditCities(r.cities?.split(",")[0]?.trim() ?? "");
     setEditRegions(r.regions ?? "");
   }
 
@@ -113,7 +125,7 @@ export default function RolesPage() {
         body: JSON.stringify({
           email: editEmail.trim(),
           role: editRole,
-          cities: editRole === "SEVA_COORDINATOR" ? editCities.trim() || null : null,
+          cities: (editRole === "SEVA_COORDINATOR" || editRole === "EVENT_ADMIN") ? editCities.trim() || null : null,
           regions:
             editRole === "REGIONAL_SEVA_COORDINATOR" ? editRegions.trim() || null : null,
         }),
@@ -174,20 +186,32 @@ export default function RolesPage() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-zinc-700">Role</label>
-              <select value={addRole} onChange={(e) => setAddRole(e.target.value as (typeof ROLES)[number])} className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none">
+              <select value={addRole} onChange={(e) => setAddRole(e.target.value as (typeof ROLES)[number] | "")} className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none">
+                <option value="">Select role</option>
                 {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-zinc-700">Cities (center coordinator)</label>
-              <input type="text" value={addCities} onChange={(e) => setAddCities(e.target.value)} placeholder="Charlotte, Raleigh" className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none" />
+              <label className="block text-sm font-semibold text-zinc-700">Sri Sathya Sai Center/Group</label>
+              <select
+                value={addCities}
+                onChange={(e) => setAddCities(e.target.value)}
+                className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
+              >
+                <option value="">Select city (required for SEVA_COORDINATOR & EVENT_ADMIN)</option>
+                {CITIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-semibold text-zinc-700">USA regions (regional coordinator)</label>
               <input type="text" value={addRegions} onChange={(e) => setAddRegions(e.target.value)} placeholder="Region 3, Region 7/8" className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none" />
             </div>
             <div className="xl:col-span-2">
-              <button type="submit" disabled={adding || !addEmail.trim()} className="w-full rounded-none bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 xl:mt-6">{adding ? "Adding…" : "Add"}</button>
+              <button type="submit" disabled={adding || !addEmail.trim() || !addRole} className="w-full rounded-none bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 xl:mt-6">{adding ? "Adding…" : "Add"}</button>
             </div>
           </form>
         </div>
@@ -222,7 +246,24 @@ export default function RolesPage() {
                               {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] ?? role}</option>)}
                             </select>
                           </td>
-                          <td className="py-3 pr-4"><input value={editCities} onChange={(e) => setEditCities(e.target.value)} placeholder="City1, City2" className="w-full rounded border border-zinc-500 px-2 py-1.5 text-zinc-900" /></td>
+                          <td className="py-3 pr-4">
+                            {editRole === "SEVA_COORDINATOR" || editRole === "EVENT_ADMIN" ? (
+                              <select
+                                value={editCities}
+                                onChange={(e) => setEditCities(e.target.value)}
+                                className="w-full rounded border border-zinc-500 px-2 py-1.5 text-zinc-900"
+                              >
+                                <option value="">Select city</option>
+                                {cityOptionsForEdit(editCities).map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-zinc-500">—</span>
+                            )}
+                          </td>
                           <td className="py-3 pr-4"><input value={editRegions} onChange={(e) => setEditRegions(e.target.value)} placeholder="Region 3" className="w-full rounded border border-zinc-500 px-2 py-1.5 text-zinc-900" /></td>
                           <td className="py-3">
                             <button type="button" onClick={saveEdit} disabled={saving} className="mr-2 font-semibold text-blue-600 hover:underline disabled:opacity-60">Save</button>

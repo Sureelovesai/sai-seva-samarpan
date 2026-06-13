@@ -32,6 +32,7 @@ function cloneInitialFromLoaded(data: Record<string, unknown>): PortalEventFormI
     title: /\s*\(copy\)\s*$/i.test(title) ? title : `${title} (copy)`,
     description: typeof data.description === "string" ? data.description : "",
     venue: typeof data.venue === "string" ? data.venue : "",
+    city: typeof data.city === "string" ? data.city : "Charlotte",
     startsAt: suggestedCloneStartsAt(startsAt),
     heroImageUrl: typeof data.heroImageUrl === "string" ? data.heroImageUrl : null,
     flyerUrl: typeof data.flyerUrl === "string" ? data.flyerUrl : null,
@@ -55,10 +56,27 @@ export default function EditEventPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cloneSuccess, setCloneSuccess] = useState<string | null>(null);
+  const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
 
   useEffect(() => {
     setCloneSuccess(null);
   }, [id, isCloneMode]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => {
+        const user = data?.user;
+        if (user?.coordinatorCities && Array.isArray(user.coordinatorCities)) {
+          setAllowedCities(user.coordinatorCities);
+        } else {
+          setAllowedCities(null);
+        }
+      })
+      .catch(() => {
+        setAllowedCities(null);
+      });
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -83,6 +101,7 @@ export default function EditEventPage() {
             title: data.title,
             description: data.description,
             venue: data.venue,
+            city: data.city,
             startsAt: data.startsAt,
             heroImageUrl: data.heroImageUrl,
             flyerUrl: data.flyerUrl,
@@ -173,6 +192,7 @@ export default function EditEventPage() {
               }
               router.refresh();
             }}
+            allowedCities={allowedCities}
           />
         ) : null}
       </div>

@@ -30,6 +30,9 @@ export async function POST(req: Request) {
     const venue = typeof body.venue === "string" ? body.venue.trim() : "";
     if (!venue) return NextResponse.json({ error: "Venue is required" }, { status: 400 });
 
+    const city = typeof body.city === "string" ? body.city.trim() : "Charlotte";
+    if (!city) return NextResponse.json({ error: "City is required" }, { status: 400 });
+
     const startsAtRaw = body.startsAt;
     if (!startsAtRaw || typeof startsAtRaw !== "string") {
       return NextResponse.json({ error: "startsAt (ISO date-time) is required" }, { status: 400 });
@@ -59,6 +62,7 @@ export async function POST(req: Request) {
         title,
         description,
         venue,
+        city,
         startsAt,
         heroImageUrl,
         flyerUrl,

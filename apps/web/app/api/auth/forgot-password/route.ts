@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       (req.url ? new URL(req.url).origin : null) ||
       "http://localhost:3000";
     const resetUrl = `${baseUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+    const mobileResetUrl = `mobile://reset-password?token=${encodeURIComponent(token)}`;
 
     const emailResult = await sendEmail({
       to: email,
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
         <p>Hello,</p>
         <p>You requested a password reset for your Seva Samarpan account.</p>
         <p>Click the link below to set a new password (valid for ${TOKEN_EXPIRY_HOURS} hour):</p>
-        <p><a href="${escapeHtml(resetUrl)}" style="color:#4f46e5;text-decoration:underline;">Reset password</a></p>
+        <p><a href="${escapeHtml(mobileResetUrl)}" style="color:#4f46e5;text-decoration:underline;">Reset password (mobile app)</a> &nbsp; or &nbsp; <a href="${escapeHtml(resetUrl)}" style="color:#4f46e5;text-decoration:underline;">Reset password (browser)</a></p>
         <p>If you did not request this, you can ignore this email. Your password will not be changed.</p>
         <p>Jai Sai Ram.</p>
       `,

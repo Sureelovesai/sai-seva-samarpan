@@ -2,12 +2,14 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { CITIES } from "@/lib/cities";
 
 export type PortalEventFormInitial = {
   id: string;
   title: string;
   description: string;
   venue: string;
+  city: string;
   startsAt: string; // ISO
   heroImageUrl: string | null;
   flyerUrl: string | null;
@@ -33,14 +35,17 @@ export function PortalEventForm({
   mode,
   initial,
   onSaved,
+  allowedCities,
 }: {
   mode: "create" | "edit" | "clone";
   initial?: PortalEventFormInitial | null;
   onSaved?: (event: { id: string; title?: string; kind?: "clone" }) => void;
+  allowedCities?: string[] | null;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [venue, setVenue] = useState(initial?.venue ?? "");
+  const [city, setCity] = useState(initial?.city ?? "");
   const [startsLocal, setStartsLocal] = useState(
     initial?.startsAt ? toDatetimeLocalValue(initial.startsAt) : ""
   );
@@ -56,6 +61,10 @@ export function PortalEventForm({
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // If allowedCities is provided (for event admins with city restrictions), filter CITIES
+  // Otherwise show all CITIES (for full admins)
+  const availableCities = allowedCities && allowedCities.length > 0 ? allowedCities : CITIES;
 
   const uploadFile = useCallback(async (file: File, kind: "hero" | "flyer") => {
     const fd = new FormData();
@@ -116,6 +125,7 @@ export function PortalEventForm({
         title: title.trim(),
         description: description.trim(),
         venue: venue.trim(),
+        city: city.trim(),
         startsAt: fromDatetimeLocalValue(startsLocal),
         heroImageUrl: heroImageUrl.trim() || null,
         flyerUrl: flyerUrl.trim() || null,
@@ -250,9 +260,35 @@ export function PortalEventForm({
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-semibold text-zinc-800">
+          City / Center
+          {reqMark}
+        </label>
+        <select
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          required
+        >
+          {availableCities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1.5 text-xs text-zinc-600">
+          Select the center/city where this event will take place. Events will be displayed on the city-specific page.
+        </p>
+      </div>
+
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <p className="text-sm font-semibold text-indigo-950">Swami or Event Photo</p>
-        <p className="mt-1 text-xs text-indigo-900/80">JPEG, PNG, WebP, or GIF — max 4MB</p>
+        <p className="mt-1 text-xs text-indigo-900/80">
+          JPEG, PNG, WebP, or GIF — max 4MB
+          <br />
+          <strong>Recommended:</strong> 800×600px or 1200×900px for best display quality
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <label className="cursor-pointer rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">
             {uploadingHero ? "Uploading…" : "Upload image"}
@@ -285,7 +321,11 @@ export function PortalEventForm({
 
       <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
         <p className="text-sm font-semibold text-amber-950">Event flyer (PDF or image)</p>
-        <p className="mt-1 text-xs text-amber-900/80">PDF, JPEG, PNG, WebP, or GIF — max 4MB</p>
+        <p className="mt-1 text-xs text-amber-900/80">
+          PDF, JPEG, PNG, WebP, or GIF — max 4MB
+          <br />
+          <strong>Recommended:</strong> For images use 800×1000px or 600×800px; PDFs should be 8.5×11 inches or A4 size
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <label className="cursor-pointer rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">
             {uploadingFlyer ? "Uploading…" : "Upload flyer"}

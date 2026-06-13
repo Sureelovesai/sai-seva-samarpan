@@ -29,6 +29,7 @@ export async function PATCH(
       title?: string;
       description?: string;
       venue?: string;
+      city?: string;
       startsAt?: Date;
       /** Clear so the ~24h cron can run again for the new start time. */
       reminderSentAt?: null;
@@ -43,6 +44,7 @@ export async function PATCH(
     if (typeof body.title === "string" && body.title.trim()) data.title = body.title.trim();
     if (typeof body.description === "string") data.description = body.description.trim();
     if (typeof body.venue === "string") data.venue = body.venue.trim();
+    if (typeof body.city === "string" && body.city.trim()) data.city = body.city.trim();
     if (body.startsAt !== undefined) {
       if (typeof body.startsAt !== "string" || !body.startsAt.trim()) {
         return NextResponse.json({ error: "Invalid startsAt" }, { status: 400 });

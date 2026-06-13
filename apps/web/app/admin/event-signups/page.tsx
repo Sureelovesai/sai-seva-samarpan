@@ -28,17 +28,76 @@ function EventSignupsInner() {
   const [rows, setRows] = useState<SignupRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
+  const [isEventAdmin, setIsEventAdmin] = useState(true);
+  const [userLoading, setUserLoading] = useState(true);
 
+  // Check user authorization
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (!res.ok) throw new Error("Not authorized");
+        const data = await res.json();
+        const user = data?.user;
+        
+        // Check if user is Event Admin or full Admin
+        const eventAdminOnly = user?.eventAdminOnly;
+        const isAdmin = user?.roles?.includes("ADMIN");
+        
+        if (!eventAdminOnly && !isAdmin) {
+          // Not an Event Admin or full Admin
+          if (!cancelled) {
+            setIsEventAdmin(false);
+            setUserLoading(false);
+          }
+          return;
+        }
+        
+        // If event admin with city restrictions, set allowed cities
+        if (user?.coordinatorCities && Array.isArray(user.coordinatorCities)) {
+          if (!cancelled) setAllowedCities(user.coordinatorCities);
+        } else {
+          if (!cancelled) setAllowedCities(null); // Full admin, no restrictions
+        }
+        
+        if (!cancelled) {
+          setIsEventAdmin(true);
+          setUserLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsEventAdmin(false);
+          setUserLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load events, filtered by user's allowed cities
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isEventAdmin || userLoading) return;
+      
+      try {
         const res = await fetch("/api/admin/portal-events", { credentials: "include", cache: "no-store" });
         const data = await res.json();
         if (cancelled) return;
-        const list = Array.isArray(data)
-          ? data.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
+        
+        let list = Array.isArray(data)
+          ? data.map((e: { id: string; title: string; city?: string }) => ({ id: e.id, title: e.title, city: e.city }))
           : [];
+        
+        // Filter by allowed cities if applicable
+        if (allowedCities && allowedCities.length > 0) {
+          list = list.filter((e: any) => allowedCities.includes(e.city));
+        }
+        
         setEvents(list);
         if (list.length) {
           const fromUrl = searchParams.get("eventId");
@@ -53,7 +112,7 @@ function EventSignupsInner() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [searchParams, allowedCities, isEventAdmin, userLoading]);
 
   const loadSignups = useCallback(async () => {
     setError(null);
@@ -136,7 +195,22 @@ function EventSignupsInner() {
           </Link>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        {userLoading && (
+          <div className="py-8">
+            <AppPageLoader layout="section" label="Loading" message="Loading..." />
+          </div>
+        )}
+
+        {!userLoading && !isEventAdmin && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-red-900">
+            <p className="font-semibold">Access Denied</p>
+            <p className="mt-1 text-sm">You don't have permission to view event sign-ups. Only Event Admins can access this page.</p>
+          </div>
+        )}
+
+        {!userLoading && isEventAdmin && (
+          <>
+            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
           <div>
             <label className="block text-xs font-semibold text-zinc-600">Event</label>
             <select
@@ -234,7 +308,9 @@ function EventSignupsInner() {
           {!loading && rows.length === 0 ? (
             <p className="p-6 text-center text-zinc-500">No sign-ups for this filter.</p>
           ) : null}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
