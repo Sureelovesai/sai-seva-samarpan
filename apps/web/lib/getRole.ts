@@ -64,7 +64,7 @@ export async function getSessionWithRole(
   const role: AppRole =
     ROLE_ORDER.find((r) => roles.includes(r)) ?? "VOLUNTEER";
 
-  const coordinatorAssignment = assignments.find((a) => a.role === "SEVA_COORDINATOR" && a.cities);
+  const coordinatorAssignment = assignments.find((a) => (a.role === "SEVA_COORDINATOR" || a.role === "EVENT_ADMIN") && a.cities);
   const coordinatorCities: string[] | null = coordinatorAssignment?.cities
     ? coordinatorAssignment.cities
         .split(",")

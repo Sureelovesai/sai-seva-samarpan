@@ -426,6 +426,11 @@ export default function AddSevaActivityPage() {
   async function save(status: Status) {
     setMsg(null);
 
+    // 🔧 Prevent double submission: if already saving, ignore additional clicks
+    if (saving) {
+      return;
+    }
+
     if (!canSave) {
       setMsg({
         kind: "err",
