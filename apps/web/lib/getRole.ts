@@ -55,7 +55,7 @@ export async function getSessionWithRole(
     if (rows.length === 0) {
       console.warn(`getSessionWithRole: No roles found for email "${session.email}"`);
     } else {
-      console.log(`getSessionWithRole: Found ${rows.length} role(s) for email "${session.email}":`, rows.map(r => r.role));
+      console.log(`getSessionWithRole: Found ${rows.length} role(s) for email "${session.email}":`, rows.map((r: { role: string }) => r.role));
     }
   } catch (e) {
     console.error("getSessionWithRole: role lookup failed (table missing or DB error):", {
