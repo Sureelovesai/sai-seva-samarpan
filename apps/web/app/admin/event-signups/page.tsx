@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { AppPageLoader } from "@/app/_components/AppPageLoader";
 
 type EventOpt = { id: string; title: string };
@@ -19,6 +19,7 @@ type SignupRow = {
 };
 
 function EventSignupsInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("eventId") || "";
 
@@ -41,6 +42,12 @@ function EventSignupsInner() {
         if (!res.ok) throw new Error("Not authorized");
         const data = await res.json();
         const user = data?.user;
+        
+        // If not logged in, redirect to login
+        if (!user) {
+          router.push("/login");
+          return;
+        }
         
         // Check if user can access event admin pages:
         // - Full ADMIN users can access
@@ -78,7 +85,7 @@ function EventSignupsInner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   // Load events, filtered by user's allowed cities
   useEffect(() => {

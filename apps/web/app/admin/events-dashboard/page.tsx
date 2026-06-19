@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function EventsAdminDashboardPage() {
+  const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
   const [isEventAdmin, setIsEventAdmin] = useState(false);
   const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
@@ -18,7 +20,14 @@ export default function EventsAdminDashboardPage() {
       .then((data) => {
         if (!cancelled) {
           const user = data?.user;
-          setUser(user); // Store for display
+          
+          // If not logged in, redirect to login
+          if (!user) {
+            router.push("/login");
+            return;
+          }
+          
+          setUser(user);
           
           // Check if user can access event admin dashboard:
           // - Full ADMIN users can access
@@ -51,7 +60,7 @@ export default function EventsAdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-violet-50">
