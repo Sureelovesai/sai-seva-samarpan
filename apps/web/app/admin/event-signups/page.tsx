@@ -42,11 +42,13 @@ function EventSignupsInner() {
         const data = await res.json();
         const user = data?.user;
         
-        // Check if user is Event Admin or full Admin
-        const eventAdminOnly = user?.eventAdminOnly;
-        const isAdmin = user?.roles?.includes("ADMIN");
+        // Check if user can access event admin pages:
+        // - Full ADMIN users can access
+        // - Users with EVENT_ADMIN role can access
+        const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ADMIN");
+        const hasEventAdminRole = Array.isArray(user?.roles) && user.roles.includes("EVENT_ADMIN");
         
-        if (!eventAdminOnly && !isAdmin) {
+        if (!isAdmin && !hasEventAdminRole) {
           // Not an Event Admin or full Admin
           if (!cancelled) {
             setIsEventAdmin(false);

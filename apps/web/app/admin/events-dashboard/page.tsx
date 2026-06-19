@@ -20,16 +20,14 @@ export default function EventsAdminDashboardPage() {
           const user = data?.user;
           setUser(user); // Store for display
           
-          // Debug: log what we're getting
-          console.log("Auth data:", { user });
-          
-          // Check if user is Event Admin or full Admin
-          const eventAdminOnly = user?.eventAdminOnly === true;
+          // Check if user can access event admin dashboard:
+          // - Full ADMIN users can access
+          // - Users with EVENT_ADMIN role can access
           const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ADMIN");
+          const hasEventAdminRole = Array.isArray(user?.roles) && user.roles.includes("EVENT_ADMIN");
+          const hasAccess = isAdmin || hasEventAdminRole;
           
-          console.log("Access check:", { eventAdminOnly, isAdmin, roles: user?.roles });
-          
-          if (eventAdminOnly || isAdmin) {
+          if (hasAccess) {
             setIsEventAdmin(true);
             if (user?.coordinatorCities && Array.isArray(user.coordinatorCities)) {
               setAllowedCities(user.coordinatorCities);
