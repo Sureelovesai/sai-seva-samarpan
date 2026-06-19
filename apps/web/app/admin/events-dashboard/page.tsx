@@ -21,9 +21,9 @@ export default function EventsAdminDashboardPage() {
         if (!cancelled) {
           const user = data?.user;
           
-          // If not logged in, redirect to login
+          // If not logged in, redirect to login with return URL
           if (!user) {
-            router.push("/login");
+            router.push("/login?next=/admin/events-dashboard");
             return;
           }
           
