@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       data: {
         email,
         role: role as (typeof VALID_ROLES)[number],
-        cities: role === "SEVA_COORDINATOR" ? cities : null,
+        cities: (role === "SEVA_COORDINATOR" || role === "EVENT_ADMIN") ? cities : null,
         regions: role === "REGIONAL_SEVA_COORDINATOR" ? regions : null,
       },
     });

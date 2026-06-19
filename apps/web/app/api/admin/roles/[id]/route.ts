@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (role !== undefined) data.role = role as (typeof VALID_ROLES)[number];
 
     if (role !== undefined || cities !== undefined || regions !== undefined) {
-      data.cities = nextRole === "SEVA_COORDINATOR" ? (cities !== undefined ? cities : existing.cities) : null;
+      data.cities = (nextRole === "SEVA_COORDINATOR" || nextRole === "EVENT_ADMIN") ? (cities !== undefined ? cities : existing.cities) : null;
       data.regions =
         nextRole === "REGIONAL_SEVA_COORDINATOR"
           ? regions !== undefined
