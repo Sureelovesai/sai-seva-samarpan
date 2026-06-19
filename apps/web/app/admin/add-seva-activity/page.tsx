@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { USA_REGION_LABELS } from "@/lib/usaRegions";
+import { generateRecurrenceDates, getRecurrencePreview, type RecurrencePattern, type EndDateOption } from "@/lib/recurringEvents";
 import {
   ContributionItemsEditor,
   type ContributionRow,
@@ -74,6 +75,13 @@ export default function AddSevaActivityPage() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null
   );
+
+  // Recurring event settings
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringPattern, setRecurringPattern] = useState<RecurrencePattern>("weekly");
+  const [endDateOption, setEndDateOption] = useState<EndDateOption>("after-count");
+  const [endCount, setEndCount] = useState<number>(4);
+  const [recurringEndDate, setRecurringEndDate] = useState<string>("");
 
   // Seva Coordinator: restrict city to registered locations
   const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
@@ -444,6 +452,18 @@ export default function AddSevaActivityPage() {
       return;
     }
 
+    // Validate recurring settings if enabled
+    if (isRecurring) {
+      if (endDateOption === "no-end") {
+        setMsg({ kind: "err", text: "For recurring activities, please select either 'Create X occurrences' or 'End by date'." });
+        return;
+      }
+      if (endDateOption === "by-date" && !recurringEndDate) {
+        setMsg({ kind: "err", text: "Please specify an end date for recurring activities." });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       let resolvedGroupId: string | undefined;
@@ -490,80 +510,98 @@ export default function AddSevaActivityPage() {
         resolvedGroupId = groupChoice;
       }
 
-      const payload: Record<string, unknown> = {
-        title: title.trim(),
-        category: category.trim(),
-        description: description.trim() || undefined,
-        capacity: Number(capacity.trim()),
-
-        // keep these simple for now
-        startDate: startDate ? new Date(startDate + "T12:00:00").toISOString() : undefined,
-        endDate: endDate ? new Date(endDate + "T12:00:00").toISOString() : undefined,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
-        durationHours: durationHours > 0 ? durationHours : undefined,
-
-        scope: activityScope,
-        sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegion.trim() : undefined,
-        city:
-          activityScope === "NATIONAL" && !city.trim()
-            ? "National"
-            : city.trim(),
-        locationName: locationName.trim() || undefined,
-        address: address.trim() || undefined,
-
-        coordinatorName: coordinatorName.trim() || undefined,
-        coordinatorEmail: coordinatorEmail.trim() || undefined,
-        coordinatorPhone: coordinatorPhone.trim() || undefined,
-
-        imageUrl: imageUrl.trim() || undefined,
-
-        isActive: active,
-        isFeatured: featured,
-        allowKids,
-        joinSevaEnabled,
-        status,
-        contributionItems: contributionItems
-          .filter((r) => r.name.trim())
-          .map((r) => ({
-            name: r.name.trim(),
-            category: r.category.trim(),
-            neededLabel: r.neededLabel.trim(),
-            maxQuantity: r.maxQuantity,
-          })),
-      };
-      if (resolvedGroupId) payload.groupId = resolvedGroupId;
-
-      const res = await fetch("/api/admin/seva-activities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload as Record<string, unknown>),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.detail || data?.error || "Save failed.");
+      // Generate list of dates to create activities for
+      let activityDates = [startDate];
+      if (isRecurring) {
+        activityDates = generateRecurrenceDates(
+          startDate,
+          recurringPattern,
+          endDateOption,
+          endCount,
+          recurringEndDate
+        );
       }
 
-      const createdId = typeof data.id === "string" ? data.id : null;
-      if (createdId) {
-        const t = typeof data.title === "string" ? data.title : title.trim();
-        setBulkActivityId(createdId);
-        setBulkActivityTitle(t);
-        setBulkImportAllowed(status === "PUBLISHED");
-        setBulkErrors(null);
-        setBulkOk(null);
-        try {
-          sessionStorage.setItem(SS_BULK_ID, createdId);
-          sessionStorage.setItem(SS_BULK_TITLE, t);
-          sessionStorage.setItem(SS_BULK_PUBLISHED, status === "PUBLISHED" ? "1" : "0");
-        } catch {
-          /* ignore */
+      // Create activities for each date
+      for (const actDate of activityDates) {
+        const payload: Record<string, unknown> = {
+          title: title.trim(),
+          category: category.trim(),
+          description: description.trim() || undefined,
+          capacity: Number(capacity.trim()),
+
+          startDate: actDate ? new Date(actDate + "T12:00:00").toISOString() : undefined,
+          endDate: actDate ? new Date(actDate + "T12:00:00").toISOString() : undefined,
+          startTime: startTime || undefined,
+          endTime: endTime || undefined,
+          durationHours: durationHours > 0 ? durationHours : undefined,
+
+          scope: activityScope,
+          sevaUsaRegion: activityScope === "REGIONAL" ? sevaUsaRegion.trim() : undefined,
+          city:
+            activityScope === "NATIONAL" && !city.trim()
+              ? "National"
+              : city.trim(),
+          locationName: locationName.trim() || undefined,
+          address: address.trim() || undefined,
+
+          coordinatorName: coordinatorName.trim() || undefined,
+          coordinatorEmail: coordinatorEmail.trim() || undefined,
+          coordinatorPhone: coordinatorPhone.trim() || undefined,
+
+          imageUrl: imageUrl.trim() || undefined,
+
+          isActive: active,
+          isFeatured: featured,
+          allowKids,
+          joinSevaEnabled,
+          status,
+          contributionItems: contributionItems
+            .filter((r) => r.name.trim())
+            .map((r) => ({
+              name: r.name.trim(),
+              category: r.category.trim(),
+              neededLabel: r.neededLabel.trim(),
+              maxQuantity: r.maxQuantity,
+            })),
+        };
+        if (resolvedGroupId) payload.groupId = resolvedGroupId;
+
+        const res = await fetch("/api/admin/seva-activities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload as Record<string, unknown>),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.detail || data?.error || `Save failed for ${actDate}.`);
+        }
+
+        const createdId = typeof data.id === "string" ? data.id : null;
+        if (createdId) {
+          // Store the last created activity for bulk import
+          if (activityDates.indexOf(actDate) === activityDates.length - 1) {
+            const t = typeof data.title === "string" ? data.title : title.trim();
+            setBulkActivityId(createdId);
+            setBulkActivityTitle(t);
+            setBulkImportAllowed(status === "PUBLISHED");
+            setBulkErrors(null);
+            setBulkOk(null);
+            try {
+              sessionStorage.setItem(SS_BULK_ID, createdId);
+              sessionStorage.setItem(SS_BULK_TITLE, t);
+              sessionStorage.setItem(SS_BULK_PUBLISHED, status === "PUBLISHED" ? "1" : "0");
+            } catch {
+              /* ignore */
+            }
+          }
         }
       }
 
-      setMsg({ kind: "ok", text: `Saved: ${data.title} (${data.status})` });
+      const countMsg = isRecurring ? ` (${activityDates.length} activities created)` : "";
+      setMsg({ kind: "ok", text: `Saved: ${title.trim()}${countMsg}` });
 
       // Clear activity fields after publish so coordinators can add the next seva under the same
       // center/region and program group (group stays in the dropdown; location context is kept).
@@ -588,6 +626,12 @@ export default function AddSevaActivityPage() {
         setAllowKids(true);
         setJoinSevaEnabled(true);
         setContributionItems([]);
+        // Also reset recurring settings
+        setIsRecurring(false);
+        setRecurringPattern("weekly");
+        setEndDateOption("after-count");
+        setEndCount(4);
+        setRecurringEndDate("");
       }
     } catch (e: any) {
       setMsg({ kind: "err", text: e?.message || "Internal error." });
@@ -1113,6 +1157,147 @@ export default function AddSevaActivityPage() {
                     Only Items To Sign Up (disable Join Seva)
                   </span>
                 </label>
+              </div>
+
+              {/* messages */}
+              {msg && (
+                <div
+                  className={[
+                    "mt-6 rounded-none px-4 py-3 text-sm font-semibold",
+                    msg.kind === "ok"
+                      ? "bg-emerald-100 text-emerald-900"
+                      : "bg-red-100 text-red-900",
+                  ].join(" ")}
+                >
+                  {msg.text}
+                </div>
+              )}
+
+              {/* RECURRING EVENT SECTION */}
+              <div className="mt-8 border-t border-zinc-200 pt-8">
+                <div className="mb-6">
+                  <label className="inline-flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => setIsRecurring(e.target.checked)}
+                      className="h-6 w-6 accent-indigo-600"
+                    />
+                    <span className="text-lg font-semibold text-indigo-950">
+                      This is a recurring activity
+                    </span>
+                  </label>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    Multiple activities will be created, one for each occurrence.
+                  </p>
+                </div>
+
+                {isRecurring && (
+                  <div className="space-y-6 rounded-lg bg-indigo-50/50 border border-indigo-200/80 p-6">
+                    {/* Recurrence Pattern */}
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-800">
+                        Recurrence Pattern <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={recurringPattern}
+                        onChange={(e) => setRecurringPattern(e.target.value as RecurrencePattern)}
+                        className="mt-2 w-full rounded-md border border-indigo-300 bg-white px-4 py-3 text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="weekly">Weekly</option>
+                        <option value="bi-weekly">Bi-weekly (every 2 weeks)</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="3-months">Every 3 months</option>
+                      </select>
+                    </div>
+
+                    {/* End Date Options */}
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-800 mb-3">
+                        When should recurring activity end? <span className="text-red-600">*</span>
+                      </label>
+                      <div className="space-y-3">
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="endDateOption"
+                            value="no-end"
+                            checked={endDateOption === "no-end"}
+                            onChange={(e) => setEndDateOption(e.target.value as EndDateOption)}
+                            className="h-4 w-4 accent-indigo-600"
+                          />
+                          <span className="text-sm text-zinc-700">No end date (continues indefinitely)</span>
+                        </label>
+                        
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="endDateOption"
+                              value="after-count"
+                              checked={endDateOption === "after-count"}
+                              onChange={(e) => setEndDateOption(e.target.value as EndDateOption)}
+                              className="h-4 w-4 accent-indigo-600"
+                            />
+                            <span className="text-sm text-zinc-700">Create</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={52}
+                            value={endCount}
+                            onChange={(e) => setEndCount(Math.max(1, parseInt(e.target.value) || 1))}
+                            disabled={endDateOption !== "after-count"}
+                            className="w-16 rounded-md border border-indigo-300 px-2 py-1 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-zinc-100 disabled:text-zinc-500"
+                          />
+                          <span className="text-sm text-zinc-700">occurrences</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="endDateOption"
+                              value="by-date"
+                              checked={endDateOption === "by-date"}
+                              onChange={(e) => setEndDateOption(e.target.value as EndDateOption)}
+                              className="h-4 w-4 accent-indigo-600"
+                            />
+                            <span className="text-sm text-zinc-700">End by</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={recurringEndDate}
+                            onChange={(e) => setRecurringEndDate(e.target.value)}
+                            disabled={endDateOption !== "by-date"}
+                            className="rounded-md border border-indigo-300 px-3 py-1 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-zinc-100 disabled:text-zinc-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    {startDate && (
+                      <div className="rounded-md bg-white border border-indigo-200 p-4">
+                        <p className="text-sm font-semibold text-indigo-900">Preview:</p>
+                        <p className="mt-1 text-sm text-indigo-700">
+                          {getRecurrencePreview(
+                            recurringPattern,
+                            endDateOption,
+                            endCount,
+                            recurringEndDate,
+                            startDate
+                          )}
+                        </p>
+                        {endDateOption !== "no-end" && (
+                          <p className="mt-2 text-xs text-indigo-600">
+                            Starting: {startDate}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* messages */}
