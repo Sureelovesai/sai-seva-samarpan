@@ -9,6 +9,7 @@ export default function EventsAdminDashboardPage() {
   const [isEventAdmin, setIsEventAdmin] = useState(false);
   const [allowedCities, setAllowedCities] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,10 +18,16 @@ export default function EventsAdminDashboardPage() {
       .then((data) => {
         if (!cancelled) {
           const user = data?.user;
+          setUser(user); // Store for display
+          
+          // Debug: log what we're getting
+          console.log("Auth data:", { user });
           
           // Check if user is Event Admin or full Admin
-          const eventAdminOnly = user?.eventAdminOnly;
-          const isAdmin = user?.roles?.includes("ADMIN");
+          const eventAdminOnly = user?.eventAdminOnly === true;
+          const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ADMIN");
+          
+          console.log("Access check:", { eventAdminOnly, isAdmin, roles: user?.roles });
           
           if (eventAdminOnly || isAdmin) {
             setIsEventAdmin(true);
@@ -35,7 +42,8 @@ export default function EventsAdminDashboardPage() {
           setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Auth fetch error:", err);
         if (!cancelled) {
           setIsEventAdmin(false);
           setLoading(false);
@@ -57,10 +65,27 @@ export default function EventsAdminDashboardPage() {
 
       {!loading && !isEventAdmin && (
         <div className="mx-auto max-w-4xl px-4 py-16">
-          <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-8 text-center">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-8">
             <p className="text-lg font-semibold text-red-900">Access Denied</p>
-            <p className="mt-2 text-sm text-red-700">
-              You don't have permission to access the Event Admin Dashboard. Only Event Admins and full Admins can access this page.
+            <p className="mt-3 text-sm text-red-700">
+              You don't have permission to access the Event Admin Dashboard.
+            </p>
+            
+            <div className="mt-4 rounded border border-red-300 bg-red-100/50 p-3 text-sm text-red-800">
+              <p className="font-semibold mb-2">Diagnostic Information:</p>
+              <ul className="space-y-1 text-xs">
+                <li>• <strong>Your Role:</strong> {role || "(not set)"}</li>
+                <li>• <strong>All Roles:</strong> {Array.isArray(user?.roles) ? (user.roles.length > 0 ? user.roles.join(", ") : "None") : "(unable to determine)"}</li>
+                <li>• <strong>Event Admin Only:</strong> {String(user?.eventAdminOnly ?? false)}</li>
+              </ul>
+            </div>
+            
+            <p className="mt-4 text-sm text-red-700">
+              <strong>Required Roles:</strong> "ADMIN" or "EVENT_ADMIN"
+            </p>
+            
+            <p className="mt-3 text-sm text-red-600">
+              <strong>How to fix:</strong> An administrator must add your email to the Roles page with "ADMIN" or "EVENT_ADMIN" role assignment. Go to <strong>/admin/roles</strong> to add or verify your role.
             </p>
           </div>
         </div>

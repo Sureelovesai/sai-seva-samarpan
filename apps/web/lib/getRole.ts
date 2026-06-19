@@ -52,8 +52,17 @@ export async function getSessionWithRole(
       where: { email: { equals: session.email, mode: "insensitive" } },
     });
     assignments = rows;
+    if (rows.length === 0) {
+      console.warn(`getSessionWithRole: No roles found for email "${session.email}"`);
+    } else {
+      console.log(`getSessionWithRole: Found ${rows.length} role(s) for email "${session.email}":`, rows.map(r => r.role));
+    }
   } catch (e) {
-    console.error("getSessionWithRole: role lookup failed (table missing or DB error):", e);
+    console.error("getSessionWithRole: role lookup failed (table missing or DB error):", {
+      email: session.email,
+      error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+    });
   }
 
   const roles: AppRole[] =
