@@ -253,18 +253,18 @@ export default function EditSevaActivityPage() {
   const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED">("PUBLISHED");
 
-  // Participant configuration
+  // Participant configuration - default: Both Adults and Kids with all boxes unchecked
   const [participantConfig, setParticipantConfig] = useState<ParticipantConfig>({
     participantTypes: "adults,kids",
-    collectAdultName: true,
-    collectAdultEmail: true,
-    collectAdultPhone: true,
-    collectKidName: true,
-    collectKidGroup: true,
-    collectKidEmail: true,
+    collectAdultName: false,
+    collectAdultEmail: false,
+    collectAdultPhone: false,
+    collectKidName: false,
+    collectKidGroup: false,
+    collectKidEmail: false,
     collectKidPhone: false,
-    collectGuardianName: true,
-    collectGuardianEmail: true,
+    collectGuardianName: false,
+    collectGuardianEmail: false,
   });
 
   const [imageUrl, setImageUrl] = useState("");
@@ -515,17 +515,19 @@ export default function EditSevaActivityPage() {
       setStatus((a.status as "DRAFT" | "PUBLISHED" | "ARCHIVED") || "PUBLISHED");
 
       // Load participant configuration
+      // For old activities (created before this feature), default all collect flags to false (unchecked)
+      // This ensures old activities don't automatically show detail forms
       setParticipantConfig({
         participantTypes: a.participantTypes || "adults,kids",
-        collectAdultName: a.collectAdultName ?? true,
-        collectAdultEmail: a.collectAdultEmail ?? true,
-        collectAdultPhone: a.collectAdultPhone ?? true,
-        collectKidName: a.collectKidName ?? true,
-        collectKidGroup: a.collectKidGroup ?? true,
-        collectKidEmail: a.collectKidEmail ?? true,
+        collectAdultName: a.collectAdultName ?? false,
+        collectAdultEmail: a.collectAdultEmail ?? false,
+        collectAdultPhone: a.collectAdultPhone ?? false,
+        collectKidName: a.collectKidName ?? false,
+        collectKidGroup: a.collectKidGroup ?? false,
+        collectKidEmail: a.collectKidEmail ?? false,
         collectKidPhone: a.collectKidPhone ?? false,
-        collectGuardianName: a.collectGuardianName ?? true,
-        collectGuardianEmail: a.collectGuardianEmail ?? true,
+        collectGuardianName: a.collectGuardianName ?? false,
+        collectGuardianEmail: a.collectGuardianEmail ?? false,
       });
 
       const { editorRows, withClaims } = mapContributionItemsFromApi(a.contributionItems);

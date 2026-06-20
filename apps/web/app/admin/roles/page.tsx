@@ -198,7 +198,7 @@ export default function RolesPage() {
                 onChange={(e) => setAddCities(e.target.value)}
                 className="mt-1 w-full rounded-none border border-zinc-600 bg-white px-4 py-3 text-zinc-900 outline-none"
               >
-                <option value="">Select city (required for SEVA_COORDINATOR & EVENT_ADMIN)</option>
+                <option value="">Select city (optional - only for event filtering)</option>
                 {CITIES.map((c) => (
                   <option key={c} value={c}>
                     {c}

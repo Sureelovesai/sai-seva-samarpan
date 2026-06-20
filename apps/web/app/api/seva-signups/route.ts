@@ -11,7 +11,15 @@ import { sendSevaJoinSignupEmails } from "@/lib/sendSevaJoinSignupEmails";
  * 2. Notification email to the seva coordinator (if coordinatorEmail is set).
  * 24h before activity start, volunteers and coordinator get reminders via /api/cron/seva-reminders.
  * Capacity uses only APPROVED signups; if joining would exceed capacity, status is PENDING (waitlist).
- * Body: { activityId: string, name: string, email: string, phone: string, adultsCount?: number, kidsCount?: number }
+ * Body: { 
+ *   activityId: string, 
+ *   name: string, 
+ *   email: string, 
+ *   phone: string, 
+ *   adultsCount?: number, 
+ *   kidsCount?: number,
+ *   participants?: Array<{type: 'adult'|'kid', name?: string, email?: string, phone?: string, groupName?: string}>
+ * }
  * adultsCount = adults including the primary volunteer (default 1). Can be 0 when only kids participate. kidsCount = number of children (default 0).
  */
 export async function POST(req: Request) {
@@ -23,6 +31,7 @@ export async function POST(req: Request) {
     const phone = body?.phone?.trim() || null;
     const adultsCount = Math.max(0, Math.floor(Number(body?.adultsCount) ?? 1));
     const kidsCount = Math.max(0, Math.floor(Number(body?.kidsCount) || 0));
+    const participants = Array.isArray(body?.participants) ? body.participants : [];
 
     if (!activityId || !name || !email) {
       return NextResponse.json(
@@ -51,6 +60,20 @@ export async function POST(req: Request) {
       adultsCount,
       kidsCount,
     });
+
+    // Create participant records if provided
+    if (participants.length > 0) {
+      await prisma.sevaSignupParticipant.createMany({
+        data: participants.map((p: any) => ({
+          sevaSignupId: signup.id,
+          type: p.type || "adult",
+          name: p.name || null,
+          email: p.email || null,
+          phone: p.phone || null,
+          groupName: p.groupName || null,
+        })),
+      });
+    }
 
     await sendSevaJoinSignupEmails({
       activity,

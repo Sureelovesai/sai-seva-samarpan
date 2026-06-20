@@ -6,6 +6,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import { isActivityEnded } from "@/lib/activityEnded";
+import { DynamicParticipantForm, type ParticipantFormData } from "@/app/_components/DynamicParticipantForm";
 
 type SevaActivity = {
   id: string;
@@ -141,6 +142,7 @@ function CommunityActivityDetailsContent() {
   const [itemRegisterInfo, setItemRegisterInfo] = useState<string | null>(null);
   const [adultsCount, setAdultsCount] = useState(1); // 0 allowed when only kids are participating
   const [kidsCount, setKidsCount] = useState(0);
+  const [participants, setParticipants] = useState<ParticipantFormData[]>([]);
   const [user, setUser] = useState<{
     id: string;
     email?: string | null;
@@ -322,6 +324,35 @@ function CommunityActivityDetailsContent() {
   const isKidsOnly = participantTypes === "kids";
   const isBoth = participantTypes === "adults,kids" || !participantTypes;
 
+  // Regenerate participant forms when counts change
+  useEffect(() => {
+    const newParticipants: ParticipantFormData[] = [];
+    
+    // Add adult records
+    for (let i = 0; i < adultsCount; i++) {
+      newParticipants.push({
+        type: "adult",
+        name: participants.find(p => p.type === "adult" && participants.indexOf(p) === i)?.name,
+        email: participants.find(p => p.type === "adult" && participants.indexOf(p) === i)?.email,
+        phone: participants.find(p => p.type === "adult" && participants.indexOf(p) === i)?.phone,
+      });
+    }
+    
+    // Add kid records
+    for (let i = 0; i < kidsCount; i++) {
+      const kidIndex = adultsCount + i;
+      newParticipants.push({
+        type: "kid",
+        name: participants[kidIndex]?.name,
+        email: participants[kidIndex]?.email,
+        phone: participants[kidIndex]?.phone,
+        groupName: participants[kidIndex]?.groupName,
+      });
+    }
+    
+    setParticipants(newParticipants);
+  }, [adultsCount, kidsCount]);
+
   useEffect(() => {
     if (!activityIdToSubmit) return;
     let cancelled = false;
@@ -406,6 +437,13 @@ function CommunityActivityDetailsContent() {
           phone,
           adultsCount: Math.max(0, adultsCount),
           kidsCount: Math.max(0, kidsCount),
+          participants: participants.map((p) => ({
+            type: p.type,
+            name: p.name || undefined,
+            email: p.email || undefined,
+            phone: p.phone || undefined,
+            groupName: p.groupName || undefined,
+          })),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -742,7 +780,7 @@ function CommunityActivityDetailsContent() {
 
               {/* Contact — shared by Register (items) and Join Seva */}
               <div className="rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
-                <p className="mb-4 text-center text-sm font-semibold text-emerald-800">Your contact details</p>
+                <p className="mb-4 text-center text-sm font-semibold text-emerald-800">Your contact details (Adult #1)</p>
                 <div className="space-y-5">
                   <div>
                     <label htmlFor="vol-name" className="block text-sm font-semibold text-emerald-800">
@@ -835,12 +873,25 @@ function CommunityActivityDetailsContent() {
                             type="number"
                             min={0}
                             max={99}
-                            value={adultsCount}
+                            value={adultsCount || ""}
+                            placeholder="0"
                             onChange={(e) =>
                               setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))
                             }
+                            onFocus={(e) => e.target.select()}
                             className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                           />
+                        </div>
+                      )}
+                      {/* For Kids Only: show adults count as 1 (not editable) */}
+                      {isKidsOnly && (
+                        <div>
+                          <label className="block text-sm font-medium text-zinc-700">
+                            Adults
+                          </label>
+                          <div className="mt-1 w-full rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-zinc-700 font-semibold">
+                            1 (Primary Guardian)
+                          </div>
                         </div>
                       )}
                       {/* Kids section - shown if not adults-only */}
@@ -854,14 +905,58 @@ function CommunityActivityDetailsContent() {
                             type="number"
                             min={0}
                             max={99}
-                            value={kidsCount}
+                            value={kidsCount || ""}
+                            placeholder="0"
                             onChange={(e) => setKidsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
+                            onFocus={(e) => e.target.select()}
                             className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Dynamic participant details form - Adults (only if 2+ adults) */}
+                  {!isKidsOnly && adultsCount > 1 && (
+                    <DynamicParticipantForm
+                      participantCount={adultsCount - 1}
+                      participantType="adult"
+                      startIndex={2}
+                      config={{
+                        collectName: displayActivity.collectAdultName ?? false,
+                        collectEmail: displayActivity.collectAdultEmail ?? false,
+                        collectPhone: displayActivity.collectAdultPhone ?? false,
+                      }}
+                      participants={participants.filter((p) => p.type === "adult").slice(1)}
+                      onChange={(updated) => {
+                        const allAdults = [participants[0], ...updated];
+                        setParticipants([
+                          ...allAdults,
+                          ...participants.filter((p) => p.type === "kid"),
+                        ]);
+                      }}
+                    />
+                  )}
+
+                  {!isKidsOnly && kidsCount > 0 && (
+                    <DynamicParticipantForm
+                      participantCount={kidsCount}
+                      participantType="kid"
+                      config={{
+                        collectName: displayActivity.collectKidName ?? false,
+                        collectEmail: displayActivity.collectKidEmail ?? false,
+                        collectPhone: displayActivity.collectKidPhone ?? false,
+                        collectGroup: displayActivity.collectKidGroup ?? false,
+                      }}
+                      participants={participants.filter((p) => p.type === "kid")}
+                      onChange={(updated) => {
+                        setParticipants([
+                          ...participants.filter((p) => p.type === "adult"),
+                          ...updated,
+                        ]);
+                      }}
+                    />
+                  )}
 
                   <div id="join-seva-confirm" className="scroll-mt-6 rounded-lg bg-emerald-50/90 px-6 py-8 shadow-sm">
                     <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">

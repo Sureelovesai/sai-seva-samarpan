@@ -57,6 +57,17 @@ const activityPublicSelect = {
   createdAt: true,
   updatedAt: true,
   groupId: true,
+  // Participant configuration fields
+  participantTypes: true,
+  collectAdultName: true,
+  collectAdultEmail: true,
+  collectAdultPhone: true,
+  collectKidName: true,
+  collectKidGroup: true,
+  collectKidEmail: true,
+  collectKidPhone: true,
+  collectGuardianName: true,
+  collectGuardianEmail: true,
   group: {
     select: {
       id: true,

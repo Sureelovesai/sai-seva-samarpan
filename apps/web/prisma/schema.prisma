@@ -259,19 +259,19 @@ model SevaActivity {
   participantTypes String             @default("adults,kids")  // comma-separated: "adults", "kids", or "adults,kids"
   
   // Adult field collection configuration
-  collectAdultName    Boolean          @default(true)
-  collectAdultEmail   Boolean          @default(true)
-  collectAdultPhone   Boolean          @default(true)
+  collectAdultName    Boolean          @default(false)
+  collectAdultEmail   Boolean          @default(false)
+  collectAdultPhone   Boolean          @default(false)
   
   // Kid field collection configuration
-  collectKidName      Boolean          @default(true)
-  collectKidGroup     Boolean          @default(true)
-  collectKidEmail     Boolean          @default(true)
+  collectKidName      Boolean          @default(false)
+  collectKidGroup     Boolean          @default(false)
+  collectKidEmail     Boolean          @default(false)
   collectKidPhone     Boolean          @default(false)
   
   // Primary adult/guardian info for kids (when kids are allowed)
-  collectGuardianName  Boolean         @default(true)
-  collectGuardianEmail Boolean         @default(true)
+  collectGuardianName  Boolean         @default(false)
+  collectGuardianEmail Boolean         @default(false)
   
   signups          SevaSignup[]
   contributionItems SevaContributionItem[]
@@ -336,9 +336,30 @@ model SevaSignup {
   kidsCount     Int              @default(0) // number of children
   status        SevaSignupStatus @default(PENDING)
   comment       String?          // optional note from volunteer (e.g. from My Seva Dashboard)
+  participants  SevaSignupParticipant[] // Individual participant details
   createdAt     DateTime        @default(now())
 
   @@index([activityId])
+}
+
+model SevaSignupParticipant {
+  id            String     @id @default(cuid())
+  sevaSignupId  String
+  sevaSignup    SevaSignup @relation(fields: [sevaSignupId], references: [id], onDelete: Cascade)
+  
+  type          String     // "adult" or "kid"
+  
+  // Common fields (populated based on configuration)
+  name          String?
+  email         String?
+  phone         String?
+  
+  // Kid-specific fields
+  groupName     String?    // Group1, Group2, etc.
+  
+  createdAt     DateTime   @default(now())
+  
+  @@index([sevaSignupId])
 }
 
 model LoggedHours {

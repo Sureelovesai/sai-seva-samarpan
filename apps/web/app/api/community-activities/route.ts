@@ -37,6 +37,17 @@ const activityPublicSelect = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  // Participant configuration fields
+  participantTypes: true,
+  collectAdultName: true,
+  collectAdultEmail: true,
+  collectAdultPhone: true,
+  collectKidName: true,
+  collectKidGroup: true,
+  collectKidEmail: true,
+  collectKidPhone: true,
+  collectGuardianName: true,
+  collectGuardianEmail: true,
 } satisfies Prisma.SevaActivitySelect;
 
 type ActivityPublicRow = Prisma.SevaActivityGetPayload<{ select: typeof activityPublicSelect }>;

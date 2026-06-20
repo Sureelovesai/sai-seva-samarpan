@@ -184,8 +184,8 @@ export function ParticipantConfigEditor({ config, onChange, disabled = false }: 
         </div>
       )}
 
-      {/* Primary Guardian Info for Kids */}
-      {(isKidsOnly || isBoth) && (
+      {/* Primary Guardian Info for Kids - ONLY for Kids Only */}
+      {isKidsOnly && (
         <div className="border-t border-indigo-200 pt-4">
           <h4 className="text-sm font-semibold text-zinc-800 mb-3">Primary adult/guardian info (for kids):</h4>
           <div className="space-y-2 ml-4">

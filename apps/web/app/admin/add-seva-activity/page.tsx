@@ -51,18 +51,18 @@ export default function AddSevaActivityPage() {
   const [allowKids, setAllowKids] = useState(true);
   const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
 
-  // Participant configuration
+  // Participant configuration - default: Both Adults and Kids with all boxes unchecked
   const [participantConfig, setParticipantConfig] = useState<ParticipantConfig>({
     participantTypes: "adults,kids",
-    collectAdultName: true,
-    collectAdultEmail: true,
-    collectAdultPhone: true,
-    collectKidName: true,
-    collectKidGroup: true,
-    collectKidEmail: true,
+    collectAdultName: false,
+    collectAdultEmail: false,
+    collectAdultPhone: false,
+    collectKidName: false,
+    collectKidGroup: false,
+    collectKidEmail: false,
     collectKidPhone: false,
-    collectGuardianName: true,
-    collectGuardianEmail: true,
+    collectGuardianName: false,
+    collectGuardianEmail: false,
   });
 
   // Activity image: upload only
@@ -661,15 +661,15 @@ export default function AddSevaActivityPage() {
         // Reset participant configuration to defaults
         setParticipantConfig({
           participantTypes: "adults,kids",
-          collectAdultName: true,
-          collectAdultEmail: true,
-          collectAdultPhone: true,
-          collectKidName: true,
-          collectKidGroup: true,
-          collectKidEmail: true,
+          collectAdultName: false,
+          collectAdultEmail: false,
+          collectAdultPhone: false,
+          collectKidName: false,
+          collectKidGroup: false,
+          collectKidEmail: false,
           collectKidPhone: false,
-          collectGuardianName: true,
-          collectGuardianEmail: true,
+          collectGuardianName: false,
+          collectGuardianEmail: false,
         });
       }
     } catch (e: any) {
