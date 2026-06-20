@@ -36,6 +36,17 @@ type SevaActivity = {
   spotsRemaining?: number | null;
   /** Coordinator configured item/supply list — excluded from multi-activity batch join. */
   hasContributionList?: boolean;
+  // Participant configuration fields
+  participantTypes?: string;
+  collectAdultName?: boolean;
+  collectAdultEmail?: boolean;
+  collectAdultPhone?: boolean;
+  collectKidName?: boolean;
+  collectKidGroup?: boolean;
+  collectKidEmail?: boolean;
+  collectKidPhone?: boolean;
+  collectGuardianName?: boolean;
+  collectGuardianEmail?: boolean;
 };
 
 // Fallback when no activities from API
@@ -420,6 +431,12 @@ function SevaActivitiesContent() {
   const displayActivity = activities.length ? (selected ?? activities[0]) : defaultActivity;
   const activityIdToSubmit = activities.length ? (selected?.id ?? activities[0].id) : null;
   const kidsAllowedForCurrentJoin = displayActivity.allowKids !== false;
+
+  // Determine allowed participant types based on configuration
+  const participantTypes = displayActivity.participantTypes || "adults,kids";
+  const isAdultsOnly = participantTypes === "adults";
+  const isKidsOnly = participantTypes === "kids";
+  const isBoth = participantTypes === "adults,kids" || !participantTypes;
 
   useEffect(() => {
     if (!kidsAllowedForCurrentJoin && kidsCount !== 0) {
@@ -1353,24 +1370,28 @@ Location: ${locationSummary}`}
                     <p className="text-sm font-semibold text-emerald-800">
                       Who is joining? <span className="font-normal text-zinc-600">(including you)</span>
                     </p>
-                    <div className={`mt-4 grid gap-4 sm:gap-6 ${kidsAllowedForCurrentJoin ? "grid-cols-2" : "grid-cols-1"}`}>
-                      <div>
-                        <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
-                          Adults
-                        </label>
-                        <input
-                          id="adults-count"
-                          type="number"
-                          min={0}
-                          max={99}
-                          value={adultsCount}
-                          onChange={(e) =>
-                            setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))
-                          }
-                          className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                      {kidsAllowedForCurrentJoin ? (
+                    <div className={`mt-4 grid gap-4 sm:gap-6 ${isBoth || (kidsAllowedForCurrentJoin && !isKidsOnly) ? "grid-cols-2" : "grid-cols-1"}`}>
+                      {/* Adults section - shown unless participant type is kids-only */}
+                      {!isKidsOnly && (
+                        <div>
+                          <label htmlFor="adults-count" className="block text-sm font-medium text-zinc-700">
+                            Adults
+                          </label>
+                          <input
+                            id="adults-count"
+                            type="number"
+                            min={0}
+                            max={99}
+                            value={adultsCount}
+                            onChange={(e) =>
+                              setAdultsCount(Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))
+                            }
+                            className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                      )}
+                      {/* Kids section - shown if not adults-only AND kids allowed */}
+                      {!isAdultsOnly && (kidsAllowedForCurrentJoin || isBoth) ? (
                         <div>
                           <label htmlFor="kids-count" className="block text-sm font-medium text-zinc-700">
                             Kids
@@ -1385,11 +1406,11 @@ Location: ${locationSummary}`}
                             className="mt-1 w-full rounded border border-indigo-200 bg-white px-3 py-2 text-zinc-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
-                      ) : (
+                      ) : !isBoth && isAdultsOnly ? (
                         <p className="text-xs text-zinc-600">
                           Kids sign-up is disabled for this activity.
                         </p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
