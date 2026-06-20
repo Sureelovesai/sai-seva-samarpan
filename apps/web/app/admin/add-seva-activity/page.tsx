@@ -6,6 +6,7 @@ import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { USA_REGION_LABELS } from "@/lib/usaRegions";
 import { generateRecurrenceDates, getRecurrencePreview, type RecurrencePattern, type EndDateOption } from "@/lib/recurringEvents";
+import { ParticipantConfigEditor, type ParticipantConfig } from "@/app/admin/_components/ParticipantConfigEditor";
 import {
   ContributionItemsEditor,
   type ContributionRow,
@@ -49,6 +50,20 @@ export default function AddSevaActivityPage() {
   const [featured, setFeatured] = useState(false);
   const [allowKids, setAllowKids] = useState(true);
   const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
+
+  // Participant configuration
+  const [participantConfig, setParticipantConfig] = useState<ParticipantConfig>({
+    participantTypes: "adults,kids",
+    collectAdultName: true,
+    collectAdultEmail: true,
+    collectAdultPhone: true,
+    collectKidName: true,
+    collectKidGroup: true,
+    collectKidEmail: true,
+    collectKidPhone: false,
+    collectGuardianName: true,
+    collectGuardianEmail: true,
+  });
 
   // Activity image: upload only
   const [imageUrl, setImageUrl] = useState<string>("");
@@ -555,6 +570,17 @@ export default function AddSevaActivityPage() {
           isFeatured: featured,
           allowKids,
           joinSevaEnabled,
+          // Participant configuration
+          participantTypes: participantConfig.participantTypes,
+          collectAdultName: participantConfig.collectAdultName,
+          collectAdultEmail: participantConfig.collectAdultEmail,
+          collectAdultPhone: participantConfig.collectAdultPhone,
+          collectKidName: participantConfig.collectKidName,
+          collectKidGroup: participantConfig.collectKidGroup,
+          collectKidEmail: participantConfig.collectKidEmail,
+          collectKidPhone: participantConfig.collectKidPhone,
+          collectGuardianName: participantConfig.collectGuardianName,
+          collectGuardianEmail: participantConfig.collectGuardianEmail,
           status,
           contributionItems: contributionItems
             .filter((r) => r.name.trim())
@@ -632,6 +658,19 @@ export default function AddSevaActivityPage() {
         setEndDateOption("after-count");
         setEndCount(4);
         setRecurringEndDate("");
+        // Reset participant configuration to defaults
+        setParticipantConfig({
+          participantTypes: "adults,kids",
+          collectAdultName: true,
+          collectAdultEmail: true,
+          collectAdultPhone: true,
+          collectKidName: true,
+          collectKidGroup: true,
+          collectKidEmail: true,
+          collectKidPhone: false,
+          collectGuardianName: true,
+          collectGuardianEmail: true,
+        });
       }
     } catch (e: any) {
       setMsg({ kind: "err", text: e?.message || "Internal error." });
@@ -1129,27 +1168,26 @@ export default function AddSevaActivityPage() {
                     Featured
                   </span>
                 </label>
+              </div>
 
+              {/* PARTICIPANT CONFIGURATION SECTION */}
+              <div className="mt-8 border-t border-zinc-200 pt-8">
+                <ParticipantConfigEditor
+                  config={participantConfig}
+                  onChange={setParticipantConfig}
+                  disabled={saving}
+                />
+              </div>
+
+              {/* OLD JOIN SEVA OPTIONS - KEPT FOR BACKWARD COMPATIBILITY */}
+              <div className="mt-6 flex flex-wrap items-center gap-10">
                 <label className="inline-flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={allowKids}
-                    onChange={(e) => setAllowKids(e.target.checked)}
-                    disabled={!joinSevaEnabled}
-                    className="h-6 w-6 accent-indigo-600"
-                  />
-                  <span className="text-lg font-semibold text-indigo-950">
-                    Allow kids in Join Seva
-                  </span>
-                </label>
-                <label className="inline-flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={!joinSevaEnabled}
+                    checked={joinSevaEnabled}
                     onChange={(e) => {
-                      const itemsOnly = e.target.checked;
-                      setJoinSevaEnabled(!itemsOnly);
-                      if (itemsOnly) setAllowKids(false);
+                      const enabled = e.target.checked;
+                      setJoinSevaEnabled(enabled);
                     }}
                     className="h-6 w-6 accent-indigo-600"
                   />

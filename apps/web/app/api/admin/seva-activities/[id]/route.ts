@@ -220,6 +220,18 @@ export async function PATCH(
             ? body.status
             : undefined,
 
+        // Participant configuration fields
+        participantTypes: body.participantTypes !== undefined ? body.participantTypes : undefined,
+        collectAdultName: body.collectAdultName === undefined ? undefined : Boolean(body.collectAdultName),
+        collectAdultEmail: body.collectAdultEmail === undefined ? undefined : Boolean(body.collectAdultEmail),
+        collectAdultPhone: body.collectAdultPhone === undefined ? undefined : Boolean(body.collectAdultPhone),
+        collectKidName: body.collectKidName === undefined ? undefined : Boolean(body.collectKidName),
+        collectKidGroup: body.collectKidGroup === undefined ? undefined : Boolean(body.collectKidGroup),
+        collectKidEmail: body.collectKidEmail === undefined ? undefined : Boolean(body.collectKidEmail),
+        collectKidPhone: body.collectKidPhone === undefined ? undefined : Boolean(body.collectKidPhone),
+        collectGuardianName: body.collectGuardianName === undefined ? undefined : Boolean(body.collectGuardianName),
+        collectGuardianEmail: body.collectGuardianEmail === undefined ? undefined : Boolean(body.collectGuardianEmail),
+
         ...(patchGroupId !== undefined ? { groupId: patchGroupId } : {}),
       },
     });

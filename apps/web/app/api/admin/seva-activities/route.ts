@@ -197,6 +197,18 @@ export async function POST(req: Request) {
         isFeatured: Boolean(body.isFeatured),
         status: body.status === "DRAFT" ? "DRAFT" : "PUBLISHED",
         groupId: resolvedGroupId,
+
+        // Participant configuration fields
+        participantTypes: body.participantTypes || "adults,kids",
+        collectAdultName: body.collectAdultName ?? true,
+        collectAdultEmail: body.collectAdultEmail ?? true,
+        collectAdultPhone: body.collectAdultPhone ?? true,
+        collectKidName: body.collectKidName ?? true,
+        collectKidGroup: body.collectKidGroup ?? true,
+        collectKidEmail: body.collectKidEmail ?? true,
+        collectKidPhone: body.collectKidPhone ?? false,
+        collectGuardianName: body.collectGuardianName ?? true,
+        collectGuardianEmail: body.collectGuardianEmail ?? true,
       },
     });
 

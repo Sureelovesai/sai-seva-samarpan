@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CITIES } from "@/lib/cities";
 import { SEVA_CATEGORIES } from "@/lib/categories";
 import { USA_REGION_LABELS } from "@/lib/usaRegions";
+import { ParticipantConfigEditor, type ParticipantConfig } from "@/app/admin/_components/ParticipantConfigEditor";
 import {
   ContributionItemsEditor,
   type ContributionRow,
@@ -72,6 +73,17 @@ type ActivityData = {
   isActive: boolean;
   isFeatured: boolean;
   status: string;
+  // Participant configuration fields
+  participantTypes?: string;
+  collectAdultName?: boolean;
+  collectAdultEmail?: boolean;
+  collectAdultPhone?: boolean;
+  collectKidName?: boolean;
+  collectKidGroup?: boolean;
+  collectKidEmail?: boolean;
+  collectKidPhone?: boolean;
+  collectGuardianName?: boolean;
+  collectGuardianEmail?: boolean;
   contributionItems?: Array<{
     id: string;
     name: string;
@@ -240,6 +252,20 @@ export default function EditSevaActivityPage() {
   const [allowKids, setAllowKids] = useState(true);
   const [joinSevaEnabled, setJoinSevaEnabled] = useState(true);
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED" | "ARCHIVED">("PUBLISHED");
+
+  // Participant configuration
+  const [participantConfig, setParticipantConfig] = useState<ParticipantConfig>({
+    participantTypes: "adults,kids",
+    collectAdultName: true,
+    collectAdultEmail: true,
+    collectAdultPhone: true,
+    collectKidName: true,
+    collectKidGroup: true,
+    collectKidEmail: true,
+    collectKidPhone: false,
+    collectGuardianName: true,
+    collectGuardianEmail: true,
+  });
 
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -488,6 +514,20 @@ export default function EditSevaActivityPage() {
       setJoinSevaEnabled(a.joinSevaEnabled ?? true);
       setStatus((a.status as "DRAFT" | "PUBLISHED" | "ARCHIVED") || "PUBLISHED");
 
+      // Load participant configuration
+      setParticipantConfig({
+        participantTypes: a.participantTypes || "adults,kids",
+        collectAdultName: a.collectAdultName ?? true,
+        collectAdultEmail: a.collectAdultEmail ?? true,
+        collectAdultPhone: a.collectAdultPhone ?? true,
+        collectKidName: a.collectKidName ?? true,
+        collectKidGroup: a.collectKidGroup ?? true,
+        collectKidEmail: a.collectKidEmail ?? true,
+        collectKidPhone: a.collectKidPhone ?? false,
+        collectGuardianName: a.collectGuardianName ?? true,
+        collectGuardianEmail: a.collectGuardianEmail ?? true,
+      });
+
       const { editorRows, withClaims } = mapContributionItemsFromApi(a.contributionItems);
       setContributionItems(editorRows);
       setItemContributionSignups(withClaims);
@@ -716,6 +756,17 @@ export default function EditSevaActivityPage() {
         allowKids,
         joinSevaEnabled,
         status,
+        // Participant configuration
+        participantTypes: participantConfig.participantTypes,
+        collectAdultName: participantConfig.collectAdultName,
+        collectAdultEmail: participantConfig.collectAdultEmail,
+        collectAdultPhone: participantConfig.collectAdultPhone,
+        collectKidName: participantConfig.collectKidName,
+        collectKidGroup: participantConfig.collectKidGroup,
+        collectKidEmail: participantConfig.collectKidEmail,
+        collectKidPhone: participantConfig.collectKidPhone,
+        collectGuardianName: participantConfig.collectGuardianName,
+        collectGuardianEmail: participantConfig.collectGuardianEmail,
         contributionItems: contributionItems
           .filter((r) => r.name.trim())
           .map((r) => ({
@@ -1549,24 +1600,26 @@ export default function EditSevaActivityPage() {
                   <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="h-6 w-6 accent-indigo-600" />
                   <span className="text-lg font-semibold text-indigo-950">Featured</span>
                 </label>
+              </div>
+
+              {/* PARTICIPANT CONFIGURATION SECTION */}
+              <div className="mt-8 border-t border-indigo-100 pt-8">
+                <ParticipantConfigEditor
+                  config={participantConfig}
+                  onChange={setParticipantConfig}
+                  disabled={saving}
+                />
+              </div>
+
+              {/* OLD JOIN SEVA OPTIONS - KEPT FOR BACKWARD COMPATIBILITY */}
+              <div className="mt-6 flex flex-wrap items-center gap-10">
                 <label className="inline-flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={allowKids}
-                    onChange={(e) => setAllowKids(e.target.checked)}
-                    disabled={!joinSevaEnabled}
-                    className="h-6 w-6 accent-indigo-600"
-                  />
-                  <span className="text-lg font-semibold text-indigo-950">Allow kids in Join Seva</span>
-                </label>
-                <label className="inline-flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={!joinSevaEnabled}
+                    checked={joinSevaEnabled}
                     onChange={(e) => {
-                      const itemsOnly = e.target.checked;
-                      setJoinSevaEnabled(!itemsOnly);
-                      if (itemsOnly) setAllowKids(false);
+                      const enabled = e.target.checked;
+                      setJoinSevaEnabled(enabled);
                     }}
                     className="h-6 w-6 accent-indigo-600"
                   />
