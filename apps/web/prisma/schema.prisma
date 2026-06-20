@@ -254,6 +254,25 @@ model SevaActivity {
   durationHours   Float?              // Duration in hours (e.g. 1.5 = 1hr 30min); used for Total Hours Served
   reminderSentAt  DateTime?           // When the 24h-before reminder was sent (volunteers + coordinator)
   status           SevaActivityStatus @default(DRAFT)
+  
+  // Participant type configuration (Adults only, Kids only, or Both)
+  participantTypes String             @default("adults,kids")  // comma-separated: "adults", "kids", or "adults,kids"
+  
+  // Adult field collection configuration
+  collectAdultName    Boolean          @default(true)
+  collectAdultEmail   Boolean          @default(true)
+  collectAdultPhone   Boolean          @default(true)
+  
+  // Kid field collection configuration
+  collectKidName      Boolean          @default(true)
+  collectKidGroup     Boolean          @default(true)
+  collectKidEmail     Boolean          @default(true)
+  collectKidPhone     Boolean          @default(false)
+  
+  // Primary adult/guardian info for kids (when kids are allowed)
+  collectGuardianName  Boolean         @default(true)
+  collectGuardianEmail Boolean         @default(true)
+  
   signups          SevaSignup[]
   contributionItems SevaContributionItem[]
   /// Set when the activity is created via Community Outreach; used to show only "my" postings in Manage Activity.
