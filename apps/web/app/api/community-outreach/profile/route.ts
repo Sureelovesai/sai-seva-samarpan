@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole } from "@/lib/getRole";
 import { notifyReviewersProfileSubmitted } from "@/lib/communityOutreachNotify";
+import { sendNotificationToRole } from "@/lib/notification-service";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,20 @@ export async function POST(req: Request) {
       submitterEmail: user.email,
       submitterName: displayName(user),
     });
+
+    // Send push notifications to admins about new partner profile
+    try {
+      await sendNotificationToRole("ADMIN", {
+        title: "New Partner Profile Pending Review",
+        body: profile.organizationName,
+        triggerType: "PARTNER_APP",
+        relatedId: profile.id,
+        actionUrl: "/admin/community-outreach",
+      });
+    } catch (notifErr) {
+      console.error("[Notification] Failed to send partner profile notification:", notifErr);
+      // Don't fail the request if notifications fail
+    }
 
     return NextResponse.json(profile);
   } catch (e: unknown) {

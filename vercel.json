@@ -1,5 +1,8 @@
 {
-  "buildCommand": "npm --workspace apps/web run build",
-  "installCommand": "npm install",
-  "framework": null
+  "crons": [
+    {
+      "path": "/api/cron/activity-reminders",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createVolunteerSignup } from "@/lib/sevaVolunteerSignupCore";
 import { sendSevaJoinSignupEmails } from "@/lib/sendSevaJoinSignupEmails";
+import { sendNotificationToLocation, sendNotificationToRole } from "@/lib/notification-service";
 
 /**
  * POST /api/seva-signups
@@ -84,6 +85,40 @@ export async function POST(req: Request) {
       kidsCount,
       status: signup.status,
     });
+
+    // Send push notifications to coordinators and admins about new signup
+    try {
+      // Fetch the activity to get its city
+      const sevaActivity = await prisma.sevaActivity.findUnique({
+        where: { id: activityId },
+        select: { city: true, title: true },
+      });
+
+      if (sevaActivity) {
+        // Send location-specific notifications to coordinators in this city
+        // AND send global notification to all admins
+        await Promise.all([
+          sendNotificationToLocation([sevaActivity.city], {
+            title: "New Signup for Your Activity",
+            body: `${name} signed up for ${sevaActivity.title}`,
+            triggerType: "NEW_SIGNUP",
+            relatedId: signup.id,
+            actionUrl: `/admin/seva-signups`,
+          }, "SEVA_COORDINATOR"),
+          // Notify all admins about the signup
+          sendNotificationToRole("ADMIN", {
+            title: "New Volunteer Signup",
+            body: `${name} registered for ${sevaActivity.title} (${sevaActivity.city})`,
+            triggerType: "NEW_SIGNUP",
+            relatedId: signup.id,
+            actionUrl: `/admin/seva-signups`,
+          }),
+        ]);
+      }
+    } catch (notifErr) {
+      console.error("[Notification] Failed to send signup notification:", notifErr);
+      // Don't fail the request if notifications fail
+    }
 
     return NextResponse.json(
       { id: signup.id, status: signup.status, activityId },

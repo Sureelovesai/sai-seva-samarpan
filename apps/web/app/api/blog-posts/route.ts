@@ -13,6 +13,7 @@ import {
 } from "@/lib/blogReportScope";
 import { getSessionWithRole } from "@/lib/getRole";
 import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
+import { sendNotificationToRole } from "@/lib/notification-service";
 
 function isScopeErr(x: ReportScopeInput | ScopeParseError): x is ScopeParseError {
   return "error" in x && "status" in x;
@@ -320,6 +321,20 @@ export async function POST(req: Request) {
       if (!result.ok) {
         console.error("Blog post: admin notification email failed for", to, result.error ?? result.skipped);
       }
+    }
+
+    // Send push notifications to blog admins about pending post
+    try {
+      await sendNotificationToRole("BLOG_ADMIN", {
+        title: "New Blog Post Pending Approval",
+        body: post.title,
+        triggerType: "BLOG_POST",
+        relatedId: post.id,
+        actionUrl: "/admin/seva-dashboard#pending-blog-posts",
+      });
+    } catch (notifErr) {
+      console.error("[Notification] Failed to send blog post notification:", notifErr);
+      // Don't fail the request if notifications fail
     }
 
     return NextResponse.json({

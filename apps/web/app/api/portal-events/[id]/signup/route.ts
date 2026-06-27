@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { isPrismaColumnMissing } from "@/lib/prismaMissingPortalEvent";
 import { sendPortalEventRsvpEmails } from "@/lib/portalEventRsvpEmails";
+import { sendNotificationToRole } from "@/lib/notification-service";
 
 function publicEventAbsoluteUrl(req: Request, eventId: string): string {
   const env = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
@@ -275,6 +276,21 @@ export async function POST(
         },
         eventId
       );
+
+      // Send push notifications to event admins about new signup
+      try {
+        await sendNotificationToRole("EVENT_ADMIN", {
+          title: "New Event Signup",
+          body: `${participantName} signed up for ${event.title}`,
+          triggerType: "EVENT_SIGNUP",
+          relatedId: signup.id,
+          actionUrl: "/admin/events-dashboard",
+        });
+      } catch (notifErr) {
+        console.error("[Notification] Failed to send event signup notification:", notifErr);
+        // Don't fail the request if notifications fail
+      }
+
       return NextResponse.json({
         id: signup.id,
         message:
@@ -346,6 +362,21 @@ export async function POST(
         },
         eventId
       );
+
+      // Send push notifications to event admins about new signup (legacy fallback)
+      try {
+        await sendNotificationToRole("EVENT_ADMIN", {
+          title: "New Event Signup",
+          body: `${participantName} signed up for ${event.title}`,
+          triggerType: "EVENT_SIGNUP",
+          relatedId: row.id,
+          actionUrl: "/admin/events-dashboard",
+        });
+      } catch (notifErr) {
+        console.error("[Notification] Failed to send event signup notification:", notifErr);
+        // Don't fail the request if notifications fail
+      }
+
       return NextResponse.json({
         id: row.id,
         message:

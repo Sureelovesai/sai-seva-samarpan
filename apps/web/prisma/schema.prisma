@@ -24,6 +24,9 @@ model User {
   communityOutreachProfile CommunityOutreachProfile?
   /// Seva activities this user posted via Community Outreach (Manage Activity is filtered by this).
   communityOutreachPostedActivities SevaActivity[] @relation("CommunityOutreachPostedBy")
+  pushSubscriptions PushSubscription[]
+  notificationLogs NotificationLog[]
+  notificationPreference NotificationPreference?
 
   @@index([email])
 }
@@ -452,4 +455,52 @@ model EventSignup {
 
   @@index([eventId])
   @@index([email])
+}
+
+/// Firebase Cloud Messaging push notification subscription
+model PushSubscription {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken      String   @unique
+  deviceName    String?
+  isActive      Boolean  @default(true)
+  subscribedAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([fcmToken])
+}
+
+/// Notification history and audit log
+model NotificationLog {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  body            String
+  triggerType     String   // "NEW_ACTIVITY", "NEW_SIGNUP", "ACTIVITY_REMINDER", "BLOG_POST", "PARTNER_APP", "EVENT_SIGNUP"
+  relatedId       String?  // Activity ID, BlogPost ID, Event ID, etc.
+  actionUrl       String?  // Link when notification clicked
+  read            Boolean  @default(false)
+  sentAt          DateTime @default(now())
+
+  @@index([userId])
+  @@index([triggerType])
+  @@index([sentAt])
+}
+
+/// User notification preferences and settings
+model NotificationPreference {
+  id                                  String   @id @default(cuid())
+  userId                              String   @unique
+  user                                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newActivityNotifications            Boolean  @default(true)
+  signupNotifications                 Boolean  @default(true)
+  reminderNotifications               Boolean  @default(true)
+  blogNotifications                   Boolean  @default(true)
+  communityOutreachNotifications      Boolean  @default(true)
+  eventNotifications                  Boolean  @default(true)
+  updatedAt                           DateTime @default(now()) @updatedAt
+
+  @@index([userId])
 }

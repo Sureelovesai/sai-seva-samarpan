@@ -8,6 +8,7 @@ import {
   validateSevaScopeForSession,
 } from "@/lib/sevaCoordinatorActivityAccess";
 import { resolveGroupIdForActivity } from "@/lib/resolveSevaActivityGroupId";
+import { sendNotificationToRole, sendNotificationToLocation } from "@/lib/notification-service";
 
 function toIntOrNull(v: any): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -225,6 +226,43 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+    }
+
+    // Send push notifications for new activity
+    try {
+      const isPublished = created.status === "PUBLISHED";
+      if (isPublished) {
+        // Notify volunteers, coordinators, and admins about new activity
+        await Promise.all([
+          // Send to volunteers in this city only
+          sendNotificationToLocation([created.city], {
+            title: "New Seva Activity in Your City",
+            body: created.title,
+            triggerType: "NEW_ACTIVITY",
+            relatedId: created.id,
+            actionUrl: `/find-seva`,
+          }, "VOLUNTEER"),
+          // Send to coordinators in this city
+          sendNotificationToLocation([created.city], {
+            title: "New Seva Activity in Your City",
+            body: created.title,
+            triggerType: "NEW_ACTIVITY",
+            relatedId: created.id,
+            actionUrl: `/find-seva`,
+          }, "SEVA_COORDINATOR"),
+          // Send to ALL admins globally
+          sendNotificationToRole("ADMIN", {
+            title: "New Seva Activity Created",
+            body: `${created.title} (${created.city})`,
+            triggerType: "NEW_ACTIVITY",
+            relatedId: created.id,
+            actionUrl: `/admin/seva-dashboard`,
+          }),
+        ]);
+      }
+    } catch (notifErr) {
+      console.error("[Notification] Failed to send activity notification:", notifErr);
+      // Don't fail the request if notifications fail
     }
 
     return NextResponse.json(created, { status: 201 });
