@@ -1051,12 +1051,11 @@ function SevaActivitiesContent() {
           <button
             type="button"
             onClick={() => setSignUpTab("join")}
-            disabled={!joinSevaEnabledForCurrent}
             className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold ${
               signUpTab === "join"
                 ? "border-indigo-700 bg-indigo-700 text-white"
                 : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-            } disabled:cursor-not-allowed disabled:opacity-50`}
+            }`}
           >
             Join the activity
           </button>
@@ -1145,7 +1144,7 @@ function SevaActivitiesContent() {
               </div>
 
               {/* Join Seva — creates SevaSignup (roster, capacity, hours when activity ends) */}
-              {signUpTab === "join" ? (
+              {signUpTab === "join" && joinSevaEnabledForCurrent ? (
               signUpSubmitted ? (
                 <div className="space-y-3 rounded-lg bg-emerald-50/90 px-6 py-8 text-center text-emerald-800 shadow-sm">
                   {batchJoinResults && batchJoinResults.length > 0 ? (
