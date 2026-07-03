@@ -1184,10 +1184,10 @@ export default function AddSevaActivityPage() {
                 <label className="inline-flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={joinSevaEnabled}
+                    checked={!joinSevaEnabled}
                     onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setJoinSevaEnabled(enabled);
+                      const disableJoinSeva = e.target.checked;
+                      setJoinSevaEnabled(!disableJoinSeva);
                     }}
                     className="h-6 w-6 accent-indigo-600"
                   />
