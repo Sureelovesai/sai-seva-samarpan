@@ -1050,7 +1050,12 @@ function SevaActivitiesContent() {
         <div className="mx-auto mt-4 flex max-w-md gap-2">
           <button
             type="button"
-            onClick={() => setSignUpTab("join")}
+            onClick={() => {
+              setSignUpTab("join");
+              setTimeout(() => {
+                document.getElementById("join-seva-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 0);
+            }}
             className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold ${
               signUpTab === "join"
                 ? "border-indigo-700 bg-indigo-700 text-white"
@@ -1196,7 +1201,7 @@ function SevaActivitiesContent() {
                   </div>
 
                   {activities.length > 1 && (
-                    <div className="overflow-hidden rounded-2xl border border-indigo-300/50 bg-white/35 shadow-[0_8px_28px_rgba(30,50,120,0.08)] backdrop-blur-sm">
+                    <div id="join-seva-form" className="overflow-hidden rounded-2xl border border-indigo-300/50 bg-white/35 shadow-[0_8px_28px_rgba(30,50,120,0.08)] backdrop-blur-sm">
                       <div className="border-b border-indigo-200/70 bg-white/60 px-4 py-4 md:px-5">
                         <p className="text-sm font-semibold text-indigo-950">Which activities are you joining?</p>
                         <p className="mt-2 text-xs leading-relaxed text-zinc-600">
