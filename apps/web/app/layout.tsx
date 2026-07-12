@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import { ConditionalSiteChatbot } from "./_components/ConditionalSiteChatbot";
 import { ConditionalSiteFooter } from "./_components/ConditionalSiteFooter";
 import { ConditionalSiteHeader } from "./_components/ConditionalSiteHeader";
+import { NotificationPrompt } from "./_components/NotificationPrompt";
+import { ForegroundNotificationListener } from "./_components/ForegroundNotificationListener";
 
 export const metadata: Metadata = {
   title: "Sai Seva Portal",
@@ -70,7 +72,7 @@ export default function RootLayout({
                 window.addEventListener('load', async () => {
                   try {
                     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                    console.log('[App] Service Worker registered:', registration);
+                    console.log('[App] Main Service Worker registered:', registration);
                   } catch (error) {
                     console.error('[App] Service Worker registration failed:', error);
                   }
@@ -82,6 +84,9 @@ export default function RootLayout({
         <div className="print:hidden">
           <ConditionalSiteHeader />
         </div>
+
+        <NotificationPrompt />
+        <ForegroundNotificationListener />
 
         <main className="flex min-h-0 flex-1 flex-col self-stretch">
           {children}

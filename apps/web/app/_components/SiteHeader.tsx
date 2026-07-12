@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NotificationBell } from "./NotificationBell";
 
 type AuthUser = {
   id: string;
@@ -138,8 +139,9 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
-      <div className="mx-auto max-w-6xl px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2 md:pl-6 md:pr-4">
-        <div className="flex items-center justify-between gap-4">
+      <div className="relative"> {/* Container for absolute positioning */}
+        <div className="mx-auto max-w-6xl px-3 pt-2 pb-1 sm:px-4 sm:pt-2 sm:pb-1 md:pl-6 md:pr-4">
+          <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex shrink-0 items-center md:mr-10" onClick={() => setMenuOpen(false)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -148,14 +150,14 @@ export function SiteHeader() {
               width={156}
               height={72}
               fetchPriority="high"
-              className="h-[88px] w-auto max-w-[200px] object-contain object-left sm:h-[92px] sm:max-w-[220px] md:h-20 md:max-w-[280px]"
+              className="h-[88px] w-auto max-w-[200px] object-contain object-left sm:h-[92px] sm:max-w-[220px] md:h-16 md:max-w-[260px]"
             />
           </Link>
 
           <div className="min-w-0 flex-1 pl-[15px] hidden md:block landscape-desktop:block">
             {/* Same pl-[15px] on this column aligns row 1 (main nav), row 2 (admin), row 3 (login). */}
-            <div className="flex items-start justify-between gap-6">
-              <nav className="min-w-0 flex flex-nowrap items-center gap-x-3 overflow-visible pb-0 text-sm sm:gap-x-4 sm:text-base">
+            <div className="flex items-start justify-between gap-6 leading-none -space-y-1">
+              <nav className="min-w-0 flex flex-nowrap items-center gap-x-3 overflow-visible pb-0 text-sm sm:gap-x-4 sm:text-base leading-none">
                 <div className="flex min-w-0 flex-nowrap items-center gap-x-3 sm:gap-x-4">
                   {topLinks.map((l) => (
                     <Link key={l.href} href={l.href} className={`shrink-0 whitespace-nowrap ${linkClass(l.href)}`}>
@@ -260,7 +262,7 @@ export function SiteHeader() {
                 )}
               </div>
             </div>
-            <nav className="-mt-0.5 flex flex-wrap items-center gap-x-8 gap-y-0.5 text-sm sm:text-base">
+            <nav className="-mt-0.5 flex flex-wrap items-center gap-x-8 gap-y-0 text-sm sm:text-base">
               <div className="relative shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   type="button"
@@ -416,8 +418,17 @@ export function SiteHeader() {
             )}
           </div>
         )}
+        </div>
+
+        <div className="h-[1px] w-full bg-gray-200" />
       </div>
-      <div className="h-[1px] w-full bg-gray-200" />
+
+      {/* Notification Bell - Absolute positioned top-right corner */}
+      {authChecked && user && (
+        <div className="absolute top-2 right-4 sm:top-3 sm:right-6 z-40">
+          <NotificationBell />
+        </div>
+      )}
     </header>
   );
 }
