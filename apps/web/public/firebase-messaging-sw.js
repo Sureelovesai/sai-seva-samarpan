@@ -66,7 +66,7 @@ self.addEventListener('notificationclick', (event) => {
   const urlToOpen = event.notification.data?.actionUrl || '/dashboard';
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // Check if there's already a window/tab open with the target URL
@@ -77,8 +77,8 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         // If not, open a new window/tab with the target URL
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
         }
       })
   );

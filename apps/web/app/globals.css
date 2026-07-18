@@ -10,11 +10,21 @@
 html {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 body {
   margin: 0;
   line-height: 1.5;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
+
+* {
+  box-sizing: border-box;
+}
+
+/* Sidebar layout adjustments - handled dynamically by Sidebar component */
+/* Do not add static margins here as they conflict with the Sidebar's dynamic margins */
 
 /* Public /events — always light, saturated pastels (readable “View details” + cards vs page) */
 .events-root {

@@ -2,9 +2,10 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { ConditionalSiteChatbot } from "./_components/ConditionalSiteChatbot";
 import { ConditionalSiteFooter } from "./_components/ConditionalSiteFooter";
-import { ConditionalSiteHeader } from "./_components/ConditionalSiteHeader";
+import { MinimalSiteHeader } from "./_components/MinimalSiteHeader";
 import { NotificationPrompt } from "./_components/NotificationPrompt";
 import { ForegroundNotificationListener } from "./_components/ForegroundNotificationListener";
+import { Sidebar } from "./_components/Sidebar";
 
 export const metadata: Metadata = {
   title: "Sai Seva Portal",
@@ -64,7 +65,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className="flex min-h-screen flex-col">
+      <body className="m-0 p-0 bg-white dark:bg-black overflow-x-hidden">
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -81,21 +82,30 @@ export default function RootLayout({
             `,
           }}
         />
-        <div className="print:hidden">
-          <ConditionalSiteHeader />
+
+        {/* Sidebar Navigation - Fixed Positioning */}
+        <Sidebar />
+
+        {/* Header - Must account for sidebar */}
+        <div className="print:hidden header-wrapper">
+          <MinimalSiteHeader />
         </div>
 
+        {/* Notifications & Listeners */}
         <NotificationPrompt />
         <ForegroundNotificationListener />
 
-        <main className="flex min-h-0 flex-1 flex-col self-stretch">
+        {/* Main Content */}
+        <main className="w-full">
           {children}
         </main>
 
+        {/* Footer */}
         <div className="print:hidden">
           <ConditionalSiteFooter />
         </div>
 
+        {/* Chatbot */}
         <ConditionalSiteChatbot />
       </body>
     </html>

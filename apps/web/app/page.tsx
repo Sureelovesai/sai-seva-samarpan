@@ -535,7 +535,7 @@ export default function HomePage() {
       </section>
 
       {/* BUTTONS ROW — equal width: My Seva Dashboard natural, Find Seva stretches to match */}
-      <section className="bg-[linear-gradient(90deg,rgba(180,208,152,0.36)_0%,rgba(198,218,148,0.42)_50%,rgba(255,212,188,0.37)_100%)] py-14">
+      <section className="bg-[linear-gradient(90deg,rgba(180,208,152,0.36)_0%,rgba(198,218,148,0.42)_50%,rgba(255,212,188,0.37)_100%)] py-8">
         <div className="mx-auto flex max-w-5xl flex-col items-stretch justify-center gap-10 px-4 landscape-desktop:flex-row md:flex-row">
           <div className="flex w-full max-w-xl flex-col gap-6 landscape-desktop:max-w-none landscape-desktop:flex-1 landscape-desktop:flex-row landscape-desktop:basis-0 landscape-desktop:gap-10 md:max-w-none md:flex-1 md:flex-row md:basis-0 md:gap-10">
             <Link
@@ -557,7 +557,7 @@ export default function HomePage() {
 
       {/* Public seva calendar — visible to everyone, no login */}
       <section
-        className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-6 sm:py-8"
+        className="bg-[linear-gradient(180deg,#f0f9ff_0%,#e0f2fe_40%,#dbeafe_100%)] py-4 sm:py-6"
         aria-label="Seva Activity Calendar"
       >
         <SevaPublicCalendarSection />

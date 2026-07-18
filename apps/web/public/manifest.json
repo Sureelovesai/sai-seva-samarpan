@@ -36,9 +36,9 @@
   ],
   "screenshots": [
     {
-      "src": "/home_screen.png",
+      "src": "/Desktop-Home.jpg",
       "sizes": "540x720",
-      "type": "image/png",
+      "type": "image/jpeg",
       "form_factor": "narrow",
       "label": "Sai Seva Portal Home Screen"
     },

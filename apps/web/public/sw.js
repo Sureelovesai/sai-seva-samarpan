@@ -119,11 +119,11 @@ self.addEventListener('push', (event) => {
       self.registration.showNotification(title || 'Sai Seva', options).then(() => {
         // Update app badge when notification received (PWA app icon)
         // This will show a number badge on the app icon on home screen
-        if ('setAppBadge' in self.clients) {
+        if ('setAppBadge' in self) {
           // Estimate: badge = current badge + 1 (we don't have access to actual count in SW)
           // The client component (NotificationBell) will sync this properly every 30s
           try {
-            (self as any).setAppBadge(1); // Just indicate there's at least 1 notification
+            self.setAppBadge(1); // Just indicate there's at least 1 notification
           } catch (err) {
             console.debug('[SW] Badge API not available');
           }
@@ -150,7 +150,7 @@ self.addEventListener('notificationclick', (event) => {
 
   // Open the app and navigate to the action URL
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // Check if app window already exists
@@ -160,8 +160,8 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         // Open new window if not found
-        if (clients.openWindow) {
-          return clients.openWindow(actionUrl);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(actionUrl);
         }
       })
   );
