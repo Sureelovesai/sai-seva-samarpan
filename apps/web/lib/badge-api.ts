@@ -4,6 +4,12 @@
  * Manages the app icon badge (number shown on PWA app icon on home screen)
  * Works on Android 12+, Chrome, and some iOS implementations
  * 
+ * Android Requirements:
+ * - Chrome 81+
+ * - PWA installed (not just web view)
+ * - Notification permission granted
+ * - Badge set from valid context (not from service worker directly)
+ * 
  * Visual examples:
  * - Shows "5" badge when 5 unread notifications
  * - Shows "99+" badge when 99+ unread notifications
@@ -19,10 +25,22 @@ export async function setAppBadge(count: number): Promise<void> {
     if ("setAppBadge" in navigator) {
       const badgeValue = Math.min(count, 99); // Cap at 99 per Badging API convention
       await navigator.setAppBadge(badgeValue);
-      console.log(`[BadgeAPI] Set badge to ${badgeValue}`);
+      console.log(`[BadgeAPI] ✅ Set badge to ${badgeValue}`, {
+        isStandalone: (window.navigator as any).standalone === true,
+        displayMode: (window as any).__DISPLAY_MODE__ || 'unknown',
+        userAgent: navigator.userAgent.substring(0, 100)
+      });
+    } else {
+      console.log("[BadgeAPI] ⚠️ setAppBadge not available on this device", {
+        isStandalone: (window.navigator as any).standalone === true,
+        userAgent: navigator.userAgent.substring(0, 100)
+      });
     }
   } catch (err) {
-    console.debug("[BadgeAPI] setAppBadge not supported or failed:", err);
+    console.warn("[BadgeAPI] ❌ setAppBadge failed:", {
+      error: err instanceof Error ? err.message : String(err),
+      isStandalone: (window.navigator as any).standalone === true,
+    });
   }
 }
 
@@ -33,10 +51,10 @@ export async function clearAppBadge(): Promise<void> {
   try {
     if ("clearAppBadge" in navigator) {
       await navigator.clearAppBadge();
-      console.log("[BadgeAPI] Badge cleared");
+      console.log("[BadgeAPI] ✅ Badge cleared");
     }
   } catch (err) {
-    console.debug("[BadgeAPI] clearAppBadge not supported or failed:", err);
+    console.warn("[BadgeAPI] ❌ clearAppBadge failed:", err);
   }
 }
 
@@ -57,4 +75,17 @@ export async function updateBadgeFromNotificationCount(count: number): Promise<v
  */
 export function isBadgingAPISupported(): boolean {
   return "setAppBadge" in navigator;
+}
+
+/**
+ * Get badge API support info for debugging
+ */
+export function getBadgeAPIInfo() {
+  return {
+    supported: isBadgingAPISupported(),
+    isStandalone: (window.navigator as any).standalone === true,
+    displayMode: (window as any).__DISPLAY_MODE__ || 'unknown',
+    hasNotificationPermission: Notification.permission === 'granted',
+    userAgent: navigator.userAgent.substring(0, 100)
+  };
 }

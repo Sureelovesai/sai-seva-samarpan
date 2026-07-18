@@ -31,6 +31,13 @@ export function NotificationBell() {
     };
     window.addEventListener("notification-read", handleNotificationRead);
     
+    // Log badge API info for debugging
+    console.log("[NotificationBell] Badge API Info:", {
+      supported: "setAppBadge" in navigator,
+      standalone: (window.navigator as any).standalone === true,
+      notificationPermission: Notification.permission
+    });
+    
     return () => {
       clearInterval(interval);
       window.removeEventListener("notification-read", handleNotificationRead);
