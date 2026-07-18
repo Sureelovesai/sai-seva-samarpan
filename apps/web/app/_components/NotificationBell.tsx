@@ -46,8 +46,12 @@ export function NotificationBell() {
       if ("serviceWorker" in navigator && "SyncManager" in window) {
         try {
           const registration = await navigator.serviceWorker.ready;
-          await registration.sync.register("sync-badge");
-          console.log("[NotificationBell] Requested background sync for badge");
+          // Type cast to access sync property which may not be in all TypeScript versions
+          const syncReg = registration as any;
+          if (syncReg.sync && typeof syncReg.sync.register === 'function') {
+            await syncReg.sync.register("sync-badge");
+            console.log("[NotificationBell] Requested background sync for badge");
+          }
         } catch (err) {
           console.debug("[NotificationBell] Background sync not available:", err);
         }
