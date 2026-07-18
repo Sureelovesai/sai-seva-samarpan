@@ -23,20 +23,6 @@ export function MinimalSiteHeader() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/me");
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-      } catch (err) {
-        console.error("[Header] Auth check failed:", err);
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-
     checkAuth();
   }, []);
 
@@ -50,11 +36,36 @@ export function MinimalSiteHeader() {
   }, []);
 
   const handleLogout = () => {
+    // Clear user from state immediately for instant UI feedback
+    setUser(null);
+    
     fetch("/api/auth/logout", { method: "POST" })
       .then(() => {
         window.location.href = "/login";
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error("[Header] Logout error:", err);
+        // If logout fails, fetch auth status again
+        checkAuth();
+      });
+  };
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (response.ok) {
+        const data = await response.json();
+        // The endpoint returns { user: { ... } }
+        setUser(data.user || null);
+      } else {
+        setUser(null);
+      }
+    } catch (err) {
+      console.error("[Header] Auth check failed:", err);
+      setUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
   };
 
   const openMobileMenu = () => {

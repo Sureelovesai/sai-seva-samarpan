@@ -101,8 +101,10 @@ export function Sidebar() {
       try {
         const response = await fetch("/api/auth/me");
         if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+          const data = await response.json();
+          // The endpoint returns { user: { ... } }
+          setUser(data.user || null);
+          console.log("[Sidebar] User data loaded:", data.user?.email, "Roles:", data.user?.roles);
         }
       } catch (err) {
         console.error("[Sidebar] Error fetching user:", err);

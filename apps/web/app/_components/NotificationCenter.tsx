@@ -30,6 +30,10 @@ export function NotificationCenter() {
   // Fetch notifications on mount
   useEffect(() => {
     fetchNotifications();
+    
+    // Refresh notifications every 10 seconds to stay in sync
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Update unread count
@@ -80,6 +84,9 @@ export function NotificationCenter() {
           n.id === notificationId ? { ...n, read: true } : n
         )
       );
+      
+      // Trigger a refresh of the bell badge by dispatching a custom event
+      window.dispatchEvent(new CustomEvent("notification-read"));
     } catch (err) {
       console.error("[NotificationCenter] Error marking as read:", err);
     }

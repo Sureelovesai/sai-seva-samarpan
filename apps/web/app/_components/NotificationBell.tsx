@@ -23,7 +23,18 @@ export function NotificationBell() {
     
     // Refresh every 10 seconds for more responsive badge updates
     const interval = setInterval(fetchUnreadCount, 10000);
-    return () => clearInterval(interval);
+    
+    // Listen for notification-read event to refresh badge immediately
+    const handleNotificationRead = () => {
+      console.log("[NotificationBell] Notification marked as read, refreshing badge");
+      fetchUnreadCount();
+    };
+    window.addEventListener("notification-read", handleNotificationRead);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notification-read", handleNotificationRead);
+    };
   }, []);
 
   const fetchUnreadCount = async () => {
