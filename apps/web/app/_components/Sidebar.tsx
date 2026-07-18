@@ -285,7 +285,8 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - HIDDEN on mobile, only visible on desktop */}
+      {!isMobile && (
       <aside
         ref={sidebarRef}
         onClick={() => {
@@ -331,6 +332,7 @@ export function Sidebar() {
         <div className="border-t border-gray-200 dark:border-gray-800 p-2 flex justify-center flex-shrink-0">
         </div>
       </aside>
+      )} {/* End of mobile conditional */}
 
       {/* Mobile Hamburger Button */}
       {isMobile && !isExpanded && (
