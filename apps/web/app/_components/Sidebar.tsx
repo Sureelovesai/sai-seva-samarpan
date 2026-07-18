@@ -151,6 +151,18 @@ export function Sidebar() {
     }
   }, [pathname, isMobile]);
 
+  // Listen for mobile menu open event from header
+  useEffect(() => {
+    const handleOpenMenu = () => {
+      if (isMobile) {
+        setIsExpanded(true);
+      }
+    };
+
+    window.addEventListener("openMobileMenu", handleOpenMenu);
+    return () => window.removeEventListener("openMobileMenu", handleOpenMenu);
+  }, [isMobile]);
+
   // Check user roles
   const isAdmin = user?.roles?.includes("ADMIN");
   const isEventAdmin = user?.eventAdminOnly || user?.roles?.includes("EVENT_ADMIN");
@@ -285,8 +297,8 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar - HIDDEN on mobile, only visible on desktop */}
-      {!isMobile && (
+      {/* Sidebar - Visible on desktop always, on mobile only when expanded */}
+      {(!isMobile || isExpanded) && (
       <aside
         ref={sidebarRef}
         onClick={() => {
@@ -294,7 +306,7 @@ export function Sidebar() {
             setIsExpanded(true);
           }
         }}
-        className={`fixed left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out ${!isMobile ? 'cursor-pointer' : ''}`}
+        className={`${isMobile ? 'fixed' : 'fixed'} left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out ${!isMobile ? 'cursor-pointer' : ''}`}
         style={{
           width: `${sidebarWidth}px`,
         }}
@@ -332,20 +344,7 @@ export function Sidebar() {
         <div className="border-t border-gray-200 dark:border-gray-800 p-2 flex justify-center flex-shrink-0">
         </div>
       </aside>
-      )} {/* End of mobile conditional */}
-
-      {/* Mobile Hamburger Button */}
-      {isMobile && !isExpanded && (
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="fixed top-4 left-4 z-40 p-3 bg-white dark:bg-gray-950 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-all shadow-lg"
-          title="Open menu"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      )}
+      )} {/* End of sidebar conditional */}
 
       {/* Dynamic spacing for content - NOT NEEDED, Sidebar CSS handles it */}
 

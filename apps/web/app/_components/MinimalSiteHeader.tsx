@@ -14,12 +14,13 @@ type AuthUser = {
 
 /**
  * Minimal Header - Works with Sidebar
- * Shows logo, branding, and user info
+ * Shows logo, branding, user info, and mobile hamburger button
  * Navigation moved to Sidebar component
  */
 export function MinimalSiteHeader() {
   const [user, setUser] = useState<AuthUser>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -39,6 +40,15 @@ export function MinimalSiteHeader() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   const handleLogout = () => {
     fetch("/api/auth/logout", { method: "POST" })
       .then(() => {
@@ -47,10 +57,29 @@ export function MinimalSiteHeader() {
       .catch(console.error);
   };
 
+  const openMobileMenu = () => {
+    const event = new CustomEvent("openMobileMenu");
+    window.dispatchEvent(event);
+  };
+
   return (
     <header className="sticky top-0 z-30 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-sm">
       <div className="mx-auto max-w-full px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between gap-4">
+          {/* Mobile Hamburger Button - Only on mobile */}
+          {isMobile && (
+            <button
+              onClick={openMobileMenu}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title="Open menu"
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-6 h-6 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+
           {/* Logo / Branding */}
           <Link href="/" className="flex shrink-0 items-center gap-2 overflow-hidden">
             <img
