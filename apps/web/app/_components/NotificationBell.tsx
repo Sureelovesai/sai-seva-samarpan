@@ -21,8 +21,8 @@ export function NotificationBell() {
   useEffect(() => {
     fetchUnreadCount();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
+    // Refresh every 10 seconds for more responsive badge updates
+    const interval = setInterval(fetchUnreadCount, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,7 +38,9 @@ export function NotificationBell() {
 
       // Update PWA app icon badge (Badging API)
       // Works on Android 12+ and some iOS versions
+      // This will show a number badge on the app icon itself
       await updateBadgeFromNotificationCount(unread);
+      console.log(`[NotificationBell] Updated badge to ${unread}`);
     } catch (err) {
       console.error("[NotificationBell] Error fetching unread count:", err);
     } finally {
