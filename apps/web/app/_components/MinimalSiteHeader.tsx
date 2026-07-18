@@ -97,21 +97,21 @@ export function MinimalSiteHeader() {
 
           {/* Notifications & User Info */}
           {authChecked && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {user && (
                 <NotificationBell />
               )}
               {user ? (
-                <div className="flex items-center gap-3 text-right">
-                  <div className="hidden sm:block">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                <div className="flex items-center gap-2 sm:gap-3 text-right min-w-0">
+                  <div className="hidden lg:block truncate">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                       {user.firstName || user.name || user.email}
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{user.email}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="inline-flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                    className="inline-flex items-center justify-center flex-shrink-0 rounded-lg bg-red-50 dark:bg-red-900/20 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors whitespace-nowrap"
                   >
                     Logout
                   </button>
@@ -119,7 +119,7 @@ export function MinimalSiteHeader() {
               ) : (
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center justify-center flex-shrink-0 rounded-lg bg-blue-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
                 >
                   Login
                 </Link>

@@ -51,7 +51,7 @@ export function NotificationBell() {
   return (
     <Link
       href="/dashboard/notifications"
-      className="relative inline-flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+      className="relative inline-flex items-center justify-center p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
       title="Notifications"
     >
       {/* Bell Icon */}
@@ -69,9 +69,9 @@ export function NotificationBell() {
         />
       </svg>
 
-      {/* Unread Badge */}
+      {/* Unread Badge - Made more visible */}
       {!isLoading && unreadCount > 0 && (
-        <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1 -translate-y-1 bg-red-600 rounded-full">
+        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-5 h-5 text-xs font-bold leading-none text-white bg-red-600 rounded-full border-2 border-white dark:border-gray-950 shadow-md">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}

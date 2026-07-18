@@ -18,7 +18,7 @@ export async function setAppBadge(count: number): Promise<void> {
   try {
     if ("setAppBadge" in navigator) {
       const badgeValue = Math.min(count, 99); // Cap at 99 per Badging API convention
-      await (navigator as any).setAppBadge(badgeValue);
+      await navigator.setAppBadge(badgeValue);
       console.log(`[BadgeAPI] Set badge to ${badgeValue}`);
     }
   } catch (err) {
@@ -32,7 +32,7 @@ export async function setAppBadge(count: number): Promise<void> {
 export async function clearAppBadge(): Promise<void> {
   try {
     if ("clearAppBadge" in navigator) {
-      await (navigator as any).clearAppBadge();
+      await navigator.clearAppBadge();
       console.log("[BadgeAPI] Badge cleared");
     }
   } catch (err) {
