@@ -118,15 +118,36 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(title || 'Sai Seva', options).then(() => {
         // Update app badge when notification received (PWA app icon)
-        // This will show a number badge on the app icon on home screen
+        // Fetch actual unread count from API and update badge
         if ('setAppBadge' in self) {
-          // Estimate: badge = current badge + 1 (we don't have access to actual count in SW)
-          // The client component (NotificationBell) will sync this properly every 30s
-          try {
-            self.setAppBadge(1); // Just indicate there's at least 1 notification
-          } catch (err) {
-            console.debug('[SW] Badge API not available');
-          }
+          fetch('/api/notifications/history?unread=true')
+            .then((response) => {
+              if (response.ok) {
+                return response.json();
+              }
+              return null;
+            })
+            .then((data) => {
+              if (data) {
+                const unreadCount = data.notifications?.length || data.total || 0;
+                if (unreadCount > 0) {
+                  self.setAppBadge(Math.min(unreadCount, 99)); // Cap at 99
+                  console.log('[SW] Badge updated to', unreadCount);
+                } else {
+                  self.clearAppBadge?.();
+                  console.log('[SW] Badge cleared');
+                }
+              }
+            })
+            .catch((err) => {
+              console.debug('[SW] Could not update badge from API:', err);
+              // Fallback: just set to 1 to indicate there's a notification
+              try {
+                self.setAppBadge(1);
+              } catch (e) {
+                console.debug('[SW] Badge API error:', e);
+              }
+            });
         }
       })
     );
@@ -170,6 +191,35 @@ self.addEventListener('notificationclick', (event) => {
 // Handle notification close
 self.addEventListener('notificationclose', (event) => {
   console.log('[SW] Notification closed');
+});
+
+// Periodic sync to update badge (helps Android devices keep badge in sync)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-badge') {
+    event.waitUntil(
+      fetch('/api/notifications/history?unread=true')
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+          return null;
+        })
+        .then((data) => {
+          if (data && 'setAppBadge' in self) {
+            const unreadCount = data.notifications?.length || data.total || 0;
+            if (unreadCount > 0) {
+              self.setAppBadge(Math.min(unreadCount, 99));
+              console.log('[SW] Badge synced to', unreadCount);
+            } else {
+              self.clearAppBadge?.();
+            }
+          }
+        })
+        .catch((err) => {
+          console.debug('[SW] Badge sync failed:', err);
+        })
+    );
+  }
 });
 
 console.log('[SW] Service Worker loaded');

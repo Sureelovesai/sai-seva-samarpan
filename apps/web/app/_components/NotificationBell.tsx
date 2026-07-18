@@ -41,6 +41,17 @@ export function NotificationBell() {
       // This will show a number badge on the app icon itself
       await updateBadgeFromNotificationCount(unread);
       console.log(`[NotificationBell] Updated badge to ${unread}`);
+
+      // Request periodic background sync for Android (to keep badge updated)
+      if ("serviceWorker" in navigator && "SyncManager" in window) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.sync.register("sync-badge");
+          console.log("[NotificationBell] Requested background sync for badge");
+        } catch (err) {
+          console.debug("[NotificationBell] Background sync not available:", err);
+        }
+      }
     } catch (err) {
       console.error("[NotificationBell] Error fetching unread count:", err);
     } finally {
