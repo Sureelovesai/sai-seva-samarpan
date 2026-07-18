@@ -24,6 +24,28 @@ export function MinimalSiteHeader() {
 
   useEffect(() => {
     checkAuth();
+    
+    // Check auth when user comes back to the page (after login/logout redirect)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("[Header] Page visible, refreshing auth status");
+        checkAuth();
+      }
+    };
+    
+    // Also listen for auth-changed event (dispatched after login)
+    const handleAuthChanged = () => {
+      console.log("[Header] Auth state changed, refreshing");
+      checkAuth();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('auth-changed', handleAuthChanged);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('auth-changed', handleAuthChanged);
+    };
   }, []);
 
   useEffect(() => {

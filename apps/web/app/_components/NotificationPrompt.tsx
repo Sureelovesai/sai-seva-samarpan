@@ -53,20 +53,27 @@ export function NotificationPrompt() {
       const token = await requestNotificationPermission();
 
       if (token) {
+        console.log("[NotificationPrompt] Token received, registering with backend...");
         // Register token with backend
         const registered = await registerFCMToken(token);
-        if (registered) {
-          setShowPrompt(false);
-          sessionStorage.setItem("notification_prompt_dismissed", "true");
-          console.log("[NotificationPrompt] Notifications enabled and registered");
-        } else {
-          console.error("[NotificationPrompt] Failed to register token");
-        }
+        console.log("[NotificationPrompt] Registration response:", registered);
+        
+        // Close prompt and dismiss regardless of registration success
+        // (permission was granted, which is the main goal)
+        setShowPrompt(false);
+        sessionStorage.setItem("notification_prompt_dismissed", "true");
+        console.log("[NotificationPrompt] Notifications enabled");
       } else {
-        console.log("[NotificationPrompt] Failed to get notification token");
+        console.log("[NotificationPrompt] Failed to get notification token, but closing prompt");
+        // Still close the prompt even if token fetch failed
+        setShowPrompt(false);
+        sessionStorage.setItem("notification_prompt_dismissed", "true");
       }
     } catch (error) {
       console.error("[NotificationPrompt] Error enabling notifications:", error);
+      // Close prompt on error too
+      setShowPrompt(false);
+      sessionStorage.setItem("notification_prompt_dismissed", "true");
     } finally {
       setIsLoading(false);
     }

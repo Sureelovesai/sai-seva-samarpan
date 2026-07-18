@@ -47,6 +47,8 @@ function LoginContent() {
         return;
       }
       setSuccess("Welcome back!");
+      // Dispatch event so header can update immediately
+      window.dispatchEvent(new Event("auth-changed"));
       const nextUrl = searchParams.get("next")?.trim();
       router.push(nextUrl && nextUrl.startsWith("/") ? nextUrl : "/");
       router.refresh();
