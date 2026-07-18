@@ -127,8 +127,10 @@ export function Sidebar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Handle click outside to collapse (desktop and mobile)
+  // Handle click outside to collapse (DESKTOP ONLY - not mobile)
   useEffect(() => {
+    if (isMobile) return; // Skip for mobile
+    
     const handleClickOutside = (event: MouseEvent) => {
       if (isExpanded && sidebarRef.current) {
         if (!sidebarRef.current.contains(event.target as Node)) {
@@ -139,7 +141,7 @@ export function Sidebar() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isExpanded]);
+  }, [isExpanded, isMobile]);
 
   // Reset sidebar state on route change (mobile)
   useEffect(() => {
@@ -291,7 +293,7 @@ export function Sidebar() {
             setIsExpanded(true);
           }
         }}
-        className="fixed left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out cursor-pointer"
+        className={`fixed left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out ${!isMobile ? 'cursor-pointer' : ''}`}
         style={{
           width: `${sidebarWidth}px`,
         }}
