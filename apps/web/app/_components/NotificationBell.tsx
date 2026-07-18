@@ -51,7 +51,11 @@ export function NotificationBell() {
       // Works on Android 12+ and some iOS versions
       // This will show a number badge on the app icon itself
       await updateBadgeFromNotificationCount(unread);
-      console.log(`[NotificationBell] Updated badge to ${unread}`);
+      console.log(`[NotificationBell] Updated badge to ${unread}`, {
+        notificationsArray: data.notifications?.length,
+        total: data.total,
+        rawData: data
+      });
 
       // Request periodic background sync for Android (to keep badge updated)
       if ("serviceWorker" in navigator && "SyncManager" in window) {

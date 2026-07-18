@@ -36,11 +36,27 @@ export function NotificationCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  // Update unread count
+  // Fetch unread count separately to ensure accuracy
   useEffect(() => {
-    const count = notifications.filter((n) => !n.read).length;
-    setUnreadCount(count);
-  }, [notifications]);
+    const fetchUnreadCountAccurate = async () => {
+      try {
+        const response = await fetch("/api/notifications/history?unread=true");
+        if (response.ok) {
+          const data = await response.json();
+          const count = data.notifications?.length || data.total || 0;
+          setUnreadCount(count);
+          console.log(`[NotificationCenter] Unread count (from API): ${count}`);
+        }
+      } catch (err) {
+        console.error("[NotificationCenter] Error fetching unread count:", err);
+      }
+    };
+
+    fetchUnreadCountAccurate();
+    // Refresh unread count every 10 seconds too
+    const interval = setInterval(fetchUnreadCountAccurate, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchNotifications = async () => {
     try {
@@ -59,7 +75,13 @@ export function NotificationCenter() {
       const data = await response.json();
       // API returns { notifications, total, limit, offset }
       // Extract notifications array, or fall back to empty array
-      setNotifications(data.notifications || data || []);
+      const notifs = data.notifications || data || [];
+      setNotifications(notifs);
+      const unreadInPage = notifs.filter((n: any) => !n.read).length;
+      console.log(`[NotificationCenter] Fetched ${notifs.length} notifications, ${unreadInPage} unread`, {
+        total: data.total,
+        rawNotifications: notifs
+      });
       setError(null);
     } catch (err) {
       console.error("[NotificationCenter] Error fetching notifications:", err);
