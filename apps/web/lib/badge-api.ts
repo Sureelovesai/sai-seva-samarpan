@@ -22,18 +22,20 @@
  */
 export async function setAppBadge(count: number): Promise<void> {
   try {
+    const userAgentStr = typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 100) : 'unknown';
+    
     if ("setAppBadge" in navigator) {
       const badgeValue = Math.min(count, 99); // Cap at 99 per Badging API convention
       await navigator.setAppBadge(badgeValue);
       console.log(`[BadgeAPI] ✅ Set badge to ${badgeValue}`, {
         isStandalone: (window.navigator as any).standalone === true,
         displayMode: (window as any).__DISPLAY_MODE__ || 'unknown',
-        userAgent: navigator.userAgent.substring(0, 100)
+        userAgent: userAgentStr
       });
     } else {
       console.log("[BadgeAPI] ⚠️ setAppBadge not available on this device", {
         isStandalone: (window.navigator as any).standalone === true,
-        userAgent: navigator.userAgent.substring(0, 100)
+        userAgent: userAgentStr
       });
     }
   } catch (err) {
@@ -81,11 +83,12 @@ export function isBadgingAPISupported(): boolean {
  * Get badge API support info for debugging
  */
 export function getBadgeAPIInfo() {
+  const userAgentStr = typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 100) : 'unknown';
   return {
     supported: isBadgingAPISupported(),
     isStandalone: (window.navigator as any).standalone === true,
     displayMode: (window as any).__DISPLAY_MODE__ || 'unknown',
     hasNotificationPermission: Notification.permission === 'granted',
-    userAgent: navigator.userAgent.substring(0, 100)
+    userAgent: userAgentStr
   };
 }
