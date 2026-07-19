@@ -99,20 +99,31 @@ export function Sidebar() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch("/api/auth/me");
+        // Force no-cache on mobile to ensure fresh user data
+        const cacheMode = isMobile ? 'no-store' : 'default';
+        const response = await fetch("/api/auth/me", { cache: cacheMode });
         if (response.ok) {
           const data = await response.json();
           // The endpoint returns { user: { ... } }
           setUser(data.user || null);
-          console.log("[Sidebar] User data loaded:", data.user?.email, "Roles:", data.user?.roles);
+          console.log("[Sidebar] User data loaded:", {
+            email: data.user?.email,
+            roles: data.user?.roles,
+            isAdmin: data.user?.roles?.includes("ADMIN"),
+            isMobile: isMobile
+          });
+        } else {
+          console.warn("[Sidebar] Auth response not OK:", response.status);
+          setUser(null);
         }
       } catch (err) {
         console.error("[Sidebar] Error fetching user:", err);
+        setUser(null);
       }
     };
 
     fetchUser();
-  }, []);
+  }, [isMobile]);
 
   // Detect mobile
   useEffect(() => {
@@ -175,14 +186,21 @@ export function Sidebar() {
     items.push(COMMUNITY_NAV, ABOUT_NAV, RESOURCES_NAV);
 
     if (user) {
+      console.log("[Sidebar] User authenticated, adding auth items");
       items = [...items, ...AUTH_NAV_ITEMS];
+    } else {
+      console.log("[Sidebar] No user data, skipping auth items");
     }
 
     if (isAdmin) {
+      console.log("[Sidebar] User is ADMIN, adding admin items");
       items = [...items, ...ADMIN_NAV_ITEMS];
+    } else {
+      console.log("[Sidebar] User is not ADMIN, skipping admin items");
     }
 
     if (isEventAdmin) {
+      console.log("[Sidebar] User is EVENT_ADMIN, adding event admin items");
       items = [...items, ...EVENT_ADMIN_NAV_ITEMS];
     }
 
@@ -192,6 +210,7 @@ export function Sidebar() {
       items.push(NOTIFICATIONS_NAV);
     }
 
+    console.log("[Sidebar] Final nav items count:", items.length);
     return items;
   };
 
