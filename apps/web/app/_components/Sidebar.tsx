@@ -125,6 +125,25 @@ export function Sidebar() {
     fetchUser();
   }, [isMobile]);
 
+  // Listen for auth changes (login/logout) to refresh user data
+  useEffect(() => {
+    const handleAuthChange = () => {
+      console.log("[Sidebar] Auth changed event received, refetching user");
+      // Trigger a re-fetch by simulating isMobile change
+      const cacheMode = isMobile ? 'no-store' : 'default';
+      fetch("/api/auth/me", { cache: cacheMode })
+        .then(res => res.ok ? res.json() : { user: null })
+        .then(data => {
+          setUser(data.user || null);
+          console.log("[Sidebar] User data refreshed after auth change:", data.user?.roles);
+        })
+        .catch(err => console.error("[Sidebar] Error refreshing user:", err));
+    };
+
+    window.addEventListener("auth-changed", handleAuthChange);
+    return () => window.removeEventListener("auth-changed", handleAuthChange);
+  }, [isMobile]);
+
   // Detect mobile
   useEffect(() => {
     const handleResize = () => {
@@ -179,6 +198,13 @@ export function Sidebar() {
   // Check user roles
   const isAdmin = user?.roles?.includes("ADMIN");
   const isEventAdmin = user?.eventAdminOnly || user?.roles?.includes("EVENT_ADMIN");
+  const canSevaAdminRow = 
+    user?.roles?.includes("ADMIN") ||
+    user?.roles?.includes("SEVA_COORDINATOR") ||
+    user?.roles?.includes("REGIONAL_SEVA_COORDINATOR") ||
+    user?.roles?.includes("NATIONAL_SEVA_COORDINATOR") ||
+    user?.roles?.includes("BLOG_ADMIN");
+  const canSeeRoles = user?.roles?.includes("ADMIN");
 
   // Build navigation
   const getNavItems = (): NavItem[] => {
@@ -192,11 +218,17 @@ export function Sidebar() {
       console.log("[Sidebar] No user data, skipping auth items");
     }
 
-    if (isAdmin) {
-      console.log("[Sidebar] User is ADMIN, adding admin items");
-      items = [...items, ...ADMIN_NAV_ITEMS];
+    if (canSevaAdminRow) {
+      console.log("[Sidebar] User can see seva admin row, adding admin items");
+      if (canSeeRoles) {
+        // ADMIN only: show all admin items including Roles
+        items = [...items, ...ADMIN_NAV_ITEMS];
+      } else {
+        // Coordinators/BLOG_ADMIN: show only Seva Admin Dashboard (not Roles)
+        items = [...items, ...ADMIN_NAV_ITEMS.filter((l) => l.href !== "/admin/roles")];
+      }
     } else {
-      console.log("[Sidebar] User is not ADMIN, skipping admin items");
+      console.log("[Sidebar] User cannot see seva admin row, skipping admin items");
     }
 
     if (isEventAdmin) {

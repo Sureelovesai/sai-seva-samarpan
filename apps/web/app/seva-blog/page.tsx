@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { AppPageLoader } from "@/app/_components/AppPageLoader";
 import SevaBlogClient from "./SevaBlogClient";
 import { getSessionWithRole } from "@/lib/getRole";
-import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
+import { canViewSevaBlog } from "@/lib/sevaBlogAccess";
 
 export default async function SevaBlogPage() {
   const h = await headers();
@@ -14,7 +14,7 @@ export default async function SevaBlogPage() {
     redirect("/login?next=" + encodeURIComponent("/seva-blog"));
   }
 
-  if (!canAccessSevaBlog(session)) {
+  if (!canViewSevaBlog(session)) {
     redirect("/");
   }
 

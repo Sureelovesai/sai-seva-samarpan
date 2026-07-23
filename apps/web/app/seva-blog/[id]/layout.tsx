@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionWithRole } from "@/lib/getRole";
-import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
+import { canViewSevaBlog } from "@/lib/sevaBlogAccess";
 
 export default async function ActivityLayout({
   children,
@@ -23,7 +23,7 @@ export default async function ActivityLayout({
     redirect("/login?next=" + encodeURIComponent(originalPath));
   }
 
-  if (!canAccessSevaBlog(session)) {
+  if (!canViewSevaBlog(session)) {
     redirect("/");
   }
 

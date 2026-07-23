@@ -148,6 +148,13 @@ function SevaSignUpsContent() {
     }
   }
 
+  // Auto-load signups when an activity is pre-populated (e.g., from URL or notification)
+  useEffect(() => {
+    if (activityId && activities.length > 0) {
+      loadSignups();
+    }
+  }, [activityId, activities]);
+
   async function cancelSignup(signupId: string) {
     try {
       const res = await fetch(`/api/admin/seva-signups/${signupId}`, {

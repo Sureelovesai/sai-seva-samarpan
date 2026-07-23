@@ -1,6 +1,12 @@
 import { hasRole, type SessionWithRole } from "@/lib/getRole";
 
-/** Who may view and use the Seva Blog UI (stories, create post, generate report, etc.). */
+/** Who may view the Seva Blog (anyone authenticated). */
+export function canViewSevaBlog(session: SessionWithRole | null): boolean {
+  // Anyone authenticated can view the blog
+  return session !== null;
+}
+
+/** Who may create, edit, and manage the Seva Blog (stories, create post, generate report, etc.). */
 export function canAccessSevaBlog(session: SessionWithRole | null): boolean {
   return hasRole(
     session,
