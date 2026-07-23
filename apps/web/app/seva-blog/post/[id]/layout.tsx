@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionWithRole } from "@/lib/getRole";
 import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
 
-export default async function PostLayout({
+export default async function PostPageLayout({
   children,
   params,
 }: {
@@ -16,10 +16,12 @@ export default async function PostLayout({
   if (!session) {
     const resolvedParams = await params;
     const postId = resolvedParams?.id;
-    
+
     // Redirect with the full post path including the ID
     // Hash will be preserved by client-side logic in login page
-    const originalPath = `/seva-blog/post/${postId}`;
+    const originalPath = postId
+      ? `/seva-blog/post/${postId}`
+      : "/seva-blog";
     redirect("/login?next=" + encodeURIComponent(originalPath));
   }
 
