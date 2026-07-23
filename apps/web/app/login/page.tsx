@@ -30,6 +30,14 @@ function LoginContent() {
     setSuccess(null);
   }, [mode]);
 
+  // Store the original hash before we navigate away (it will be lost during server redirect)
+  useEffect(() => {
+    const currentHash = window.location.hash;
+    if (currentHash && currentHash.length > 1) {
+      sessionStorage.setItem("post_login_hash", currentHash);
+    }
+  }, []);
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -49,8 +57,16 @@ function LoginContent() {
       setSuccess("Welcome back!");
       // Dispatch event so header can update immediately
       window.dispatchEvent(new Event("auth-changed"));
+      
       const nextUrl = searchParams.get("next")?.trim();
-      router.push(nextUrl && nextUrl.startsWith("/") ? nextUrl : "/");
+      const targetUrl = nextUrl && nextUrl.startsWith("/") ? nextUrl : "/";
+      
+      // Retrieve and apply the hash if it was stored
+      const savedHash = sessionStorage.getItem("post_login_hash");
+      const finalUrl = savedHash ? `${targetUrl}${savedHash}` : targetUrl;
+      sessionStorage.removeItem("post_login_hash");
+      
+      router.push(finalUrl);
       router.refresh();
     } catch (err: unknown) {
       setError((err as Error)?.message ?? "Something went wrong.");
