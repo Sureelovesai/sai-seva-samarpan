@@ -151,7 +151,7 @@ function FeaturedSevaSection() {
         />
       ) : activities.length === 0 ? (
         <div className="py-16 text-center text-lg text-slate-600">
-          No featured activities yet. Mark activities as Featured in Add Seva Activity or Manage Seva → Edit.
+          No featured activities
         </div>
       ) : (
         <div className="relative mx-auto max-w-6xl px-2 sm:px-4">
