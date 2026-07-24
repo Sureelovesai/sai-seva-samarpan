@@ -66,6 +66,12 @@ export async function GET(req: Request) {
       },
     });
 
+    // Map signups to include total participants (adultsCount + kidsCount)
+    const signupsWithParticipants = signups.map((s) => ({
+      ...s,
+      totalParticipants: s.adultsCount + s.kidsCount,
+    }));
+
     // Item contributions (things volunteers signed up to bring) — scoped to selected activity
     type ItemContribRow = {
       id: string;
@@ -146,7 +152,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({
-      signups,
+      signups: signupsWithParticipants,
       itemContributions,
       itemContributionSummary,
     });

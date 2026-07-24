@@ -25,6 +25,9 @@ type SignupItem = {
   status: string;
   createdAt: string;
   activity: { id: string; title: string };
+  adultsCount: number;
+  kidsCount: number;
+  totalParticipants: number;
 };
 
 type ItemContributionRow = {
@@ -185,7 +188,7 @@ function SevaSignUpsContent() {
       return;
     }
     setLoadError(null);
-    const headers = ["Type", "Seva Activity", "Name", "Email", "Phone", "Status / Item", "Qty", "Date"];
+    const headers = ["Type", "Seva Activity", "Name", "Email", "Phone", "Participants", "Status / Item", "Qty", "Date"];
     const joinRows = realSignups.map((s) => {
       const dateStr = s.createdAt
         ? new Date(s.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
@@ -196,6 +199,7 @@ function SevaSignUpsContent() {
         escapeCsvCell(s.volunteerName),
         escapeCsvCell(s.email),
         escapeCsvCell(s.phone ?? ""),
+        escapeCsvCell(String(s.totalParticipants ?? 0)),
         escapeCsvCell(s.status),
         escapeCsvCell(""),
         escapeCsvCell(dateStr),
@@ -517,6 +521,7 @@ function SevaSignUpsContent() {
                 <Field label="Name" value={c.volunteerName} />
                 <Field label="Email" value={c.email} />
                 <Field label="Phone" value={c.phone ?? "—"} />
+                <Field label="Participants" value={String(c.totalParticipants ?? 0)} />
                 <Field label="Status" value={c.status} />
                 <Field label="Date" value={c.createdAt ? new Date(c.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"} />
               </div>
