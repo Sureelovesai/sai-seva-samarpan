@@ -146,11 +146,11 @@ function SevaSignUpsContent() {
       if (!res.ok) throw new Error("Failed to load sign-ups");
       const data = await res.json();
       if (Array.isArray(data)) {
-        setSignups(data);
+        setSignups(data as SignupItem[]);
         setItemContributions([]);
         setItemContributionSummary(null);
       } else {
-        setSignups(Array.isArray(data.signups) ? data.signups : []);
+        setSignups(Array.isArray(data.signups) ? (data.signups as SignupItem[]) : []);
         setItemContributions(Array.isArray(data.itemContributions) ? data.itemContributions : []);
         setItemContributionSummary(
           data.itemContributionSummary && typeof data.itemContributionSummary === "object"
