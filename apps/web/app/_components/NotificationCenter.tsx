@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
@@ -22,6 +23,7 @@ interface Notification {
  * Shows unread badge count
  */
 export function NotificationCenter() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,11 +117,16 @@ export function NotificationCenter() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
+    console.log("[NotificationCenter] Clicked notification:", notification);
+    console.log("[NotificationCenter] actionUrl value:", notification.actionUrl);
     if (!notification.read) {
       markAsRead(notification.id);
     }
     if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+      console.log("[NotificationCenter] Navigating to:", notification.actionUrl);
+      router.push(notification.actionUrl);
+    } else {
+      console.warn("[NotificationCenter] No actionUrl in notification!");
     }
   };
 

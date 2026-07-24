@@ -212,6 +212,7 @@ export async function sendNotificationToLocation(
  */
 async function logNotification(userId: string, payload: NotificationPayload): Promise<void> {
   try {
+    console.log(`[Notification] Logging notification - actionUrl: ${payload.actionUrl}`);
     await prisma.notificationLog.create({
       data: {
         userId,

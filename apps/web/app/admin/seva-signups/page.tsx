@@ -65,6 +65,8 @@ const STATUS_LABELS: Record<string, string> = { "": "All", PENDING: "Pending", A
 function SevaSignUpsContent() {
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("activityId") || "";
+  
+  console.log("[SevaSignUps] Component rendering. idFromUrl from searchParams:", idFromUrl);
 
   const [activities, setActivities] = useState<ActivityOption[]>([]);
   const [activityId, setActivityId] = useState(idFromUrl);
@@ -77,10 +79,6 @@ function SevaSignUpsContent() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bulkCancelling, setBulkCancelling] = useState(false);
-
-  useEffect(() => {
-    if (idFromUrl) setActivityId(idFromUrl);
-  }, [idFromUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,14 +97,30 @@ function SevaSignUpsContent() {
                 })
               )
             : [];
+          console.log("[SevaSignUps] Activities loaded:", list.length, "idFromUrl:", idFromUrl);
           setActivities(list);
-          if (list.length) {
-            const fromUrl = searchParams.get("activityId");
-            if (fromUrl && list.some((a: ActivityOption) => a.id === fromUrl))
-              setActivityId(fromUrl);
-            else
-              setActivityId((prev) => (prev && list.some((a: ActivityOption) => a.id === prev) ? prev : list[0].id));
+          
+          // Determine which activity to select
+          let selectedActivityId = idFromUrl;
+          
+          if (list.length > 0) {
+            if (idFromUrl && list.some((a: ActivityOption) => a.id === idFromUrl)) {
+              // URL param exists and is valid - use it
+              console.log("[SevaSignUps] Using activityId from URL:", idFromUrl);
+              selectedActivityId = idFromUrl;
+            } else if (idFromUrl) {
+              // URL param exists but is invalid - log warning
+              console.warn("[SevaSignUps] URL activityId not found in list:", idFromUrl);
+              selectedActivityId = list[0].id;
+            } else {
+              // No URL param - use first activity
+              console.log("[SevaSignUps] No URL param, using first activity");
+              selectedActivityId = list[0].id;
+            }
           }
+          
+          console.log("[SevaSignUps] Setting activityId to:", selectedActivityId);
+          setActivityId(selectedActivityId);
         }
       } catch (e: any) {
         if (!cancelled) setLoadError(e?.message || "Could not load activities.");
@@ -114,7 +128,7 @@ function SevaSignUpsContent() {
     }
     loadActivities();
     return () => { cancelled = true; };
-  }, []);
+  }, [idFromUrl]);
 
   async function loadSignups() {
     setLoadError(null);
@@ -153,7 +167,9 @@ function SevaSignUpsContent() {
 
   // Auto-load signups when an activity is pre-populated (e.g., from URL or notification)
   useEffect(() => {
+    console.log("[SevaSignUps] State check - activityId:", activityId, "activities.length:", activities.length);
     if (activityId && activities.length > 0) {
+      console.log("[SevaSignUps] Auto-loading signups for activityId:", activityId);
       loadSignups();
     }
   }, [activityId, activities]);
@@ -199,7 +215,7 @@ function SevaSignUpsContent() {
         escapeCsvCell(s.volunteerName),
         escapeCsvCell(s.email),
         escapeCsvCell(s.phone ?? ""),
-        escapeCsvCell(String(s.totalParticipants ?? 0)),
+        escapeCsvCell(String((s.adultsCount ?? 1) + (s.kidsCount ?? 0))),
         escapeCsvCell(s.status),
         escapeCsvCell(""),
         escapeCsvCell(dateStr),
@@ -521,7 +537,7 @@ function SevaSignUpsContent() {
                 <Field label="Name" value={c.volunteerName} />
                 <Field label="Email" value={c.email} />
                 <Field label="Phone" value={c.phone ?? "—"} />
-                <Field label="Participants" value={String(c.totalParticipants ?? 0)} />
+                <Field label="Participants" value={String((c.adultsCount ?? 1) + (c.kidsCount ?? 0))} />
                 <Field label="Status" value={c.status} />
                 <Field label="Date" value={c.createdAt ? new Date(c.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"} />
               </div>
