@@ -288,6 +288,9 @@ function SevaSignUpsContent() {
       status: "—",
       createdAt: "",
       activity: { id: "", title: "—" },
+      adultsCount: 0,
+      kidsCount: 0,
+      totalParticipants: 0,
     }));
   }, [cards]);
   const isPlaceholder = (id: string) => id.startsWith("placeholder-");
