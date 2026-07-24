@@ -67,9 +67,11 @@ export async function GET(req: Request) {
     });
 
     // Map signups to include total participants (adultsCount + kidsCount)
-    const signupsWithParticipants = signups.map((s) => ({
+    const signupsWithParticipants = signups.map((s: any) => ({
       ...s,
-      totalParticipants: s.adultsCount + s.kidsCount,
+      adultsCount: s.adultsCount ?? 1, // Default to 1 if null/undefined
+      kidsCount: s.kidsCount ?? 0, // Default to 0 if null/undefined
+      totalParticipants: (s.adultsCount ?? 1) + (s.kidsCount ?? 0),
     }));
 
     // Item contributions (things volunteers signed up to bring) — scoped to selected activity
