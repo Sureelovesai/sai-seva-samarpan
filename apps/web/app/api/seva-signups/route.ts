@@ -103,7 +103,7 @@ export async function POST(req: Request) {
             body: `${name} signed up for ${sevaActivity.title}`,
             triggerType: "NEW_SIGNUP",
             relatedId: signup.id,
-            actionUrl: `/admin/seva-signups`,
+            actionUrl: `/admin/seva-signups?activityId=${encodeURIComponent(activityId)}`,
           }, "SEVA_COORDINATOR"),
           // Notify all admins about the signup
           sendNotificationToRole("ADMIN", {
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
             body: `${name} registered for ${sevaActivity.title} (${sevaActivity.city})`,
             triggerType: "NEW_SIGNUP",
             relatedId: signup.id,
-            actionUrl: `/admin/seva-signups`,
+            actionUrl: `/admin/seva-signups?activityId=${encodeURIComponent(activityId)}`,
           }),
         ]);
       }
