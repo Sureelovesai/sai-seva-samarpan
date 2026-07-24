@@ -15,7 +15,7 @@ try {
   };
 
   try {
-    if (typeof firebase !== 'undefined' && firebase.apps.length === 0) {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length === 0) {
       firebase.initializeApp(firebaseConfig);
       console.log('[Firebase SW] Firebase initialized');
     }
