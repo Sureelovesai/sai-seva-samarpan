@@ -16,9 +16,11 @@ export function ForegroundNotificationListener() {
         try {
           console.log("[ForegroundNotification] Message received in foreground:", payload);
 
-          const { notification, data } = payload;
+          // Safely extract notification and data
+          const notification = payload?.notification;
+          const data = payload?.data;
           
-          if (notification) {
+          if (notification && typeof notification === 'object') {
             // Show a custom notification UI or use browser notification API
             const title = notification.title || "Sai Seva";
             const options = {
@@ -31,7 +33,11 @@ export function ForegroundNotificationListener() {
 
             // Show browser notification for foreground messages
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(title, options);
+              try {
+                new Notification(title, options);
+              } catch (notifErr) {
+                console.error("[ForegroundNotification] Error creating notification:", notifErr);
+              }
             }
           }
         } catch (err) {
@@ -40,8 +46,12 @@ export function ForegroundNotificationListener() {
       });
 
       return () => {
-        if (unsubscribe) {
-          unsubscribe();
+        if (unsubscribe && typeof unsubscribe === 'function') {
+          try {
+            unsubscribe();
+          } catch (unsubErr) {
+            console.error("[ForegroundNotification] Error unsubscribing:", unsubErr);
+          }
         }
       };
     } catch (err) {

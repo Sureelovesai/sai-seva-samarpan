@@ -153,8 +153,15 @@ export function subscribeToPushMessages(
     }
 
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log("[FCM] Foreground message received:", payload);
-      callback(payload);
+      try {
+        console.log("[FCM] Foreground message received:", payload);
+        // Safely call callback with error handling
+        if (callback && typeof callback === 'function') {
+          callback(payload || {});
+        }
+      } catch (callbackErr) {
+        console.error("[FCM] Error in message callback:", callbackErr);
+      }
     });
 
     return unsubscribe;
