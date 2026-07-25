@@ -253,6 +253,62 @@ export async function PATCH(
       }
     }
 
+    // Send email notification if date changed
+    const dateChanged =
+      (body.startDate && new Date(body.startDate).getTime() !== new Date(existing.startDate || "").getTime()) ||
+      (body.endDate && new Date(body.endDate).getTime() !== new Date(existing.endDate || "").getTime()) ||
+      (body.startTime !== undefined && body.startTime !== (existing.startTime ?? "")) ||
+      (body.endTime !== undefined && body.endTime !== (existing.endTime ?? ""));
+
+    if (dateChanged) {
+      try {
+        // Get all signups (PENDING and APPROVED)
+        const signups = await prisma.sevaSignup.findMany({
+          where: {
+            activityId: id,
+            status: { in: ["PENDING", "APPROVED"] },
+          },
+          select: { email: true, volunteerName: true },
+        });
+
+        // Send email to each volunteer
+        const newStartDate = body.startDate ? new Date(body.startDate) : existing.startDate;
+        const newStartTime = body.startTime !== undefined ? body.startTime : existing.startTime;
+        const newEndDate = body.endDate ? new Date(body.endDate) : existing.endDate;
+        const newEndTime = body.endTime !== undefined ? body.endTime : existing.endTime;
+
+        const activityTitle = body.title ?? existing.title;
+        const dateStr = newStartDate ? new Date(newStartDate).toLocaleDateString() : "";
+        const timeStr = newStartTime ? `${newStartTime}${newEndTime ? ` - ${newEndTime}` : ""}` : "";
+
+        for (const signup of signups) {
+          try {
+            const html = `
+              <p>Hello ${escapeHtml(signup.volunteerName)},</p>
+              <p>The date/time for the Seva Activity <strong>${escapeHtml(activityTitle)}</strong> has been updated:</p>
+              <p>
+                <strong>New Date:</strong> ${escapeHtml(dateStr)}<br>
+                <strong>New Time:</strong> ${escapeHtml(timeStr || "To be announced")}
+              </p>
+              <p>Please update your calendar accordingly. If you have any questions, please contact the activity coordinator.</p>
+              <p>Thank you,<br>Sri Sathya Sai Seva Team</p>
+            `;
+            await sendEmail({
+              to: signup.email,
+              subject: `Activity Date Update: ${activityTitle}`,
+              html,
+            });
+          } catch (emailErr) {
+            console.error(`Failed to send email to ${signup.email}:`, emailErr);
+            // Continue sending to other volunteers even if one fails
+          }
+        }
+      } catch (emailErr) {
+        console.error("Failed to send date change notifications:", emailErr);
+        // Don't fail the update if email notifications fail
+      }
+    }
+
     if (Array.isArray(body.contributionItems)) {
       try {
         await syncSevaContributionItems(id, body.contributionItems);

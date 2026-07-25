@@ -36,6 +36,35 @@ function formatLocationVenueLine(locationName: string | null | undefined, addres
   return loc || addr || "—";
 }
 
+/** Generate Google Calendar URL for the activity */
+function generateGoogleCalendarUrl(
+  activityTitle: string,
+  startDate: Date | string | null,
+  endTime: string | null,
+  locationLine: string
+): string {
+  if (!startDate) return "";
+
+  const start = new Date(startDate);
+  
+  // Format: YYYYMMDDTHHMMSSZ
+  const startISO = start.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  
+  // Calculate end time (assume 2 hour activity if not specified)
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const endISO = end.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: activityTitle,
+    dates: `${startISO}/${endISO}`,
+    location: locationLine,
+    details: `Sri Sathya Sai Seva Activity\n\nPlease arrive 10-15 minutes early.`,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 export type JoinSignupActivityEmailFields = {
   /** Used for the “View details” link in volunteer confirmation. */
   id: string;
@@ -112,6 +141,17 @@ export async function sendSevaJoinSignupEmails(params: {
     : activity.id
       ? `<p>🔗 View details: open the Seva Portal, use <strong>Find Seva</strong>, and view this activity.</p>`
       : "";
+  
+  // Generate Google Calendar URL
+  const googleCalendarUrl = generateGoogleCalendarUrl(
+    activityTitle,
+    activity.startDate,
+    activity.endTime,
+    locationLine
+  );
+  const googleCalendarBlock = googleCalendarUrl
+    ? `<p>📅 <a href="${escapeHtml(googleCalendarUrl)}" target="_blank">Add to Google Calendar</a></p>`
+    : "";
 
   const itemsBlock =
     itemLines && itemLines.length > 0
@@ -140,6 +180,7 @@ export async function sendSevaJoinSignupEmails(params: {
         <p><strong>Location:</strong> ${escapeHtml(locationLine)}</p>
         <p>Kindly arrive 10–15 minutes early if you are later approved. If you signed up to bring items, please carry them along.</p>
         ${viewDetailsBlock}
+        ${googleCalendarBlock}
         ${itemsBlock}
         <p>You will not receive the usual 24-hour reminder until your sign-up is approved.${contactLine}</p>
         <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>
@@ -152,6 +193,7 @@ export async function sendSevaJoinSignupEmails(params: {
         <p><strong>Location:</strong> ${escapeHtml(locationLine)}</p>
         <p>Kindly arrive 10–15 minutes early. If you signed up to bring items, please carry them along.</p>
         ${viewDetailsBlock}
+        ${googleCalendarBlock}
         ${itemsBlock}
         <p>You will receive a reminder 24 hours before the activity starts.${contactLine}</p>
         <p>Love All • Serve All<br />Jai Sai Ram 🙏</p>

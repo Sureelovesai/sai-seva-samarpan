@@ -65,14 +65,16 @@ const STATUS_LABELS: Record<string, string> = { "": "All", PENDING: "Pending", A
 function SevaSignUpsContent() {
   const searchParams = useSearchParams();
   const idFromUrl = searchParams.get("activityId") || "";
+  const volunteerNameFromUrl = searchParams.get("volunteerName") || "";
   
-  console.log("[SevaSignUps] Component rendering. idFromUrl from searchParams:", idFromUrl);
+  console.log("[SevaSignUps] Component rendering. idFromUrl from searchParams:", idFromUrl, "volunteerName:", volunteerNameFromUrl);
 
   const [activities, setActivities] = useState<ActivityOption[]>([]);
   const [activityId, setActivityId] = useState(idFromUrl);
   const [status, setStatus] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [volunteerName, setVolunteerName] = useState(volunteerNameFromUrl);
   const [signups, setSignups] = useState<SignupItem[]>([]);
   const [itemContributions, setItemContributions] = useState<ItemContributionRow[]>([]);
   const [itemContributionSummary, setItemContributionSummary] = useState<ItemContributionSummary | null>(null);
@@ -130,6 +132,14 @@ function SevaSignUpsContent() {
     return () => { cancelled = true; };
   }, [idFromUrl]);
 
+  // Sync volunteerName from URL parameters
+  useEffect(() => {
+    if (volunteerNameFromUrl) {
+      console.log("[SevaSignUps] Setting volunteerName from URL:", volunteerNameFromUrl);
+      setVolunteerName(volunteerNameFromUrl);
+    }
+  }, [volunteerNameFromUrl]);
+
   async function loadSignups() {
     setLoadError(null);
     setLoading(true);
@@ -139,6 +149,7 @@ function SevaSignUpsContent() {
       if (status) params.set("status", status);
       if (fromDate) params.set("fromDate", fromDate);
       if (toDate) params.set("toDate", toDate);
+      if (volunteerName) params.set("volunteerName", volunteerName);
       const res = await fetch(`/api/admin/seva-signups?${params.toString()}`, {
         cache: "no-store",
         credentials: "include",
@@ -165,14 +176,20 @@ function SevaSignUpsContent() {
     }
   }
 
-  // Auto-load signups when an activity is pre-populated (e.g., from URL or notification)
+  // Auto-load signups when an activity is pre-populated or filters change
   useEffect(() => {
     console.log("[SevaSignUps] State check - activityId:", activityId, "activities.length:", activities.length);
     if (activityId && activities.length > 0) {
-      console.log("[SevaSignUps] Auto-loading signups for activityId:", activityId);
-      loadSignups();
+      console.log("[SevaSignUps] Auto-loading signups for activityId:", activityId, "status:", status, "fromDate:", fromDate, "toDate:", toDate, "volunteerName:", volunteerName);
+      
+      // Add a small delay to debounce multiple rapid filter changes
+      const timer = setTimeout(() => {
+        loadSignups();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [activityId, activities]);
+  }, [activityId, status, fromDate, toDate, volunteerName, activities]);
 
   async function cancelSignup(signupId: string) {
     try {
@@ -348,7 +365,13 @@ function SevaSignUpsContent() {
             <div className="text-lg font-semibold">Seva Activity</div>
             <select
               value={activityId}
-              onChange={(e) => setActivityId(e.target.value)}
+              onChange={(e) => {
+                setActivityId(e.target.value);
+                // Clear the name filter when activity is manually changed
+                if (e.target.value !== activityId) {
+                  setVolunteerName("");
+                }
+              }}
               className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
             >
               <option value="">All activities</option>
@@ -371,6 +394,17 @@ function SevaSignUpsContent() {
                 <option key={s || "all"} value={s}>{STATUS_LABELS[s] ?? s}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <div className="text-lg font-semibold">Name</div>
+            <input
+              type="text"
+              value={volunteerName}
+              onChange={(e) => setVolunteerName(e.target.value)}
+              placeholder="Filter by volunteer name"
+              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+            />
           </div>
         </div>
 
@@ -397,14 +431,11 @@ function SevaSignUpsContent() {
         </div>
 
         <div className="mt-14 flex flex-col items-center gap-10 md:flex-row md:justify-center">
-          <button
-            type="button"
-            onClick={loadSignups}
-            disabled={loading}
-            className="bg-blue-500 px-14 py-4 text-lg font-semibold text-white shadow disabled:opacity-70"
-          >
-            {loading ? "Loading…" : "Load Signups"}
-          </button>
+          {loading && (
+            <div className="text-lg font-semibold text-blue-600">
+              Loading signups…
+            </div>
+          )}
 
           <button
             type="button"

@@ -116,6 +116,28 @@ export function NotificationCenter() {
     }
   };
 
+  const deleteNotification = async (notificationId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering handleNotificationClick
+    try {
+      const response = await fetch("/api/notifications/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", notificationId }),
+      });
+
+      if (!response.ok) throw new Error("Failed to delete notification");
+
+      // Remove from list immediately
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      
+      // Trigger badge refresh in case this was unread
+      window.dispatchEvent(new CustomEvent("notification-read"));
+      console.log("[NotificationCenter] Notification deleted:", notificationId);
+    } catch (err) {
+      console.error("[NotificationCenter] Error deleting notification:", err);
+    }
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     console.log("[NotificationCenter] Clicked notification:", notification);
     console.log("[NotificationCenter] actionUrl value:", notification.actionUrl);
@@ -210,7 +232,7 @@ export function NotificationCenter() {
                   : "bg-blue-50 border-blue-200 text-gray-900 font-medium"
               } hover:bg-gray-100`}
             >
-              <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3">
                 <span className="text-lg flex-shrink-0">
                   {triggerTypeIcon[notification.triggerType] || "🔔"}
                 </span>
@@ -227,9 +249,20 @@ export function NotificationCenter() {
                     })}
                   </p>
                 </div>
-                {!notification.read && (
-                  <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-1" />
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-600 rounded-full" />
+                  )}
+                  <button
+                    onClick={(e) => deleteNotification(notification.id, e)}
+                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Delete notification"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

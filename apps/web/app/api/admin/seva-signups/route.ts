@@ -41,6 +41,7 @@ export async function GET(req: Request) {
     const status = searchParams.get("status") || undefined;
     const fromDate = searchParams.get("fromDate") || undefined;
     const toDate = searchParams.get("toDate") || undefined;
+    const volunteerName = searchParams.get("volunteerName") || undefined;
 
     const where: any = {};
 
@@ -56,6 +57,12 @@ export async function GET(req: Request) {
       where.createdAt = {};
       if (fromDate) where.createdAt.gte = new Date(fromDate + "T00:00:00.000Z");
       if (toDate) where.createdAt.lte = new Date(toDate + "T23:59:59.999Z");
+    }
+    if (volunteerName) {
+      where.volunteerName = {
+        contains: volunteerName,
+        mode: "insensitive",
+      };
     }
 
     const signups = await prisma.sevaSignup.findMany({

@@ -1,25 +1,32 @@
-import { prisma } from "@/lib/prisma";
+/**
+ * Migration script to fix existing notification URLs
+ * Updates notifications with actionUrl = '/admin/seva-signups' to include activityId
+ */
+
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env.local") });
+
+const { PrismaClient } = require("@prisma/client");
+
+const prisma = new PrismaClient({
+  log: ["error", "warn"],
+});
 
 async function fixNotificationUrls() {
   try {
     console.log("Starting notification URL migration...");
 
-    // Find all NEW_SIGNUP notifications that have activityId but don't have volunteerName yet
+    // Find all NEW_SIGNUP notifications with incomplete actionUrl
     const notificationsToFix = await prisma.notificationLog.findMany({
       where: {
         triggerType: "NEW_SIGNUP",
-        actionUrl: {
-          contains: "/admin/seva-signups?activityId=",
-        },
+        actionUrl: "/admin/seva-signups",
       },
     });
 
-    // Filter to only those without volunteerName in the URL
-    const needsUpdate = notificationsToFix.filter(n => !n.actionUrl.includes("volunteerName="));
+    console.log(`Found ${notificationsToFix.length} notifications to fix`);
 
-    console.log(`Found ${needsUpdate.length} notifications to fix`);
-
-    if (needsUpdate.length === 0) {
+    if (notificationsToFix.length === 0) {
       console.log("No notifications to fix!");
       return;
     }
@@ -27,26 +34,26 @@ async function fixNotificationUrls() {
     let fixed = 0;
     let failed = 0;
 
-    for (const notification of needsUpdate) {
+    for (const notification of notificationsToFix) {
       try {
         // The relatedId is the signup ID
         const signup = await prisma.sevaSignup.findUnique({
-          where: { id: notification.relatedId || "" },
-          select: { activityId: true, volunteerName: true },
+          where: { id: notification.relatedId },
+          select: { activityId: true },
         });
 
         if (signup && signup.activityId) {
-          // Update the notification with the correct actionUrl including volunteer name
+          // Update the notification with the correct actionUrl
           await prisma.notificationLog.update({
             where: { id: notification.id },
             data: {
               actionUrl: `/admin/seva-signups?activityId=${encodeURIComponent(
                 signup.activityId
-              )}&volunteerName=${encodeURIComponent(signup.volunteerName || "")}`,
+              )}`,
             },
           });
           console.log(
-            `✓ Fixed notification ${notification.id} with activityId: ${signup.activityId}, name: ${signup.volunteerName}`
+            `✓ Fixed notification ${notification.id} with activityId: ${signup.activityId}`
           );
           fixed++;
         } else {
@@ -58,7 +65,7 @@ async function fixNotificationUrls() {
       } catch (err) {
         console.error(
           `✗ Error processing notification ${notification.id}:`,
-          err instanceof Error ? err.message : String(err)
+          err.message
         );
         failed++;
       }

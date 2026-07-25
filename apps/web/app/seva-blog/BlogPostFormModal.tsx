@@ -328,74 +328,92 @@ export function BlogPostFormModal({
   }
 
   async function handleR2MoreMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = e.target.files;
     e.target.value = "";
-    if (!file) return;
+    if (!files || files.length === 0) return;
+    
     setError(null);
+    
+    // Check total limit (12 files max)
     if (r2MediaItems.length >= 12) {
       setError("You can add at most 12 uploaded media files per post.");
       return;
     }
-    setR2MoreBusy(true);
-    try {
-      const blogPostId =
-        mode === "edit" && postId?.trim() ? postId.trim() : createR2FolderId;
-      const fileNameForKey = uniqueUploadFileNameForR2(
-        file.name,
-        r2MediaItems.map((r) => r.url)
-      );
-      const pres = await fetch("/api/blog-posts/r2-presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: fileNameForKey,
-          contentType: file.type || "application/octet-stream",
-          fileSize: file.size,
-          blogPostId,
-          mediaBatchId: r2MediaBatchId,
-        }),
-      });
-      const data = (await pres.json().catch(() => ({}))) as {
-        error?: string;
-        detail?: string;
-        uploadUrl?: string;
-        publicUrl?: string;
-        headers?: Record<string, string>;
-      };
-      if (!pres.ok) {
-        const msg = data.detail
-          ? `${data.error ?? "Request failed"}: ${data.detail}`
-          : data.error || "Could not get upload URL.";
-        throw new Error(
-          pres.status === 503
-            ? "Cloud storage (R2) is not configured on the server. Ask an admin to set R2 (see .env.example)."
-            : msg
-        );
-      }
-      const uploadUrl = data.uploadUrl;
-      const publicUrl = data.publicUrl;
-      if (!uploadUrl || !publicUrl) {
-        throw new Error("Invalid response from server.");
-      }
-      const putHeaders: Record<string, string> = {
-        ...(data.headers && typeof data.headers === "object" ? data.headers : {}),
-      };
-      const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: putHeaders });
-      if (!put.ok) {
-        throw new Error("Upload to cloud storage failed. Check your connection and try again.");
-      }
-      const ct = (file.type || putHeaders["Content-Type"] || "").trim() || undefined;
-      const next: DriveMediaRow = {
-        url: publicUrl,
-        caption: "",
-        ...(ct ? { contentType: ct } : {}),
-      };
-      setR2MediaItems((prev) => [...prev, next]);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setR2MoreBusy(false);
+    
+    // Check if adding these files would exceed the limit
+    const availableSlots = 12 - r2MediaItems.length;
+    const filesToUpload = Math.min(files.length, availableSlots);
+    
+    if (files.length > availableSlots) {
+      setError(`You can only add ${availableSlots} more file(s). Limit is 12 total.`);
     }
+    
+    setR2MoreBusy(true);
+    
+    // Upload each file
+    for (let i = 0; i < filesToUpload; i++) {
+      const file = files[i];
+      try {
+        const blogPostId =
+          mode === "edit" && postId?.trim() ? postId.trim() : createR2FolderId;
+        const fileNameForKey = uniqueUploadFileNameForR2(
+          file.name,
+          r2MediaItems.map((r) => r.url)
+        );
+        const pres = await fetch("/api/blog-posts/r2-presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: fileNameForKey,
+            contentType: file.type || "application/octet-stream",
+            fileSize: file.size,
+            blogPostId,
+            mediaBatchId: r2MediaBatchId,
+          }),
+        });
+        const data = (await pres.json().catch(() => ({}))) as {
+          error?: string;
+          detail?: string;
+          uploadUrl?: string;
+          publicUrl?: string;
+          headers?: Record<string, string>;
+        };
+        if (!pres.ok) {
+          const msg = data.detail
+            ? `${data.error ?? "Request failed"}: ${data.detail}`
+            : data.error || "Could not get upload URL.";
+          throw new Error(
+            pres.status === 503
+              ? "Cloud storage (R2) is not configured on the server. Ask an admin to set R2 (see .env.example)."
+              : msg
+          );
+        }
+        const uploadUrl = data.uploadUrl;
+        const publicUrl = data.publicUrl;
+        if (!uploadUrl || !publicUrl) {
+          throw new Error("Invalid response from server.");
+        }
+        const putHeaders: Record<string, string> = {
+          ...(data.headers && typeof data.headers === "object" ? data.headers : {}),
+        };
+        const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: putHeaders });
+        if (!put.ok) {
+          throw new Error("Upload to cloud storage failed. Check your connection and try again.");
+        }
+        const ct = (file.type || putHeaders["Content-Type"] || "").trim() || undefined;
+        const next: DriveMediaRow = {
+          url: publicUrl,
+          caption: "",
+          ...(ct ? { contentType: ct } : {}),
+        };
+        setR2MediaItems((prev) => [...prev, next]);
+      } catch (err) {
+        setError((err as Error).message);
+        // Continue uploading other files even if one fails
+      }
+    }
+    
+    setR2MoreBusy(false);
   }
 
   function isContentEmpty(html: string): boolean {
@@ -734,6 +752,7 @@ export function BlogPostFormModal({
                   <input
                     type="file"
                     accept={R2_FILE_ACCEPT}
+                    multiple
                     onChange={handleR2MoreMediaUpload}
                     disabled={r2MoreBusy}
                     className="mt-2 w-full text-sm text-[#7a6b65] file:mr-2 file:rounded file:border-0 file:bg-[#fdf2f0] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#8b6b5c] disabled:opacity-50"

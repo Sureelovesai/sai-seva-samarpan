@@ -522,7 +522,7 @@ export default function SevaAdminDashboardPage() {
           <div className="absolute inset-0 bg-black/18" />
 
           <div className="absolute inset-0 flex items-center justify-start">
-            <div className="w-full max-w-[12rem] pl-5 pr-2 sm:max-w-sm sm:pl-10 sm:pr-6 md:max-w-2xl lg:max-w-6xl">
+            <div className="w-full pl-8 pr-2 sm:max-w-sm sm:pl-10 sm:pr-6 md:max-w-2xl lg:max-w-6xl">
               <div className="inline-block [filter:drop-shadow(0_2px_8px_rgba(0,0,0,0.6))_drop-shadow(0_0_22px_rgba(37,99,235,0.65))]">
                 <div className="bg-gradient-to-r from-blue-500 via-blue-700 to-indigo-900 bg-clip-text text-xl font-light leading-tight tracking-wide text-transparent sm:text-3xl md:text-4xl lg:text-5xl lg:leading-normal">
                   Seva Admin Dashboard
@@ -590,7 +590,6 @@ export default function SevaAdminDashboardPage() {
               >
                 Blog analytics reports
               </Link>
-              <span className="text-amber-900/70"> — AI summaries by date, center, or USA region</span>
             </p>
           )}
           {canSeeSevaActivityTiles(userRoles) && (
@@ -599,14 +598,7 @@ export default function SevaAdminDashboardPage() {
                 href="/admin/seva-dashboard#pending-community-outreach"
                 className="font-semibold text-indigo-900 underline decoration-indigo-700/50 hover:no-underline"
               >
-                Community outreach — pending profiles (below on this page)
-              </Link>
-              {" · "}
-              <Link
-                href="/admin/community-outreach"
-                className="font-semibold text-indigo-800/90 underline decoration-indigo-600/50 hover:no-underline"
-              >
-                Full-page list
+                Community outreach — pending profiles
               </Link>
             </p>
           )}
@@ -623,10 +615,6 @@ export default function SevaAdminDashboardPage() {
               <h2 className="text-xl font-extrabold tracking-wide text-amber-800 sm:text-2xl">Pending Blog Posts</h2>
               <span className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-amber-700" aria-hidden />
             </div>
-            <p className="mt-2 text-center text-sm text-amber-800/90">
-              New posts are sent for verification. Approve to publish, reject to notify the submitter (optional note), or
-              delete to remove the entry from the queue. Only Admins can delete.
-            </p>
             {pendingBlogLoading ? (
               <p className="mt-4 text-center text-amber-800">Loading…</p>
             ) : pendingBlogPosts.length === 0 ? (
@@ -701,94 +689,6 @@ export default function SevaAdminDashboardPage() {
         )}
 
         {/* ================= PENDING COMMUNITY OUTREACH PROFILES (ADMIN + SEVA COORDINATORS) ================= */}
-        {(role === "ADMIN" || role === "SEVA_COORDINATOR") && (
-          <section
-            id="pending-community-outreach"
-            className="mt-8 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/90 px-3 py-6 shadow-md sm:px-6"
-          >
-            <div className="flex items-center justify-center gap-4 border-b border-indigo-200 pb-4">
-              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-r from-transparent to-indigo-700" aria-hidden />
-              <h2 className="text-xl font-extrabold tracking-wide text-indigo-900 sm:text-2xl">
-                Pending organization profiles
-              </h2>
-              <span className="h-px flex-1 max-w-[60px] bg-gradient-to-l from-transparent to-indigo-700" aria-hidden />
-            </div>
-            <p className="mt-2 text-center text-sm text-indigo-900/90">
-              Community Outreach submissions for your centers (coordinators see their cities only; admins see all).
-              Approve or reject to email the submitter. Admins can also remove a pending entry from the queue.
-            </p>
-            {pendingOutreachLoading ? (
-              <p className="mt-4 text-center text-indigo-800">Loading…</p>
-            ) : pendingOutreachProfiles.length === 0 ? (
-              <p className="mt-4 text-center text-indigo-800/80">No organization profiles pending review.</p>
-            ) : (
-              <ul className="mt-4 space-y-3">
-                {uniqById(pendingOutreachProfiles).map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4"
-                  >
-                    <div className="min-w-0 w-full sm:flex-1">
-                      <span className="font-semibold text-slate-800">{row.organizationName}</span>
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                        <span>Center: {row.city}</span>
-                        <span>
-                          Submitted{" "}
-                          {row.submittedAt
-                            ? new Date(row.submittedAt).toLocaleString("en-US", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })
-                            : "—"}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-600">
-                        {displayOutreachSubmitterName(row.user)} · {row.user.email}
-                      </p>
-                    </div>
-                    <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setViewingOutreachProfile(row)}
-                        disabled={!!outreachActingId}
-                        className="min-h-[44px] rounded-lg border border-indigo-600 bg-white px-3 py-2 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
-                      >
-                        View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => approveOutreachProfile(row.id)}
-                        disabled={outreachActingId === row.id}
-                        className="min-h-[44px] rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-800 disabled:opacity-60 sm:min-h-0 sm:px-4"
-                      >
-                        {outreachActingId === row.id ? "Working…" : "Approve"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => rejectOutreachProfile(row.id)}
-                        disabled={outreachActingId === row.id}
-                        className="min-h-[44px] rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
-                      >
-                        Reject
-                      </button>
-                      {canDeleteOutreachProfiles && (
-                        <button
-                          type="button"
-                          onClick={() => deleteOutreachProfile(row.id)}
-                          disabled={outreachActingId === row.id}
-                          className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:min-h-0 sm:px-4"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
         {/* Modal: View full pending post (image, content, then Approve) */}
         {(role === "ADMIN" || role === "BLOG_ADMIN") && viewingPostFull && (
           <PendingPostViewModal

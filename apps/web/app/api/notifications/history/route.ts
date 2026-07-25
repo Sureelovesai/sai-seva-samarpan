@@ -73,6 +73,14 @@ export async function POST(req: Request) {
           data: { read: true },
         });
       }
+    } else if (action === "delete") {
+      if (!notificationId) {
+        return NextResponse.json({ error: "notificationId is required for delete" }, { status: 400 });
+      }
+      // Delete single notification
+      await prisma.notificationLog.delete({
+        where: { id: notificationId },
+      });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
