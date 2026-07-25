@@ -510,7 +510,7 @@ export default function SevaAdminDashboardPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_35%_15%,rgba(255,255,255,0.75),rgba(255,255,255,0.0)),linear-gradient(90deg,rgba(190,200,220,0.9),rgba(110,210,230,0.75),rgba(190,200,220,0.9))]">
       {/* ================= HERO (FULL WIDTH) ================= */}
-      <section className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)]">
+      <section className="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden shadow-[0_10px_25px_rgba(0,0,0,0.22)] pl-5">
         <div className="relative h-[140px] w-full sm:h-[160px] md:h-[200px]">
           <Image
             src="/admin-hero.jpg"
@@ -522,7 +522,7 @@ export default function SevaAdminDashboardPage() {
           <div className="absolute inset-0 bg-black/18" />
 
           <div className="absolute inset-0 flex items-center justify-start">
-            <div className="w-full pl-8 pr-2 sm:max-w-sm sm:pl-10 sm:pr-6 md:max-w-2xl lg:max-w-6xl">
+            <div className="w-full pl-12 pr-2 sm:max-w-sm sm:pl-10 sm:pr-6 md:max-w-2xl lg:max-w-6xl">
               <div className="inline-block [filter:drop-shadow(0_2px_8px_rgba(0,0,0,0.6))_drop-shadow(0_0_22px_rgba(37,99,235,0.65))]">
                 <div className="bg-gradient-to-r from-blue-500 via-blue-700 to-indigo-900 bg-clip-text text-xl font-light leading-tight tracking-wide text-transparent sm:text-3xl md:text-4xl lg:text-5xl lg:leading-normal">
                   Seva Admin Dashboard
