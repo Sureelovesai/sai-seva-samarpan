@@ -15,7 +15,7 @@ async function fixNotificationUrls() {
     });
 
     // Filter to only those without volunteerName in the URL
-    const needsUpdate = notificationsToFix.filter(n => !n.actionUrl.includes("volunteerName="));
+    const needsUpdate = notificationsToFix.filter((n: any) => !n.actionUrl.includes("volunteerName="));
 
     console.log(`Found ${needsUpdate.length} notifications to fix`);
 
