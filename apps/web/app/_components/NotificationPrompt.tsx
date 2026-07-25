@@ -15,8 +15,13 @@ export function NotificationPrompt() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Initialize Firebase immediately
-    initializeFirebaseClient();
+    try {
+      // Initialize Firebase immediately - wrap in try-catch
+      initializeFirebaseClient();
+    } catch (initErr) {
+      console.error("[NotificationPrompt] Firebase init error:", initErr);
+      return; // Exit early if Firebase fails
+    }
 
     // Check if user already dismissed this session
     const dismissed = sessionStorage.getItem("notification_prompt_dismissed");
