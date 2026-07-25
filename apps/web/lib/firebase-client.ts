@@ -21,6 +21,12 @@ let messaging: any = null;
 export function initializeFirebaseClient() {
   if (!firebaseApp) {
     try {
+      // Check if Firebase config is properly set
+      if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
+        console.warn("[Firebase] Firebase config missing - notifications will not work");
+        return null;
+      }
+
       firebaseApp = initializeApp(firebaseConfig);
       messaging = getMessaging(firebaseApp);
       
@@ -51,6 +57,8 @@ export function initializeFirebaseClient() {
       }
     } catch (error) {
       console.error("[Firebase] Initialization error:", error);
+      // Don't crash the app if Firebase fails - it's not critical
+      return null;
     }
   }
   return firebaseApp;
@@ -161,6 +169,10 @@ export function subscribeToPushMessages(
  */
 export async function registerFCMToken(token: string): Promise<boolean> {
   try {
+    const deviceName = typeof navigator !== 'undefined' && navigator.userAgent 
+      ? `${navigator.userAgent.substring(0, 50)}` 
+      : 'Unknown Device';
+    
     const response = await fetch("/api/notifications/subscribe", {
       method: "POST",
       headers: {
@@ -168,7 +180,7 @@ export async function registerFCMToken(token: string): Promise<boolean> {
       },
       body: JSON.stringify({
         fcmToken: token,
-        deviceName: `${navigator.userAgent.substring(0, 50)}`,
+        deviceName,
       }),
     });
 
