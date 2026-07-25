@@ -538,10 +538,10 @@ export default function SevaAdminDashboardPage() {
       </section>
 
       {/* ================= MAIN CONTAINER ================= */}
-      <div className="mx-auto max-w-6xl px-4 pt-6 pb-12">
+      <div className="mx-auto max-w-6xl px-4 pt-6 pb-12 sm:pl-[24px]">
         {/* ================= TILE ROW ================= */}
         <section className="mt-6">
-          <div className="bg-yellow-200/85 px-4 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.16)]">
+          <div className="bg-yellow-200/85 px-4 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.16)] sm:pl-[24px]">
             <div
               className={
                 (role === "ADMIN" || role === "BLOG_ADMIN")
