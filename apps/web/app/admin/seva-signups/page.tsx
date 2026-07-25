@@ -372,7 +372,7 @@ function SevaSignUpsContent() {
                   setVolunteerName("");
                 }
               }}
-              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+              className="mt-4 w-full border border-zinc-700 bg-white px-4 py-3 text-base sm:max-w-[360px] sm:px-6 sm:py-4 sm:text-lg"
             >
               <option value="">All activities</option>
               {activities.map((a) => (
@@ -388,7 +388,7 @@ function SevaSignUpsContent() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+              className="mt-4 w-full border border-zinc-700 bg-white px-4 py-3 text-base sm:max-w-[360px] sm:px-6 sm:py-4 sm:text-lg"
             >
               {STATUSES.map((s) => (
                 <option key={s || "all"} value={s}>{STATUS_LABELS[s] ?? s}</option>
@@ -403,7 +403,7 @@ function SevaSignUpsContent() {
               value={volunteerName}
               onChange={(e) => setVolunteerName(e.target.value)}
               placeholder="Filter by volunteer name"
-              className="mt-4 w-full max-w-[360px] border border-zinc-700 bg-white px-6 py-4 text-lg"
+              className="mt-4 w-full border border-zinc-700 bg-white px-4 py-3 text-base sm:max-w-[360px] sm:px-6 sm:py-4 sm:text-lg"
             />
           </div>
         </div>
@@ -415,7 +415,7 @@ function SevaSignUpsContent() {
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="admin-date-input mt-4 w-full max-w-full border border-zinc-700 bg-white px-4 py-4 text-base sm:max-w-[360px] sm:px-6 sm:text-lg"
+              className="admin-date-input mt-4 w-full border border-zinc-700 bg-white px-4 py-3 text-base sm:max-w-[360px] sm:px-6 sm:py-4 sm:text-lg"
             />
           </div>
 
@@ -425,7 +425,7 @@ function SevaSignUpsContent() {
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="admin-date-input mt-4 w-full max-w-full border border-zinc-700 bg-white px-4 py-4 text-base sm:max-w-[360px] sm:px-6 sm:text-lg"
+              className="admin-date-input mt-4 w-full border border-zinc-700 bg-white px-4 py-3 text-base sm:max-w-[360px] sm:px-6 sm:py-4 sm:text-lg"
             />
           </div>
         </div>
