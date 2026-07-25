@@ -33,7 +33,7 @@ export function NotificationPrompt() {
     const checkSubscription = async () => {
       try {
         // Don't show if notifications already granted
-        if ("Notification" in window && Notification.permission === "granted") {
+        if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === "granted") {
           // Already subscribed, don't show prompt
           console.log("[NotificationPrompt] Notifications already granted");
           return;

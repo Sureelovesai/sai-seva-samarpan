@@ -32,9 +32,9 @@ export function ForegroundNotificationListener() {
             };
 
             // Show browser notification for foreground messages
-            if ("Notification" in window && Notification.permission === "granted") {
+            if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === "granted") {
               try {
-                new Notification(title, options);
+                new window.Notification(title, options);
               } catch (notifErr) {
                 console.error("[ForegroundNotification] Error creating notification:", notifErr);
               }

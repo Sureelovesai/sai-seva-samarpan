@@ -35,7 +35,7 @@ export function NotificationBell() {
     console.log("[NotificationBell] Badge API Info:", {
       supported: "setAppBadge" in navigator,
       standalone: (window.navigator as any).standalone === true,
-      notificationPermission: Notification.permission
+      notificationPermission: typeof window !== 'undefined' && 'Notification' in window ? (window.Notification as any).permission : 'unknown'
     });
     
     return () => {
