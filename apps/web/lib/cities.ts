@@ -69,6 +69,7 @@ const CITIES_SORTED = [
   "Phoenix",
   "Plano",
   "Powell",
+  "Raleigh",
   "Sacramento",
   "Salisbury",
   "Sammamish",
