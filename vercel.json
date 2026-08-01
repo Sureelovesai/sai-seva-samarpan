@@ -1,8 +1,15 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/activity-reminders",
-      "schedule": "*/30 * * * *"
+  "buildCommand": "cd apps/web && npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm ci",
+  "env": {
+    "NODE_VERSION": "24.x"
+  },
+  "envs": {
+    "production": {
+      "env": {
+        "NODE_VERSION": "24.x"
+      }
     }
-  ]
+  }
 }
