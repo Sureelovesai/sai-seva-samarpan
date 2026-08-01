@@ -330,29 +330,37 @@ export function BlogPostFormModal({
   async function handleR2MoreMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     e.target.value = "";
-    if (!files || files.length === 0) return;
+    console.log("[BlogForm] Upload more media triggered, files count:", files?.length);
+    if (!files || files.length === 0) {
+      console.log("[BlogForm] No files selected, returning");
+      return;
+    }
     
     setError(null);
     
     // Check total limit (12 files max)
     if (r2MediaItems.length >= 12) {
       setError("You can add at most 12 uploaded media files per post.");
+      console.log("[BlogForm] Reached 12 file limit");
       return;
     }
     
     // Check if adding these files would exceed the limit
     const availableSlots = 12 - r2MediaItems.length;
     const filesToUpload = Math.min(files.length, availableSlots);
+    console.log("[BlogForm] Available slots:", availableSlots, "Files to upload:", filesToUpload);
     
     if (files.length > availableSlots) {
       setError(`You can only add ${availableSlots} more file(s). Limit is 12 total.`);
     }
     
     setR2MoreBusy(true);
+    console.log("[BlogForm] Starting upload of", filesToUpload, "files");
     
     // Upload each file
     for (let i = 0; i < filesToUpload; i++) {
       const file = files[i];
+      console.log(`[BlogForm] Uploading file ${i + 1}/${filesToUpload}:`, file.name, file.size);
       try {
         const blogPostId =
           mode === "edit" && postId?.trim() ? postId.trim() : createR2FolderId;
@@ -360,6 +368,7 @@ export function BlogPostFormModal({
           file.name,
           r2MediaItems.map((r) => r.url)
         );
+        console.log("[BlogForm] Requesting presign for:", fileNameForKey, "blogPostId:", blogPostId);
         const pres = await fetch("/api/blog-posts/r2-presign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -371,6 +380,7 @@ export function BlogPostFormModal({
             mediaBatchId: r2MediaBatchId,
           }),
         });
+        console.log("[BlogForm] Presign response status:", pres.status);
         const data = (await pres.json().catch(() => ({}))) as {
           error?: string;
           detail?: string;
@@ -378,6 +388,7 @@ export function BlogPostFormModal({
           publicUrl?: string;
           headers?: Record<string, string>;
         };
+        console.log("[BlogForm] Presign response data:", data);
         if (!pres.ok) {
           const msg = data.detail
             ? `${data.error ?? "Request failed"}: ${data.detail}`
@@ -390,13 +401,16 @@ export function BlogPostFormModal({
         }
         const uploadUrl = data.uploadUrl;
         const publicUrl = data.publicUrl;
+        console.log("[BlogForm] Got presign URLs. uploadUrl:", !!uploadUrl, "publicUrl:", publicUrl);
         if (!uploadUrl || !publicUrl) {
           throw new Error("Invalid response from server.");
         }
         const putHeaders: Record<string, string> = {
           ...(data.headers && typeof data.headers === "object" ? data.headers : {}),
         };
+        console.log("[BlogForm] Uploading to R2 with method PUT");
         const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: putHeaders });
+        console.log("[BlogForm] R2 upload response status:", put.status);
         if (!put.ok) {
           throw new Error("Upload to cloud storage failed. Check your connection and try again.");
         }
@@ -406,14 +420,19 @@ export function BlogPostFormModal({
           caption: "",
           ...(ct ? { contentType: ct } : {}),
         };
+        console.log("[BlogForm] Adding media item to state:", next);
         setR2MediaItems((prev) => [...prev, next]);
+        console.log("[BlogForm] File uploaded successfully:", publicUrl);
       } catch (err) {
-        setError((err as Error).message);
+        const errorMsg = (err as Error).message;
+        console.error("[BlogForm] Upload error:", errorMsg);
+        setError(errorMsg);
         // Continue uploading other files even if one fails
       }
     }
     
     setR2MoreBusy(false);
+    console.log("[BlogForm] Upload batch complete");
   }
 
   function isContentEmpty(html: string): boolean {
