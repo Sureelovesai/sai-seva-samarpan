@@ -88,12 +88,18 @@ interface User {
 }
 
 export function Sidebar() {
+  const [isMounted, setIsMounted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true); // Default expanded
   const [isMobile, setIsMobile] = useState(false);
   const [expandedDropdown, setExpandedDropdown] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  // Mark as mounted after hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch user data
   useEffect(() => {
@@ -339,6 +345,19 @@ export function Sidebar() {
 
   // Sidebar width based on state
   const sidebarWidth = isExpanded ? 320 : 96; // 320px expanded, 96px collapsed
+
+  // Only render interactive content after hydration to prevent mismatch
+  if (!isMounted) {
+    return (
+      <>
+        {/* Server-side placeholder - minimal, matches both server and client initial state */}
+        <div
+          className="fixed left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col"
+          style={{ width: '320px' }}
+        />
+      </>
+    );
+  }
 
   return (
     <>
