@@ -11,7 +11,7 @@ import {
   type ReportScopeInput,
   type ScopeParseError,
 } from "@/lib/blogReportScope";
-import { getSessionWithRole } from "@/lib/getRole";
+import { getSessionWithRole, type AppRole } from "@/lib/getRole";
 import { canAccessSevaBlog, canViewSevaBlog } from "@/lib/sevaBlogAccess";
 import { sendNotificationToRole } from "@/lib/notification-service";
 
@@ -197,6 +197,10 @@ export async function GET(req: Request) {
  * POST /api/blog-posts
  * Create a blog post. Body: { title, content, imageUrl?, section, authorName? }
  * Optional: authorId from session later.
+ * 
+ * Role-based approval:
+ * - SEVA_COORDINATOR, REGIONAL_SEVA_COORDINATOR, NATIONAL_SEVA_COORDINATOR, ADMIN: Auto-approved
+ * - BLOG_ADMIN, others: Requires review (PENDING_APPROVAL)
  */
 export async function POST(req: Request) {
   try {
@@ -235,6 +239,13 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
+
+    // Determine if this user's post should auto-approve based on role
+    const autoApproveRoles: AppRole[] = ["SEVA_COORDINATOR", "REGIONAL_SEVA_COORDINATOR", "NATIONAL_SEVA_COORDINATOR", "ADMIN"];
+    const userRoles = sessionGate?.roles || [];
+    const shouldAutoApprove = autoApproveRoles.some(role => userRoles.includes(role));
+    const postStatus = shouldAutoApprove ? "APPROVED" : "PENDING_APPROVAL";
+
     const post = await prisma.blogPost.create({
       data: {
         title,
@@ -253,89 +264,94 @@ export async function POST(req: Request) {
         posterPhone,
         authorId: session?.sub ?? null,
         authorName,
-        status: "PENDING_APPROVAL",
+        status: postStatus,
       },
     });
 
-    // Notify admins and blog admins for verification
-    const admins: { email: string }[] = await prisma.roleAssignment.findMany({
-      where: { role: { in: ["ADMIN", "BLOG_ADMIN"] } },
-      select: { email: true },
-    });
-    const adminEmails = admins.map((a) => a.email.trim()).filter(Boolean);
-    // Build absolute app URL so the email link works from any device. Prefer NEXT_PUBLIC_APP_URL (e.g. https://your-app.vercel.app).
-    const rawOrigin =
-      (process.env.NEXT_PUBLIC_APP_URL ?? "").trim() ||
-      (process.env.VERCEL_URL ? `https://${String(process.env.VERCEL_URL).trim()}` : "");
-    const appOrigin =
-      rawOrigin && (rawOrigin.startsWith("http://") || rawOrigin.startsWith("https://"))
-        ? rawOrigin.replace(/\/+$/, "")
-        : "http://localhost:3000";
-    const loginThenDashboard = `${appOrigin}/login?next=${encodeURIComponent("/admin/seva-dashboard#pending-blog-posts")}`;
-    const safeContent = sanitizeHtmlForEmail(post.content);
-    // Use absolute image URL in email (relative paths like /blog-right-swami.jpg don't work in email)
-    const imageSrc =
-      post.imageUrl && post.imageUrl.trim()
-        ? post.imageUrl.startsWith("http")
-          ? post.imageUrl.trim()
-          : `${appOrigin}${post.imageUrl.startsWith("/") ? "" : "/"}${post.imageUrl.trim()}`
-        : "";
-    const imageBlock =
-      imageSrc
-        ? `<p><strong>Image:</strong></p><p><img src="${escapeHtml(imageSrc)}" alt="Post image" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:8px;" /></p>`
-        : "";
-    const driveItems = normalizeStoredDriveMedia(post.driveMediaLinks);
-    const driveFolderNote = blogDriveMediaFolderNote(driveItems);
-    const driveBlock =
-      driveItems.length > 0
-        ? `${driveFolderNote}<p><strong>Extra media (cloud, ${driveItems.length}):</strong></p><ul>${driveItems
-            .map(
-              (d) =>
-                `<li><a href="${escapeHtml(d.url)}">${escapeHtml(d.url)}</a>${d.caption ? ` — ${escapeHtml(d.caption)}` : ""}</li>`
-            )
-            .join("")}</ul>`
-        : "";
-
-    for (const to of adminEmails) {
-      const result = await sendEmail({
-        to,
-        subject: `[Seva Blog] New post pending verification: ${post.title}`,
-        html: `
-          <p>A new blog post has been submitted and is waiting for verification.</p>
-          <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
-          <p><strong>Section:</strong> ${escapeHtml(post.section)}</p>
-          ${post.authorName ? `<p><strong>Author:</strong> ${escapeHtml(post.authorName)}</p>` : ""}
-          ${post.centerCity ? `<p><strong>Center:</strong> ${escapeHtml(post.centerCity)}</p>` : ""}
-          ${post.sevaDate ? `<p><strong>Seva / story date:</strong> ${escapeHtml(post.sevaDate.toISOString().slice(0, 10))}</p>` : ""}
-          ${post.sevaCategory ? `<p><strong>Seva category:</strong> ${escapeHtml(post.sevaCategory)}</p>` : ""}
-          ${post.posterEmail ? `<p><strong>Contact email:</strong> ${escapeHtml(post.posterEmail)}</p>` : ""}
-          ${post.posterPhone ? `<p><strong>Phone:</strong> ${escapeHtml(post.posterPhone)}</p>` : ""}
-          ${imageBlock}
-          ${driveBlock}
-          <p><strong>Description / Content:</strong></p>
-          <div style="margin:12px 0; padding:12px; background:#f5f5f5; border-radius:8px; border:1px solid #e0e0e0; max-height:400px; overflow-y:auto;">${safeContent || escapeHtml("(No content)")}</div>
-          <p>Please review above and approve the post in the dashboard so it becomes visible on the blog.</p>
-          <p><a href="${loginThenDashboard}" style="display:inline-block; padding:10px 20px; background:#b45309; color:#fff; text-decoration:none; border-radius:6px; font-weight:600;">Open Admin Dashboard to Approve</a></p>
-          <p>Jai Sai Ram.</p>
-        `,
+    // Only notify admins if the post requires approval
+    if (postStatus === "PENDING_APPROVAL") {
+      const admins: { email: string }[] = await prisma.roleAssignment.findMany({
+        where: { role: { in: ["ADMIN", "BLOG_ADMIN"] } },
+        select: { email: true },
       });
-      if (!result.ok) {
-        console.error("Blog post: admin notification email failed for", to, result.error ?? result.skipped);
+      const adminEmails = admins.map((a) => a.email.trim()).filter(Boolean);
+      // Build absolute app URL so the email link works from any device. Prefer NEXT_PUBLIC_APP_URL (e.g. https://your-app.vercel.app).
+      const rawOrigin =
+        (process.env.NEXT_PUBLIC_APP_URL ?? "").trim() ||
+        (process.env.VERCEL_URL ? `https://${String(process.env.VERCEL_URL).trim()}` : "");
+      const appOrigin =
+        rawOrigin && (rawOrigin.startsWith("http://") || rawOrigin.startsWith("https://"))
+          ? rawOrigin.replace(/\/+$/, "")
+          : "http://localhost:3000";
+      const loginThenDashboard = `${appOrigin}/login?next=${encodeURIComponent("/admin/seva-dashboard#pending-blog-posts")}`;
+      const safeContent = sanitizeHtmlForEmail(post.content);
+      // Use absolute image URL in email (relative paths like /blog-right-swami.jpg don't work in email)
+      const imageSrc =
+        post.imageUrl && post.imageUrl.trim()
+          ? post.imageUrl.startsWith("http")
+            ? post.imageUrl.trim()
+            : `${appOrigin}${post.imageUrl.startsWith("/") ? "" : "/"}${post.imageUrl.trim()}`
+          : "";
+      const imageBlock =
+        imageSrc
+          ? `<p><strong>Image:</strong></p><p><img src="${escapeHtml(imageSrc)}" alt="Post image" style="max-width:100%; height:auto; border:1px solid #ddd; border-radius:8px;" /></p>`
+          : "";
+      const driveItems = normalizeStoredDriveMedia(post.driveMediaLinks);
+      const driveFolderNote = blogDriveMediaFolderNote(driveItems);
+      const driveBlock =
+        driveItems.length > 0
+          ? `${driveFolderNote}<p><strong>Extra media (cloud, ${driveItems.length}):</strong></p><ul>${driveItems
+              .map(
+                (d) =>
+                  `<li><a href="${escapeHtml(d.url)}">${escapeHtml(d.url)}</a>${d.caption ? ` — ${escapeHtml(d.caption)}` : ""}</li>`
+              )
+              .join("")}</ul>`
+          : "";
+
+      for (const to of adminEmails) {
+        const result = await sendEmail({
+          to,
+          subject: `[Seva Blog] New post pending verification: ${post.title}`,
+          html: `
+            <p>A new blog post has been submitted and is waiting for verification.</p>
+            <p><strong>Title:</strong> ${escapeHtml(post.title)}</p>
+            <p><strong>Section:</strong> ${escapeHtml(post.section)}</p>
+            ${post.authorName ? `<p><strong>Author:</strong> ${escapeHtml(post.authorName)}</p>` : ""}
+            ${post.centerCity ? `<p><strong>Center:</strong> ${escapeHtml(post.centerCity)}</p>` : ""}
+            ${post.sevaDate ? `<p><strong>Seva / story date:</strong> ${escapeHtml(post.sevaDate.toISOString().slice(0, 10))}</p>` : ""}
+            ${post.sevaCategory ? `<p><strong>Seva category:</strong> ${escapeHtml(post.sevaCategory)}</p>` : ""}
+            ${post.posterEmail ? `<p><strong>Contact email:</strong> ${escapeHtml(post.posterEmail)}</p>` : ""}
+            ${post.posterPhone ? `<p><strong>Phone:</strong> ${escapeHtml(post.posterPhone)}</p>` : ""}
+            ${imageBlock}
+            ${driveBlock}
+            <p><strong>Description / Content:</strong></p>
+            <div style="margin:12px 0; padding:12px; background:#f5f5f5; border-radius:8px; border:1px solid #e0e0e0; max-height:400px; overflow-y:auto;">${safeContent || escapeHtml("(No content)")}</div>
+            <p>Please review above and approve the post in the dashboard so it becomes visible on the blog.</p>
+            <p><a href="${loginThenDashboard}" style="display:inline-block; padding:10px 20px; background:#b45309; color:#fff; text-decoration:none; border-radius:6px; font-weight:600;">Open Admin Dashboard to Approve</a></p>
+            <p>Jai Sai Ram.</p>
+          `,
+        });
+        if (!result.ok) {
+          console.error("Blog post: admin notification email failed for", to, result.error ?? result.skipped);
+        }
       }
-    }
 
-    // Send push notifications to blog admins about pending post
-    try {
-      await sendNotificationToRole("BLOG_ADMIN", {
-        title: "New Blog Post Pending Approval",
-        body: post.title,
-        triggerType: "BLOG_POST",
-        relatedId: post.id,
-        actionUrl: "/admin/seva-dashboard#pending-blog-posts",
-      });
-    } catch (notifErr) {
-      console.error("[Notification] Failed to send blog post notification:", notifErr);
-      // Don't fail the request if notifications fail
+      // Send push notifications to blog admins about pending post
+      try {
+        await sendNotificationToRole("BLOG_ADMIN", {
+          title: "New Blog Post Pending Approval",
+          body: post.title,
+          triggerType: "BLOG_POST",
+          relatedId: post.id,
+          actionUrl: "/admin/seva-dashboard#pending-blog-posts",
+        });
+      } catch (notifErr) {
+        console.error("[Notification] Failed to send blog post notification:", notifErr);
+        // Don't fail the request if notifications fail
+      }
+    } else {
+      // Post auto-approved for coordinator/admin roles
+      console.log(`[Blog] Post "${post.title}" auto-approved for user with roles: ${userRoles.join(", ")}`);
     }
 
     return NextResponse.json({
@@ -353,7 +369,9 @@ export async function POST(req: Request) {
       createdAt: post.createdAt,
       status: post.status,
       driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
-      message: "Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!",
+      message: postStatus === "APPROVED" 
+        ? "Your blog post has been published successfully! Jai Sairam !!"
+        : "Thank you for taking the time to submit the post. It will be reviewed and published shortly. Jai Sairam !!",
     });
   } catch (e: unknown) {
     const code =
