@@ -14,6 +14,7 @@ export function canAccessSevaBlog(session: SessionWithRole | null): boolean {
     "BLOG_ADMIN",
     "SEVA_COORDINATOR",
     "REGIONAL_SEVA_COORDINATOR",
-    "NATIONAL_SEVA_COORDINATOR"
+    "NATIONAL_SEVA_COORDINATOR",
+    "VOLUNTEER"
   );
 }

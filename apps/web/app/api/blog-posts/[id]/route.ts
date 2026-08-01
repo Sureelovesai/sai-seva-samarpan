@@ -187,3 +187,153 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * PUT /api/blog-posts/[id]
+ * Edit a blog post (content, title, etc).
+ * - Authors can edit ONLY their own posts
+ * - ADMIN and BLOG_ADMIN can edit any post
+ */
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      select: { id: true, authorId: true, title: true, status: true },
+    });
+
+    if (!post) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+
+    // Check permissions: Author can edit own, or Admin/BlogAdmin can edit any
+    const isAuthor = post.authorId === session.sub;
+    const isAdmin = hasRole(session, "ADMIN", "BLOG_ADMIN");
+
+    if (!isAuthor && !isAdmin) {
+      return NextResponse.json(
+        { error: "You can only edit your own posts" },
+        { status: 403 }
+      );
+    }
+
+    // Update allowed fields
+    const updateData: Record<string, unknown> = {};
+    if (typeof body.title === "string") {
+      updateData.title = body.title.trim();
+    }
+    if (typeof body.content === "string") {
+      updateData.content = body.content.trim();
+    }
+    if (body.articleCanvas !== undefined) {
+      updateData.articleCanvas = body.articleCanvas;
+    }
+    if (typeof body.imageUrl === "string") {
+      updateData.imageUrl = body.imageUrl.trim();
+    }
+    if (Array.isArray(body.driveMediaLinks)) {
+      updateData.driveMediaLinks = body.driveMediaLinks;
+    }
+    if (typeof body.section === "string") {
+      updateData.section = body.section.trim();
+    }
+    if (typeof body.centerCity === "string") {
+      updateData.centerCity = body.centerCity.trim();
+    }
+    if (body.sevaDate !== undefined) {
+      updateData.sevaDate = body.sevaDate;
+    }
+    if (typeof body.sevaCategory === "string") {
+      updateData.sevaCategory = body.sevaCategory.trim();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.blogPost.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json({
+      id: updated.id,
+      title: updated.title,
+      message: "Post updated successfully",
+    });
+  } catch (e: unknown) {
+    console.error("Blog post PUT error:", e);
+    return NextResponse.json(
+      { error: "Failed to update post", detail: (e as Error)?.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/blog-posts/[id]
+ * Delete a blog post.
+ * - Authors can delete ONLY their own posts
+ * - ADMIN and BLOG_ADMIN can delete any post
+ */
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSessionWithRole(req.headers.get("cookie"));
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      select: { id: true, authorId: true, title: true },
+    });
+
+    if (!post) {
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+
+    // Check permissions: Author can delete own, or Admin/BlogAdmin can delete any
+    const isAuthor = post.authorId === session.sub;
+    const isAdmin = hasRole(session, "ADMIN", "BLOG_ADMIN");
+
+    if (!isAuthor && !isAdmin) {
+      return NextResponse.json(
+        { error: "You can only delete your own posts" },
+        { status: 403 }
+      );
+    }
+
+    await prisma.blogPost.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      id,
+      message: "Post deleted successfully",
+    });
+  } catch (e: unknown) {
+    console.error("Blog post DELETE error:", e);
+    return NextResponse.json(
+      { error: "Failed to delete post", detail: (e as Error)?.message },
+      { status: 500 }
+    );
+  }
+}
