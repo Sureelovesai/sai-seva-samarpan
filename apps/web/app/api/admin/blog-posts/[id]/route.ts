@@ -28,6 +28,7 @@ export async function GET(
         imageUrl: true,
         section: true,
         authorName: true,
+        authorId: true,
         centerCity: true,
         sevaDate: true,
         sevaCategory: true,

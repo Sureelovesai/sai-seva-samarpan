@@ -241,7 +241,7 @@ export async function POST(req: Request) {
     }
 
     // Determine if this user's post should auto-approve based on role
-    const autoApproveRoles: AppRole[] = ["SEVA_COORDINATOR", "REGIONAL_SEVA_COORDINATOR", "NATIONAL_SEVA_COORDINATOR", "ADMIN"];
+    const autoApproveRoles: AppRole[] = ["SEVA_COORDINATOR", "REGIONAL_SEVA_COORDINATOR", "NATIONAL_SEVA_COORDINATOR", "ADMIN", "BLOG_ADMIN"];
     const userRoles = sessionGate?.roles || [];
     const shouldAutoApprove = autoApproveRoles.some(role => userRoles.includes(role));
     const postStatus = shouldAutoApprove ? "APPROVED" : "PENDING_APPROVAL";

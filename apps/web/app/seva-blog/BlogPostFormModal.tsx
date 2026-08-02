@@ -72,6 +72,7 @@ type AdminBlogPostPayload = {
   driveMediaLinks?: unknown;
   section: string;
   authorName: string | null;
+  authorId: string | null;
   centerCity: string | null;
   sevaDate: string | null;
   sevaCategory: string | null;
@@ -146,6 +147,11 @@ export function BlogPostFormModal({
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(mode === "edit");
+  
+  // For permission checking on edit mode
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [postAuthorId, setPostAuthorId] = useState<string | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
   const centerOptions = useMemo(() => {
     if (!usaRegion || !isValidUsaRegion(usaRegion)) {
@@ -184,6 +190,16 @@ export function BlogPostFormModal({
       setInitialLoading(true);
       setLoadError(null);
       try {
+        // Fetch current user info for permission checking
+        const userRes = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setCurrentUserId(userData.sub || null);
+          setUserRoles(userData.roles || []);
+        }
+        
         const res = await fetch(`/api/admin/blog-posts/${postId}`, {
           credentials: "include",
         });
@@ -221,6 +237,7 @@ export function BlogPostFormModal({
         setAuthorName(p.authorName?.trim() ?? "");
         setPosterEmail(p.posterEmail?.trim() ?? "");
         setPosterPhone(p.posterPhone?.trim() ?? "");
+        setPostAuthorId(p.authorId ?? null);
         setArticleCanvas(normalizeArticleCanvasPresentation(p.articleCanvas ?? null));
         setR2MediaItems(
           normalizeStoredDriveMedia((p as AdminBlogPostPayload).driveMediaLinks).map((m) => ({
@@ -329,12 +346,22 @@ export function BlogPostFormModal({
 
   async function handleR2MoreMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
-    e.target.value = "";
     console.log("[BlogForm] Upload more media triggered, files count:", files?.length);
+    console.log("[BlogForm] Event target:", e.target);
+    console.log("[BlogForm] Files object:", files);
+    
+    // CRITICAL: Don't clear the input value yet - this might interfere with file reading
+    // We'll clear it after processing
+    
     if (!files || files.length === 0) {
       console.log("[BlogForm] No files selected, returning");
+      e.target.value = "";
       return;
     }
+    
+    // Convert FileList to Array immediately to preserve files
+    const fileArray = Array.from(files);
+    console.log("[BlogForm] Converted to array, length:", fileArray.length);
     
     setError(null);
     
@@ -342,15 +369,16 @@ export function BlogPostFormModal({
     if (r2MediaItems.length >= 12) {
       setError("You can add at most 12 uploaded media files per post.");
       console.log("[BlogForm] Reached 12 file limit");
+      e.target.value = "";
       return;
     }
     
     // Check if adding these files would exceed the limit
     const availableSlots = 12 - r2MediaItems.length;
-    const filesToUpload = Math.min(files.length, availableSlots);
+    const filesToUpload = Math.min(fileArray.length, availableSlots);
     console.log("[BlogForm] Available slots:", availableSlots, "Files to upload:", filesToUpload);
     
-    if (files.length > availableSlots) {
+    if (fileArray.length > availableSlots) {
       setError(`You can only add ${availableSlots} more file(s). Limit is 12 total.`);
     }
     
@@ -359,7 +387,7 @@ export function BlogPostFormModal({
     
     // Upload each file
     for (let i = 0; i < filesToUpload; i++) {
-      const file = files[i];
+      const file = fileArray[i];
       console.log(`[BlogForm] Uploading file ${i + 1}/${filesToUpload}:`, file.name, file.size);
       try {
         const blogPostId =
@@ -433,11 +461,25 @@ export function BlogPostFormModal({
     
     setR2MoreBusy(false);
     console.log("[BlogForm] Upload batch complete");
+    
+    // Now reset the input value so the user can select files again
+    e.target.value = "";
   }
 
   function isContentEmpty(html: string): boolean {
     const t = html.trim().replace(/<[^>]*>/g, "").trim();
     return !t || t === "\n";
+  }
+
+  // Check if current user can remove media
+  function canRemoveMedia(): boolean {
+    // In create mode, always allow removing media
+    if (mode === "create") return true;
+    
+    // In edit mode: allow if user is the author OR is admin/blog admin
+    const isAuthor = currentUserId && postAuthorId && currentUserId === postAuthorId;
+    const isAdmin = userRoles.some(role => role === "ADMIN" || role === "BLOG_ADMIN");
+    return isAuthor || isAdmin;
   }
 
   async function handleSubmit() {
@@ -801,15 +843,17 @@ export function BlogPostFormModal({
                           placeholder="Short caption (optional)"
                           className="w-full rounded-lg border border-[#e8b4a0] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#8b6b5c]/30"
                         />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setR2MediaItems((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
+                        {canRemoveMedia() && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setR2MediaItems((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
