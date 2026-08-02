@@ -51,6 +51,7 @@ type CommunityPost = {
   content: string;
   imageUrl: string | null;
   section: string;
+  authorId: string | null;
   authorName: string | null;
   createdAt: string;
   likeCount: number;
@@ -99,6 +100,8 @@ export default function SevaBlogClient() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [canEditBlog, setCanEditBlog] = useState(false);
   const [canGenerateBlogReport, setCanGenerateBlogReport] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [editModal, setEditModal] = useState<{
     open: boolean;
     postId: string;
@@ -151,6 +154,7 @@ export default function SevaBlogClient() {
       .then((data) => {
         const user = data?.user ?? null;
         setIsLoggedIn(!!user);
+        setCurrentUserId(user?.sub || null);
         const roles: string[] = (() => {
           if (Array.isArray(user?.roles) && user.roles.length > 0) {
             return user.roles.filter(
@@ -160,6 +164,7 @@ export default function SevaBlogClient() {
           if (user?.role && typeof user.role === "string") return [user.role];
           return [];
         })();
+        setUserRoles(roles);
         setIsAdmin(roles.includes("ADMIN"));
         setCanEditBlog(
           roles.includes("ADMIN") || roles.includes("BLOG_ADMIN")
@@ -172,6 +177,8 @@ export default function SevaBlogClient() {
       })
       .catch(() => {
         setIsLoggedIn(false);
+        setCurrentUserId(null);
+        setUserRoles([]);
         setIsAdmin(false);
         setCanEditBlog(false);
         setCanGenerateBlogReport(false);
@@ -661,6 +668,8 @@ export default function SevaBlogClient() {
                 onReaction={fetchCommunityPosts}
                 isAdmin={isAdmin}
                 canEditBlog={canEditBlog}
+                currentUserId={currentUserId}
+                userRoles={userRoles}
                 onEditPost={(id) => setEditModal({ open: true, postId: id })}
                 onDelete={fetchCommunityPosts}
               />
@@ -783,6 +792,8 @@ function CommunityPostCard({
   onReaction,
   isAdmin,
   canEditBlog,
+  currentUserId,
+  userRoles,
   onEditPost,
   onDelete,
 }: {
@@ -790,12 +801,32 @@ function CommunityPostCard({
   onReaction: () => void;
   isAdmin: boolean;
   canEditBlog: boolean;
+  currentUserId: string | null;
+  userRoles: string[];
   onEditPost: (id: string) => void;
   onDelete: () => void;
 }) {
   const [reacting, setReacting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [emojiCounts, setEmojiCounts] = useState(post.emojiCounts);
+
+  // Check if current user can edit/delete this post
+  function canUserEditPost(): boolean {
+    // Author can edit their own posts
+    if (currentUserId && post.authorId && currentUserId === post.authorId) return true;
+    // Admins and blog admins can edit any post
+    if (isAdmin || userRoles.includes("BLOG_ADMIN")) return true;
+    return false;
+  }
+
+  // Check if current user can delete this post
+  function canUserDeletePost(): boolean {
+    // Authors can delete their own posts
+    if (currentUserId && post.authorId && currentUserId === post.authorId) return true;
+    // Only admins can delete posts
+    if (isAdmin) return true;
+    return false;
+  }
 
   async function setReaction(emojiCode: string) {
     if (reacting) return;
@@ -865,7 +896,7 @@ function CommunityPostCard({
             </button>
           ))}
         </div>
-        {(canEditBlog || isAdmin) && (
+        {canUserEditPost() && (
           <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-2">
             <button
               type="button"
@@ -877,7 +908,7 @@ function CommunityPostCard({
             >
               Edit
             </button>
-            {isAdmin ? (
+            {canUserDeletePost() && (
               <button
                 type="button"
                 onClick={async (e) => {
@@ -905,7 +936,7 @@ function CommunityPostCard({
               >
                 {deleting ? "Deleting…" : "Delete"}
               </button>
-            ) : null}
+            )}
           </div>
         )}
       </div>

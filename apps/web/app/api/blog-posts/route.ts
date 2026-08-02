@@ -143,7 +143,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       include: {
         reactions: true,
-        author: { select: { name: true, firstName: true, lastName: true, email: true } },
+        author: { select: { id: true, name: true, firstName: true, lastName: true, email: true } },
       },
     });
 
@@ -168,6 +168,7 @@ export async function GET(req: Request) {
         sevaCategory: p.sevaCategory,
         posterEmail: p.posterEmail,
         posterPhone: p.posterPhone,
+        authorId: p.authorId,
         authorName:
           p.authorName ||
           (p.author
