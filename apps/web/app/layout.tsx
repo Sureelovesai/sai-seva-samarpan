@@ -98,6 +98,7 @@ export default function RootLayout({
               });
             `,
           }}
+          suppressHydrationWarning
         />
 
         <script
@@ -115,6 +116,7 @@ export default function RootLayout({
               }
             `,
           }}
+          suppressHydrationWarning
         />
 
         {/* Sidebar Navigation - Fixed Positioning */}

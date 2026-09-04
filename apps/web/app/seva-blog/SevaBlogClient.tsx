@@ -11,7 +11,7 @@ import type { BlogPostFormSuccessOptions } from "./BlogPostFormModal";
 
 const BlogPostFormModal = dynamic(
   () => import("./BlogPostFormModal").then((m) => ({ default: m.BlogPostFormModal })),
-  { ssr: false }
+  { ssr: false, loading: () => <AppPageLoader /> }
 );
 
 const SECTIONS = [

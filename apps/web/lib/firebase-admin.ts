@@ -40,7 +40,9 @@ const getInitializedAdmin = () => {
   }
 };
 
-export const firebaseAdmin = getInitializedAdmin();
+// Lazy initialization - don't initialize at module load time
+export const getFirebaseAdmin = () => getInitializedAdmin();
+
 export const firebaseMessaging = () => {
   const adminInstance = getInitializedAdmin();
   return adminInstance ? adminInstance.messaging() : null;
