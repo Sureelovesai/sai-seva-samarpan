@@ -65,7 +65,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className="m-0 p-0 bg-white dark:bg-black overflow-x-hidden">
+      <body className="m-0 p-0 bg-white dark:bg-black overflow-x-hidden" suppressHydrationWarning>
         {/* Global error handler to catch Safari errors */}
         <script
           dangerouslySetInnerHTML={{

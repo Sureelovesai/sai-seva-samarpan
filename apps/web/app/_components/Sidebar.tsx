@@ -361,94 +361,103 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isMobile && isExpanded && (
-        <div
-          className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40"
-          onClick={() => setIsExpanded(false)}
-        />
+      {/* Only render after hydration to avoid mismatch */}
+      {!isMounted && (
+        <div style={{ width: `${SIDEBAR_WIDTH}px` }} />
       )}
+      
+      {isMounted && (
+        <>
+          {/* Mobile Overlay */}
+          {isMobile && isExpanded && (
+            <div
+              className="fixed inset-0 bg-black/30 dark:bg-black/50 z-40"
+              onClick={() => setIsExpanded(false)}
+            />
+          )}
 
-      {/* Sidebar - Visible on desktop always, on mobile only when expanded */}
-      {(!isMobile || isExpanded) && (
-      <aside
-        ref={sidebarRef}
-        onClick={() => {
-          if (!isExpanded && !isMobile) {
-            setIsExpanded(true);
-          }
-        }}
-        className={`${isMobile ? 'fixed' : 'fixed'} left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out ${!isMobile ? 'cursor-pointer' : ''}`}
-        style={{
-          width: `${sidebarWidth}px`,
-        }}
-      >
-        {/* Sidebar Header with Logo */}
-        <div className="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-          {isExpanded && (
-            <div className="flex-1 min-w-0">
-              <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">Sai Seva</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 leading-tight">Portal</div>
+          {/* Sidebar - Visible on desktop always, on mobile only when expanded */}
+          {(!isMobile || isExpanded) && (
+          <aside
+            ref={sidebarRef}
+            onClick={() => {
+              if (!isExpanded && !isMobile) {
+                setIsExpanded(true);
+              }
+            }}
+            className={`${isMobile ? 'fixed' : 'fixed'} left-0 top-0 h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 z-50 flex flex-col transition-all duration-300 ease-in-out ${!isMobile ? 'cursor-pointer' : ''}`}
+            style={{
+              width: `${sidebarWidth}px`,
+            }}
+          >
+            {/* Sidebar Header with Logo */}
+            <div className="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+              {isExpanded && (
+                <div className="flex-1 min-w-0">
+                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400 leading-tight">Sai Seva</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 leading-tight">Portal</div>
+                </div>
+              )}
+              {!isMobile && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 flex-shrink-0"
+                  title={isExpanded ? "Collapse" : "Expand"}
+                >
+                  <svg
+                    className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? "" : "rotate-180"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
             </div>
-          )}
-          {!isMobile && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 flex-shrink-0"
-              title={isExpanded ? "Collapse" : "Expand"}
-            >
-              <svg
-                className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? "" : "rotate-180"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-        </div>
 
-        {/* Navigation Items */}
-        <nav className="flex-1 overflow-y-auto p-1.5 space-y-0">{navItems.map(renderNavItem)}</nav>
+            {/* Navigation Items */}
+            <nav className="flex-1 overflow-y-auto p-1.5 space-y-0">{navItems.map(renderNavItem)}</nav>
 
-        {/* Sidebar Footer - Now empty since NotificationBell moved to header */}
-        <div className="border-t border-gray-200 dark:border-gray-800 p-2 flex justify-center flex-shrink-0">
-        </div>
-      </aside>
-      )} {/* End of sidebar conditional */}
+            {/* Sidebar Footer - Now empty since NotificationBell moved to header */}
+            <div className="border-t border-gray-200 dark:border-gray-800 p-2 flex justify-center flex-shrink-0">
+            </div>
+          </aside>
+          )} {/* End of sidebar conditional */}
 
-      {/* Dynamic spacing for content - NOT NEEDED, Sidebar CSS handles it */}
+          {/* Dynamic spacing for content - NOT NEEDED, Sidebar CSS handles it */}
 
-      <style>{`
-        .header-wrapper {
-          margin-left: ${isMobile ? 0 : sidebarWidth}px;
-          transition: margin-left 0.3s ease-in-out;
-          box-sizing: border-box;
-        }
-        
-        main {
-          margin-left: ${isMobile ? 0 : sidebarWidth}px;
-          margin-top: 20px;
-          transition: margin-left 0.3s ease-in-out;
-          box-sizing: border-box;
-          width: auto;
-          padding-right: 0;
-        }
-        
-        footer {
-          margin-left: ${isMobile ? 0 : sidebarWidth}px;
-          transition: margin-left 0.3s ease-in-out;
-          box-sizing: border-box;
-        }
-        
-        @media (max-width: 767px) {
-          .header-wrapper, main, footer {
-            margin-left: 0;
-            width: 100%;
-          }
-        }
-      `}</style>
+          <style>{`
+            .header-wrapper {
+              margin-left: ${isMobile ? 0 : sidebarWidth}px;
+              transition: margin-left 0.3s ease-in-out;
+              box-sizing: border-box;
+            }
+            
+            main {
+              margin-left: ${isMobile ? 0 : sidebarWidth}px;
+              margin-top: 20px;
+              transition: margin-left 0.3s ease-in-out;
+              box-sizing: border-box;
+              width: auto;
+              padding-right: 0;
+            }
+            
+            footer {
+              margin-left: ${isMobile ? 0 : sidebarWidth}px;
+              transition: margin-left 0.3s ease-in-out;
+              box-sizing: border-box;
+            }
+            
+            @media (max-width: 767px) {
+              .header-wrapper, main, footer {
+                margin-left: 0;
+                width: 100%;
+              }
+            }
+          `}</style>
+        </>
+      )}
     </>
   );
 }
