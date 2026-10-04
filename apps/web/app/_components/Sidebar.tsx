@@ -363,7 +363,7 @@ export function Sidebar() {
     <>
       {/* Only render after hydration to avoid mismatch */}
       {!isMounted && (
-        <div style={{ width: `${SIDEBAR_WIDTH}px` }} />
+        <div style={{ width: `${sidebarWidth}px` }} />
       )}
       
       {isMounted && (
