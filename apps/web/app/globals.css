@@ -118,6 +118,22 @@ body {
   background: linear-gradient(92deg, #0284c7, #0d9488);
 }
 
+.events-card-link.events-card-disabled,
+.events-card-link.events-card-disabled:hover {
+  cursor: default;
+  transform: none;
+  border-color: #94a3b8;
+  box-shadow: 0 10px 26px -12px rgb(71 85 105 / 0.3);
+}
+
+.events-cta.events-cta-disabled,
+.events-card-link:hover .events-cta.events-cta-disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .events-article {
   border-radius: 1.5rem;
   border: 2px solid #0ea5e9;

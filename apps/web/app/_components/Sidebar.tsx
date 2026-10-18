@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isCharlotteEventsPath } from "./eventPagesNoChrome";
 
 interface NavItem {
   label: string;
@@ -345,6 +346,8 @@ export function Sidebar() {
 
   // Sidebar width based on state
   const sidebarWidth = isExpanded ? 320 : 96; // 320px expanded, 96px collapsed
+
+  if (isCharlotteEventsPath(pathname)) return null;
 
   // Only render interactive content after hydration to prevent mismatch
   if (!isMounted) {

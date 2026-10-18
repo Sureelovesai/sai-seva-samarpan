@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isCharlotteEventsPath } from "./eventPagesNoChrome";
 import { NotificationBell } from "./NotificationBell";
 
 type AuthUser = {
@@ -18,6 +20,7 @@ type AuthUser = {
  * Navigation moved to Sidebar component
  */
 export function MinimalSiteHeader() {
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -94,6 +97,8 @@ export function MinimalSiteHeader() {
     const event = new CustomEvent("openMobileMenu");
     window.dispatchEvent(event);
   };
+
+  if (isCharlotteEventsPath(pathname)) return null;
 
   return (
     <header className="sticky top-0 z-30 w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">

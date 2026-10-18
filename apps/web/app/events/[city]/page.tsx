@@ -136,12 +136,7 @@ function EventListCard({
   muted?: boolean;
   city: string;
 }) {
-  return (
-    <li>
-      <Link
-        href={`/events/${city}/${e.id}`}
-        className={`events-card-link group ${muted ? "events-card-muted" : ""}`}
-      >
+  const content = (
         <div className="flex flex-col sm:flex-row">
           <div
             className={`relative h-44 w-full shrink-0 sm:h-40 sm:w-56 ${e.heroImageUrl ? "bg-sky-100" : "bg-gradient-to-br from-sky-200 via-cyan-50 to-amber-100"}`}
@@ -159,7 +154,7 @@ function EventListCard({
             )}
           </div>
           <div className="min-w-0 flex-1 p-5 sm:py-5 sm:pl-5 sm:pr-6">
-            <h2 className="text-lg font-bold text-slate-900 group-hover:text-sky-800">{e.title}</h2>
+            <h2 className={`text-lg font-bold text-slate-900 ${muted ? "" : "group-hover:text-sky-800"}`}>{e.title}</h2>
             <p className="mt-1.5 text-sm font-semibold text-sky-800">{formatPortalEventStart(e.startsAt)}</p>
             <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-700">{e.description}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -173,10 +168,28 @@ function EventListCard({
                 {e.signupsEnabled ? "RSVP open" : "RSVP closed"}
               </span>
             </div>
-            <span className="events-cta">View details →</span>
+            {muted ? (
+              <span className="events-cta events-cta-disabled" aria-disabled="true">
+                View details
+              </span>
+            ) : (
+              <span className="events-cta">View details →</span>
+            )}
           </div>
         </div>
-      </Link>
+  );
+
+  return (
+    <li>
+      {muted ? (
+        <div className="events-card-link events-card-muted events-card-disabled" aria-disabled="true">
+          {content}
+        </div>
+      ) : (
+        <Link href={`/events/${city}/${e.id}`} className="events-card-link group">
+          {content}
+        </Link>
+      )}
     </li>
   );
 }

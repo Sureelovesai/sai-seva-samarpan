@@ -27,6 +27,13 @@ function isSevaMahotsavamLandingPath(pathname: string): boolean {
   return pathname === "/seva-mahotsavam" || pathname.startsWith("/seva-mahotsavam/");
 }
 
+/** Charlotte events list and its event pages (not other cities): no sidebar menu, logo, or login. */
+export function isCharlotteEventsPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  const path = pathname.replace(/\/+$/, "").toLowerCase();
+  return path === "/events/charlotte" || path.startsWith("/events/charlotte/");
+}
+
 /** Public /events and Event Admin: no main site header (logo + menu). */
 export function shouldHideSiteHeader(pathname: string | null, searchParams?: Record<string, string | string[] | undefined>): boolean {
   if (!pathname) return false;
