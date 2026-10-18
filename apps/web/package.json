@@ -6,7 +6,7 @@
     "schema": "./prisma/schema.prisma"
   },
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
     "postinstall": "node scripts/ensure-db-url-and-generate.cjs --generate-only",
     "build": "node scripts/ensure-db-url-and-generate.cjs && next build",
