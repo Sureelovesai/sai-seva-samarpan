@@ -1,3 +1,5 @@
+import { EditSignupButton } from "./EditSignupButton";
+
 type SignupRow = {
   id: string;
   participantName: string;
@@ -18,7 +20,7 @@ function partyTotal(r: SignupRow): number {
   return r.accompanyingAdults + r.accompanyingKids;
 }
 
-export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
+export function EventSignupsSummary({ eventId, signups }: { eventId: string; signups: SignupRow[] }) {
   const yes = signups.filter((s) => s.response === "YES").length;
   const no = signups.filter((s) => s.response === "NO").length;
   const maybe = signups.filter((s) => s.response === "MAYBE").length;
@@ -58,7 +60,12 @@ export function EventSignupsSummary({ signups }: { signups: SignupRow[] }) {
             <tbody>
               {signups.map((s) => (
                 <tr key={s.id} className="border-b border-teal-100">
-                  <td className="px-3 py-2 font-medium text-slate-900">{s.participantName}</td>
+                  <td className="px-3 py-2 font-medium text-slate-900">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      <span>{s.participantName}</span>
+                      <EditSignupButton eventId={eventId} signupId={s.id} participantName={s.participantName} />
+                    </div>
+                  </td>
                   <td className="max-w-[min(18rem,40vw)] px-3 py-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
                     {s.comment?.trim() ? s.comment : "—"}
                   </td>

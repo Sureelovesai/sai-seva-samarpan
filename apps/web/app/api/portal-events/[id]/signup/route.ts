@@ -60,6 +60,14 @@ function parseGuestCount(raw: unknown, max = 500): number {
   return Math.min(max, n);
 }
 
+const ZERO_PARTY_ERROR =
+  "Please enter how many people are coming. Adults include you, so a Yes or Maybe needs at least 1 adult or kid.";
+const EMAIL_MISMATCH_ERROR = "That email doesn't match this sign-up.";
+
+function isZeroParty(response: string, adults: number, kids: number): boolean {
+  return response !== "NO" && adults + kids === 0;
+}
+
 function splitParticipantName(full: string): { firstName: string; lastName: string } {
   const t = full.trim().replace(/\s+/g, " ");
   if (!t) return { firstName: "", lastName: "" };
@@ -224,6 +232,9 @@ export async function POST(
     if (response !== "YES" && response !== "NO" && response !== "MAYBE") {
       return NextResponse.json({ error: "Response must be YES, NO, or MAYBE." }, { status: 400 });
     }
+    if (isZeroParty(response, accompanyingAdults, accompanyingKids)) {
+      return NextResponse.json({ error: ZERO_PARTY_ERROR }, { status: 400 });
+    }
 
     try {
       const existing = await prisma.eventSignup.findFirst({
@@ -386,5 +397,94 @@ export async function POST(
   } catch (e: unknown) {
     console.error("portal-events signup:", e);
     return NextResponse.json({ error: "Could not save sign-up." }, { status: 500 });
+  }
+}
+
+/**
+ * Edit a single public sign-up row without login. The caller must supply the email used for
+ * that row; the email is never returned. `verifyOnly: true` returns the editable fields.
+ */
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: eventId } = await params;
+    const event = await prisma.portalEvent.findFirst({
+      where: { id: eventId, status: "PUBLISHED", signupsEnabled: true },
+      select: { id: true },
+    });
+    if (!event) {
+      return NextResponse.json(
+        { error: "Event not found or sign-ups are closed." },
+        { status: 404 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const signupId = typeof body.signupId === "string" ? body.signupId.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (!signupId) {
+      return NextResponse.json({ error: "Sign-up is required." }, { status: 400 });
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Enter the email you signed up with." }, { status: 400 });
+    }
+
+    const existing = await prisma.eventSignup.findFirst({
+      where: { id: signupId, eventId },
+      select: {
+        id: true,
+        email: true,
+        participantName: true,
+        response: true,
+        accompanyingAdults: true,
+        accompanyingKids: true,
+        comment: true,
+      },
+    });
+    if (!existing || existing.email.trim().toLowerCase() !== email) {
+      return NextResponse.json({ error: EMAIL_MISMATCH_ERROR }, { status: 403 });
+    }
+
+    if (body.verifyOnly === true) {
+      return NextResponse.json({
+        participantName: existing.participantName,
+        response: existing.response,
+        accompanyingAdults: existing.accompanyingAdults,
+        accompanyingKids: existing.accompanyingKids,
+        comment: existing.comment ?? "",
+      });
+    }
+
+    const response = body.response;
+    if (response !== "YES" && response !== "NO" && response !== "MAYBE") {
+      return NextResponse.json({ error: "Response must be YES, NO, or MAYBE." }, { status: 400 });
+    }
+    const accompanyingAdults = parseGuestCount(body.accompanyingAdults);
+    const accompanyingKids = parseGuestCount(body.accompanyingKids);
+    if (isZeroParty(response, accompanyingAdults, accompanyingKids)) {
+      return NextResponse.json({ error: ZERO_PARTY_ERROR }, { status: 400 });
+    }
+    const rawComment = typeof body.comment === "string" ? body.comment.trim() : "";
+    if (rawComment.length > 500) {
+      return NextResponse.json({ error: "Comment must be at most 500 characters." }, { status: 400 });
+    }
+
+    await prisma.eventSignup.update({
+      where: { id: existing.id },
+      data: {
+        response,
+        accompanyingAdults,
+        accompanyingKids,
+        comment: rawComment.length > 0 ? rawComment : null,
+      },
+    });
+    revalidateEventRoutes(eventId);
+
+    return NextResponse.json({ id: existing.id, message: "Your sign-up has been updated." });
+  } catch (e: unknown) {
+    console.error("portal-events signup PATCH:", e);
+    return NextResponse.json({ error: "Could not update sign-up." }, { status: 500 });
   }
 }

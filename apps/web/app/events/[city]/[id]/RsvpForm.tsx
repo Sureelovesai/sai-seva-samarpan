@@ -2,6 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  GUEST_CAP,
+  ZERO_PARTY_MESSAGE,
+  guestDraftToApiCount,
+  isZeroParty,
+  sanitizeGuestCountDraft,
+} from "./guestCounts";
 
 function Req() {
   return (
@@ -9,27 +16,6 @@ function Req() {
       *
     </span>
   );
-}
-
-const GUEST_CAP = 500;
-
-/**
- * String draft for controlled `<input type="number">` so users can clear the field and type
- * without sticky 0 / "01" issues; native steppers still work.
- */
-function sanitizeGuestCountDraft(raw: string): string {
-  if (raw === "") return "";
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n)) return "";
-  return String(Math.min(GUEST_CAP, Math.max(0, n)));
-}
-
-function guestDraftToApiCount(draft: string): number {
-  const t = draft.trim();
-  if (t === "") return 0;
-  const n = Number.parseInt(t, 10);
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(GUEST_CAP, Math.max(0, n));
 }
 
 export function EventRsvpForm({ eventId }: { eventId: string }) {
@@ -46,6 +32,7 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [zeroPartyOpen, setZeroPartyOpen] = useState(false);
 
   async function loadPreviousByEmail() {
     const em = email.trim().toLowerCase();
@@ -96,10 +83,14 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
       setError("First name and last name are required.");
       return;
     }
+    const accompanyingAdults = guestDraftToApiCount(accompanyingAdultsDraft);
+    const accompanyingKids = guestDraftToApiCount(accompanyingKidsDraft);
+    if (isZeroParty(response, accompanyingAdults, accompanyingKids)) {
+      setZeroPartyOpen(true);
+      return;
+    }
     setSubmitting(true);
     try {
-      const accompanyingAdults = guestDraftToApiCount(accompanyingAdultsDraft);
-      const accompanyingKids = guestDraftToApiCount(accompanyingKidsDraft);
       const res = await fetch(`/api/portal-events/${encodeURIComponent(eventId)}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,6 +292,33 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
       >
         {submitting ? "Submitting…" : "Submit response"}
       </button>
+
+      {zeroPartyOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="zero-party-title"
+        >
+          <div className="w-full max-w-sm rounded-2xl border-2 border-fuchsia-200 bg-white p-6 shadow-xl">
+            <h3 id="zero-party-title" className="text-lg font-bold text-slate-900">
+              How many are coming?
+            </h3>
+            <p className="mt-2 text-sm text-slate-700">{ZERO_PARTY_MESSAGE}</p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                setZeroPartyOpen(false);
+                document.getElementById("evt-adults")?.focus();
+              }}
+              className="mt-5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-fuchsia-300/50 transition hover:from-fuchsia-700 hover:to-violet-700"
+            >
+              OK, enter a number
+            </button>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }

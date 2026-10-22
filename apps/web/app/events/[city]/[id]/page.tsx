@@ -194,7 +194,7 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
             )}
           </div>
 
-          <EventSignupsSummary signups={signups} />
+          <EventSignupsSummary eventId={event.id} signups={signups} />
         </article>
       </div>
     </EventsPageShell>
