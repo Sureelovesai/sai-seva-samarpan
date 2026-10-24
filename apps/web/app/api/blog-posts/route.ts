@@ -12,7 +12,7 @@ import {
   type ScopeParseError,
 } from "@/lib/blogReportScope";
 import { getSessionWithRole, type AppRole } from "@/lib/getRole";
-import { canAccessSevaBlog, canViewSevaBlog } from "@/lib/sevaBlogAccess";
+import { canAccessSevaBlog } from "@/lib/sevaBlogAccess";
 import { sendNotificationToRole } from "@/lib/notification-service";
 
 function isScopeErr(x: ReportScopeInput | ScopeParseError): x is ScopeParseError {
@@ -93,12 +93,6 @@ const MAX_SEARCH_LEN = 200;
  */
 export async function GET(req: Request) {
   try {
-    const session = await getSessionWithRole(req.headers.get("cookie"));
-    // Allow any authenticated user to view blog posts
-    if (!canViewSevaBlog(session)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { searchParams } = new URL(req.url);
     const section = searchParams.get("section") || undefined;
     const qRaw = (searchParams.get("q") || "").trim();
