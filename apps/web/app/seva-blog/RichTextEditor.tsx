@@ -231,6 +231,32 @@ export function RichTextEditor({
   });
   const [imageUploading, setImageUploading] = useState(false);
 
+  // ============================================================================
+  // NEW: Image management (remove/replace/edit)
+  // ============================================================================
+  const [selectedImage, setSelectedImage] = useState<{
+    src: string;
+    alt: string;
+    style: string;
+    position: number;
+  } | null>(null);
+
+  const [imageEditOpen, setImageEditOpen] = useState(false);
+  const [imageProp_Alt, setImageProp_Alt] = useState("");
+  const [imageProp_Layout, setImageProp_Layout] = useState<ImagePlacementLayout>("full");
+  const [imageProp_WidthPct, setImageProp_WidthPct] = useState(100);
+  const [imageProp_Spacing, setImageProp_Spacing] = useState<"tight" | "normal" | "loose">("normal");
+  const [imageProp_VertBias, setImageProp_VertBias] = useState<"balanced" | "above" | "below">("balanced");
+
+  const imageToolbarRef = useRef<HTMLDivElement>(null);
+  const [imageToolbarPos, setImageToolbarPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
+  const replaceImageFileInputRef = useRef<HTMLInputElement>(null);
+  // ============================================================================
+
   const [imagePlacementOpen, setImagePlacementOpen] = useState(false);
   const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
   /** When uploading several files at once, show “2 of 5” in the placement dialog. */
@@ -342,6 +368,92 @@ export function RichTextEditor({
       editor.off("selectionUpdate", onSel);
     };
   }, [editor]);
+
+  // ============================================================================
+  // NEW: Detect when user clicks on an image
+  // ============================================================================
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Check if clicked element is an image
+      if (target.tagName === "IMG" && target.parentElement?.closest(".ProseMirror")) {
+        // Find the image node in the editor
+        const { state } = editor;
+        const imageData: { src: string; alt: string; style: string; pos: number } = {
+          src: "",
+          alt: "",
+          style: "",
+          pos: 0,
+        };
+        let foundImage = false;
+
+        // Walk through all nodes to find the image
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === "image" && !foundImage) {
+            const attrs = node.attrs as Record<string, unknown>;
+            const src = String(attrs.src || "");
+            const alt = String(attrs.alt || "");
+            const style = String(attrs.style || "");
+
+            // Try to match by src (basic matching)
+            const targetSrc = (target as HTMLImageElement).src;
+            if (src === targetSrc || 
+                targetSrc.includes(src) ||
+                src.includes(targetSrc.split('/').pop() || '')) {
+              imageData.src = src;
+              imageData.alt = alt;
+              imageData.style = style;
+              imageData.pos = pos;
+              foundImage = true;
+            }
+          }
+        });
+
+        if (foundImage) {
+          setSelectedImage({
+            src: imageData.src,
+            alt: imageData.alt,
+            style: imageData.style,
+            position: imageData.pos,
+          });
+
+          setImageProp_Alt(imageData.alt);
+
+          // Parse layout from style string
+          if (imageData.style.includes("float:left")) {
+            setImageProp_Layout("float-left");
+          } else if (imageData.style.includes("float:right")) {
+            setImageProp_Layout("float-right");
+          } else if (imageData.style.includes("display:block") && imageData.style.includes("margin-left:auto")) {
+            setImageProp_Layout("center");
+          } else {
+            setImageProp_Layout("full");
+          }
+
+          // Calculate toolbar position
+          const rect = (target as HTMLElement).getBoundingClientRect();
+          setImageToolbarPos({
+            top: Math.max(0, rect.top - 50),
+            left: Math.max(0, rect.left),
+          });
+
+          event.stopPropagation();
+        }
+      }
+    };
+
+    // Add click handler to editor
+    const editorElement = editor.view.dom;
+    editorElement.addEventListener("click", handleClick);
+
+    return () => {
+      editorElement.removeEventListener("click", handleClick);
+    };
+  }, [editor]);
+  // ============================================================================
 
   /** Restore stashed selection (if any), then run the chain builder. */
   const chainWithStashedSelection = useCallback(
@@ -553,6 +665,81 @@ export function RichTextEditor({
     }
     return data.url;
   }, []);
+
+  // ============================================================================
+  // NEW: Image management functions (remove/replace/edit)
+  // ============================================================================
+  const removeSelectedImage = useCallback(() => {
+    if (!editor || editor.isDestroyed || !selectedImage) return;
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({ from: selectedImage.position, to: selectedImage.position + 1 })
+      .run();
+
+    setSelectedImage(null);
+  }, [editor, selectedImage]);
+
+  const replaceSelectedImageWithFile = useCallback(
+    async (file: File) => {
+      if (!editor || editor.isDestroyed || !selectedImage) return;
+
+      try {
+        const url = await uploadOneInlineImage(file);
+
+        editor
+          .chain()
+          .focus()
+          .updateAttributes("image", { src: url })
+          .run();
+
+        setSelectedImage((prev) =>
+          prev
+            ? {
+                ...prev,
+                src: url,
+              }
+            : null
+        );
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Upload failed");
+      }
+    },
+    [editor, selectedImage, uploadOneInlineImage]
+  );
+
+  const updateSelectedImageProperties = useCallback(() => {
+    if (!editor || editor.isDestroyed || !selectedImage) return;
+
+    const newStyle = buildBlogImageStyle(
+      imageProp_Layout,
+      imageProp_WidthPct,
+      imageProp_Spacing,
+      imageProp_VertBias
+    );
+
+    editor
+      .chain()
+      .focus()
+      .updateAttributes("image", {
+        alt: imageProp_Alt,
+        style: newStyle,
+      })
+      .run();
+
+    setImageEditOpen(false);
+    setSelectedImage((prev) =>
+      prev
+        ? {
+            ...prev,
+            alt: imageProp_Alt,
+            style: newStyle,
+          }
+        : null
+    );
+  }, [editor, selectedImage, imageProp_Alt, imageProp_Layout, imageProp_WidthPct, imageProp_Spacing, imageProp_VertBias]);
+  // ============================================================================
 
   const handleInlineImageFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1212,6 +1399,251 @@ export function RichTextEditor({
           </div>,
           document.body
         )}
+      {/* ===== NEW: Hidden file input for replace image ===== */}
+      <input
+        ref={replaceImageFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) {
+            replaceSelectedImageWithFile(file);
+          }
+        }}
+      />
+
+      {/* ===== NEW: Floating toolbar for selected image ===== */}
+      {typeof document !== "undefined" &&
+        selectedImage &&
+        createPortal(
+          <div
+            ref={imageToolbarRef}
+            className="fixed z-50 flex gap-1 rounded-lg border border-[#8b7355] bg-white shadow-lg"
+            style={{
+              top: `${imageToolbarPos.top}px`,
+              left: `${imageToolbarPos.left}px`,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setImageEditOpen(true);
+              }}
+              className="px-2.5 py-1.5 text-xs font-semibold text-[#6b5344] hover:bg-[#fdf2f0] rounded-l"
+              title="Edit image alt text and layout"
+            >
+              ✏️ Edit
+            </button>
+
+            <div className="border-l border-[#c4b8a8]" />
+
+            <button
+              type="button"
+              onClick={() => {
+                replaceImageFileInputRef.current?.click();
+              }}
+              className="px-2.5 py-1.5 text-xs font-semibold text-[#6b5344] hover:bg-[#fdf2f0]"
+              title="Replace with a new image"
+            >
+              🔄 Replace
+            </button>
+
+            <div className="border-l border-[#c4b8a8]" />
+
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Remove this image from the article?")) {
+                  removeSelectedImage();
+                }
+              }}
+              className="px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-r"
+              title="Remove this image"
+            >
+              🗑️ Remove
+            </button>
+          </div>,
+          document.body
+        )}
+
+      {/* ===== NEW: Image edit properties panel ===== */}
+      {typeof document !== "undefined" &&
+        imageEditOpen &&
+        selectedImage &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit image"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setImageEditOpen(false);
+            }}
+          >
+            <div
+              className="flex max-h-[min(600px,calc(100vh-32px))] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[#d4c4b8] bg-white shadow-2xl"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 border-b border-[#eee] px-4 py-3">
+                <h2 className="text-sm font-bold text-[#4a3f3a]">Edit Image</h2>
+                <p className="mt-0.5 text-[10px] leading-snug text-[#7a6b65]">
+                  Modify accessibility text, layout, sizing, and spacing.
+                </p>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+                {/* Alt Text */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[#8b7355] mb-1.5">
+                    Alt text (for accessibility & SEO)
+                  </label>
+                  <input
+                    type="text"
+                    value={imageProp_Alt}
+                    onChange={(e) => setImageProp_Alt(e.target.value)}
+                    placeholder="Describe the image in 1-2 sentences"
+                    className="w-full rounded-lg border border-[#e8b4a0] px-3 py-2 text-sm text-[#4a3f3a] outline-none focus:ring-2 focus:ring-[#8b6b5c]/30"
+                  />
+                  <p className="mt-1 text-[10px] text-[#7a6b65]">
+                    Screen readers and search engines use this when the image doesn't load.
+                  </p>
+                </div>
+
+                {/* Layout */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8b7355]">
+                    Layout
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {IMAGE_LAYOUT_OPTIONS.map(({ id, label, hint }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        title={hint}
+                        className={`rounded border px-2 py-2 text-left text-[11px] font-semibold leading-tight transition-colors ${
+                          imageProp_Layout === id
+                            ? "border-[#8b7355] bg-[#fdf2f0] text-[#4a3f3a]"
+                            : "border-[#c4b8a8] bg-white text-[#6b5344] hover:bg-[#faf7f5]"
+                        }`}
+                        onClick={() => setImageProp_Layout(id)}
+                      >
+                        <span className="block">{label}</span>
+                        <span className="mt-0.5 block font-normal normal-case tracking-normal text-[9px] text-[#8b7368]">
+                          {hint}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Max Width */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8b7355]">
+                    Max width
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {IMAGE_WIDTH_PRESETS.map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        className={`min-w-[2.75rem] rounded border px-2 py-1.5 text-xs font-semibold ${
+                          imageProp_WidthPct === pct
+                            ? "border-[#8b7355] bg-[#fdf2f0] text-[#4a3f3a]"
+                            : "border-[#c4b8a8] bg-white text-[#6b5344] hover:bg-[#faf7f5]"
+                        }`}
+                        onClick={() => setImageProp_WidthPct(pct)}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Spacing */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8b7355]">
+                    Spacing vs text
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {(
+                      [
+                        { id: "tight", label: "Tight" },
+                        { id: "normal", label: "Normal" },
+                        { id: "loose", label: "Relaxed" },
+                      ] as const
+                    ).map(({ id, label }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`rounded border px-2 py-1.5 text-xs font-semibold ${
+                          imageProp_Spacing === id
+                            ? "border-[#8b7355] bg-[#fdf2f0] text-[#4a3f3a]"
+                            : "border-[#c4b8a8] bg-white text-[#6b5344] hover:bg-[#faf7f5]"
+                        }`}
+                        onClick={() => setImageProp_Spacing(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vertical Bias */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#8b7355]">
+                    Vertical margins
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {(
+                      [
+                        { id: "balanced", label: "Balanced" },
+                        { id: "above", label: "More above" },
+                        { id: "below", label: "More below" },
+                      ] as const
+                    ).map(({ id, label }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`rounded border px-2 py-1.5 text-xs font-semibold ${
+                          imageProp_VertBias === id
+                            ? "border-[#8b7355] bg-[#fdf2f0] text-[#4a3f3a]"
+                            : "border-[#c4b8a8] bg-white text-[#6b5344] hover:bg-[#faf7f5]"
+                        }`}
+                        onClick={() => setImageProp_VertBias(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-2 border-t border-[#eee] bg-[#faf7f5] px-4 py-3">
+                <button
+                  type="button"
+                  className="rounded border border-[#c4b8a8] bg-white px-3 py-2 text-xs font-semibold text-[#6b5344] hover:bg-[#f5ebe6]"
+                  onClick={() => setImageEditOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-[#8b7355] bg-[#fdf2f0] px-3 py-2 text-xs font-semibold text-[#4a3f3a] hover:bg-[#f5ebe6]"
+                  onClick={updateSelectedImageProperties}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {typeof document !== "undefined" &&
         imagePlacementOpen &&
         pendingImageSrc &&
