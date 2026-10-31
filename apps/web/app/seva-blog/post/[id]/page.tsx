@@ -121,7 +121,12 @@ export default function BlogPostPage({
       .then((res) => (res.ok ? res.json() : { user: null }))
       .then((data) => {
         const roles: string[] = Array.isArray(data?.user?.roles) ? data.user.roles : [];
-        setCanEditBlog(roles.includes("ADMIN") || roles.includes("BLOG_ADMIN"));
+        // Show Edit button for: Admins, Blog Admins, and Coordinators (for their own posts)
+        setCanEditBlog(
+          roles.includes("ADMIN") || 
+          roles.includes("BLOG_ADMIN") ||
+          roles.includes("COORDINATOR")
+        );
       })
       .catch(() => setCanEditBlog(false));
   }, []);
