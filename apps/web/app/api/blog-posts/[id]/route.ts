@@ -66,6 +66,7 @@ export async function GET(
       imageUrl: post.imageUrl,
       driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
       section: post.section,
+      authorId: post.authorId,
       authorName:
         post.authorName ||
         (post.author

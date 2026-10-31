@@ -26,6 +26,7 @@ type Post = {
   imageUrl: string | null;
   driveMediaLinks?: unknown;
   section: string;
+  authorId: string | null;
   authorName: string | null;
   createdAt: string;
   likeCount: number;
@@ -121,15 +122,14 @@ export default function BlogPostPage({
       .then((res) => (res.ok ? res.json() : { user: null }))
       .then((data) => {
         const roles: string[] = Array.isArray(data?.user?.roles) ? data.user.roles : [];
-        // Show Edit button for: Admins, Blog Admins, and Coordinators (for their own posts)
-        setCanEditBlog(
-          roles.includes("ADMIN") || 
-          roles.includes("BLOG_ADMIN") ||
-          roles.includes("COORDINATOR")
-        );
+        const userId = data?.user?.id;
+        const isAdmin = roles.includes("ADMIN") || roles.includes("BLOG_ADMIN");
+        // Coordinators can edit only their own posts
+        const isCoordinatorAuthor = roles.includes("COORDINATOR") && post?.authorId === userId;
+        setCanEditBlog(isAdmin || isCoordinatorAuthor);
       })
       .catch(() => setCanEditBlog(false));
-  }, []);
+  }, [post?.authorId]);
 
   useEffect(() => {
     if (!id) return;
