@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { CITIES } from "@/lib/cities";
+import { EventSlotsEditor, type EventSlot } from "./EventSlotsEditor";
 
 export type PortalEventFormInitial = {
   id: string;
@@ -61,6 +62,8 @@ export function PortalEventForm({
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hasSlots, setHasSlots] = useState(false);
+  const [slots, setSlots] = useState<EventSlot[]>([]);
 
   // If allowedCities is provided (for event admins with city restrictions), filter CITIES
   // Otherwise show all CITIES (for full admins)
@@ -132,6 +135,8 @@ export function PortalEventForm({
         signupsEnabled,
         status,
         organizerEmail: organizerEmail.trim() ? organizerEmail.trim().toLowerCase() : null,
+        hasSlots,
+        slots: hasSlots ? slots : undefined,
       };
 
       if (mode === "create" || mode === "clone") {
@@ -281,6 +286,38 @@ export function PortalEventForm({
           Select the center/city where this event will take place. Events will be displayed on the city-specific page.
         </p>
       </div>
+
+      {/* Multiple Time Slots Toggle */}
+      <div>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hasSlots}
+            onChange={(e) => {
+              setHasSlots(e.target.checked);
+              if (!e.target.checked) {
+                setSlots([]);
+              }
+            }}
+            className="h-4 w-4 rounded border-zinc-400"
+          />
+          <span className="text-sm font-semibold text-zinc-800">
+            ⏰ Create multiple time slots for this event?
+          </span>
+        </label>
+        <p className="mt-2 text-xs text-zinc-600">
+          E.g., 6-9pm, 9-12am, 12-5am for a 24-hour event. Attendees can sign up for multiple slots.
+        </p>
+      </div>
+
+      {/* Event Slots Editor */}
+      {hasSlots && (
+        <EventSlotsEditor
+          slots={slots}
+          onSlotsChange={setSlots}
+          enabled={true}
+        />
+      )}
 
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <p className="text-sm font-semibold text-indigo-950">Swami or Event Photo</p>
