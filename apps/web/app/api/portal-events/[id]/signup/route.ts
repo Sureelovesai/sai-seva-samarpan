@@ -498,3 +498,43 @@ export async function PATCH(
     return NextResponse.json({ error: "Could not update sign-up." }, { status: 500 });
   }
 }
+
+/**
+ * Delete a single sign-up record by signupId
+ */
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: eventId } = await params;
+    const body = await req.json().catch(() => ({}));
+    const signupId = typeof body.signupId === "string" ? body.signupId.trim() : "";
+
+    if (!signupId) {
+      return NextResponse.json({ error: "Sign-up ID is required." }, { status: 400 });
+    }
+
+    // Verify the signup exists and belongs to this event
+    const existing = await prisma.eventSignup.findFirst({
+      where: { id: signupId, eventId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Sign-up not found." }, { status: 404 });
+    }
+
+    // Delete the signup
+    await prisma.eventSignup.delete({
+      where: { id: signupId },
+    });
+
+    revalidateEventRoutes(eventId);
+
+    return NextResponse.json({ message: "Sign-up deleted successfully." });
+  } catch (e: unknown) {
+    console.error("portal-events signup DELETE:", e);
+    return NextResponse.json({ error: "Could not delete sign-up." }, { status: 500 });
+  }
+}

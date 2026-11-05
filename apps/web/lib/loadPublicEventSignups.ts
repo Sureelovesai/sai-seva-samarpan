@@ -5,6 +5,7 @@ import { isPrismaColumnMissing } from "@/lib/prismaMissingPortalEvent";
 export type PublicEventSignupRow = {
   id: string;
   participantName: string;
+  email: string;
   comment: string | null;
   response: "YES" | "NO" | "MAYBE";
   accompanyingAdults: number;
@@ -78,6 +79,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
       select: {
         id: true,
         participantName: true,
+        email: true,
         response: true,
         accompanyingAdults: true,
         accompanyingKids: true,
@@ -90,13 +92,14 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
     if (!isPrismaColumnMissing(e)) throw e;
 
     const rows = (await prisma.$queryRaw(Prisma.sql`
-      SELECT id, "participantName", response, "accompanyingCount", "slotGuestData"
+      SELECT id, "participantName", email, response, "accompanyingCount", "slotGuestData"
       FROM "EventSignup"
       WHERE "eventId" = ${eventId}
       ORDER BY "createdAt" ASC
     `)) as Array<{
       id: string;
       participantName: string;
+      email: string;
       response: "YES" | "NO" | "MAYBE";
       accompanyingCount: number;
       slotGuestData?: Record<string, { adults: number; kids: number }> | null;
@@ -105,6 +108,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
     return rows.map((r) => ({
       id: r.id,
       participantName: r.participantName,
+      email: r.email,
       comment: null,
       response: r.response,
       accompanyingAdults: r.accompanyingCount,

@@ -343,7 +343,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                             });
                           }
                         }}
-                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300"
+                        onFocus={(e) => {
+                          // Select all on focus to allow easy replacement
+                          e.target.select();
+                        }}
+                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 [appearance:auto]"
                       />
                     </div>
                     <div>
@@ -358,8 +362,8 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         value={slotGuestData[slot.id]?.kids ?? 0}
                         onChange={(e) => {
                           const inputValue = e.target.value.trim();
-                          if (inputValue === "") {
-                            // Reset to 0 if empty
+                          if (inputValue === "" || inputValue === "0") {
+                            // Allow clearing to 0
                             setSlotGuestData({
                               ...slotGuestData,
                               [slot.id]: {
@@ -394,7 +398,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                             });
                           }
                         }}
-                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300"
+                        onFocus={(e) => {
+                          // Select all on focus to allow easy replacement
+                          e.target.select();
+                        }}
+                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 [appearance:auto]"
                       />
                     </div>
                   </div>

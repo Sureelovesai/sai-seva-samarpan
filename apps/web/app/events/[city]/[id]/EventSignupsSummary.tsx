@@ -1,8 +1,10 @@
 import { EditSignupButton } from "./EditSignupButton";
+import { DeleteSignupButton } from "./DeleteSignupButton";
 
 type SignupRow = {
   id: string;
   participantName: string;
+  email: string;
   comment: string | null;
   response: "YES" | "NO" | "MAYBE";
   accompanyingAdults: number;
@@ -96,6 +98,7 @@ export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId:
                     <div className="flex flex-wrap items-baseline gap-x-2">
                       <span>{s.participantName}</span>
                       <EditSignupButton eventId={eventId} signupId={s.id} participantName={s.participantName} />
+                      <DeleteSignupButton eventId={eventId} signupId={s.id} participantName={s.participantName} signupEmail={s.email} />
                     </div>
                   </td>
                   <td className="max-w-[min(18rem,40vw)] px-3 py-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
