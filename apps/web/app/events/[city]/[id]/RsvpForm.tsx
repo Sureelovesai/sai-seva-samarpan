@@ -274,10 +274,17 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900">{slot.slotName}</p>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600" suppressHydrationWarning>
                       {slot.slotDate && (
                         <>
-                          {new Date(slot.slotDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · 
+                          {(() => {
+                            try {
+                              const dateObj = typeof slot.slotDate === 'string' ? new Date(slot.slotDate) : slot.slotDate;
+                              return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            } catch {
+                              return '';
+                            }
+                          })()} · 
                         </>
                       )}
                       {slot.startTime} - {slot.endTime}

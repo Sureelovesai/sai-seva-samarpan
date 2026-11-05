@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         slots: hasSlots && slotsData.length > 0 ? {
           create: slotsData.map((slot: any) => ({
             slotName: typeof slot.slotName === "string" ? slot.slotName : "",
-            slotDate: slot.slotDate ? new Date(slot.slotDate) : null,
+            slotDate: slot.slotDate ? new Date(`${slot.slotDate}T00:00:00Z`) : null,
             startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
             endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
             capacity: typeof slot.capacity === "number" ? slot.capacity : null,
