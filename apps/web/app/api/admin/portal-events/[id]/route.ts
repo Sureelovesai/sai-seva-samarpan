@@ -110,7 +110,7 @@ export async function PATCH(
           data: body.slots.map((slot: any) => ({
             eventId: id,
             slotName: typeof slot.slotName === "string" ? slot.slotName : "",
-            slotDate: slot.slotDate ? new Date(`${slot.slotDate}T00:00:00Z`) : null,
+            slotDate: slot.slotDate ? new Date(`${slot.slotDate}T00:00:00`) : null,
             startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
             endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
             capacity: typeof slot.capacity === "number" ? slot.capacity : null,
