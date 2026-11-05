@@ -9,6 +9,7 @@ export type PublicEventSignupRow = {
   response: "YES" | "NO" | "MAYBE";
   accompanyingAdults: number;
   accompanyingKids: number;
+  slotGuestData?: Record<string, { adults: number; kids: number }> | null;
 };
 
 type RowBase = {
@@ -80,6 +81,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
         response: true,
         accompanyingAdults: true,
         accompanyingKids: true,
+        slotGuestData: true,
       },
       orderBy: { createdAt: "asc" },
     });
@@ -88,7 +90,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
     if (!isPrismaColumnMissing(e)) throw e;
 
     const rows = (await prisma.$queryRaw(Prisma.sql`
-      SELECT id, "participantName", response, "accompanyingCount"
+      SELECT id, "participantName", response, "accompanyingCount", "slotGuestData"
       FROM "EventSignup"
       WHERE "eventId" = ${eventId}
       ORDER BY "createdAt" ASC
@@ -97,6 +99,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
       participantName: string;
       response: "YES" | "NO" | "MAYBE";
       accompanyingCount: number;
+      slotGuestData?: Record<string, { adults: number; kids: number }> | null;
     }>;
 
     return rows.map((r) => ({
@@ -106,6 +109,7 @@ export async function loadPublicEventSignups(eventId: string): Promise<PublicEve
       response: r.response,
       accompanyingAdults: r.accompanyingCount,
       accompanyingKids: 0,
+      slotGuestData: r.slotGuestData,
     }));
   }
 }

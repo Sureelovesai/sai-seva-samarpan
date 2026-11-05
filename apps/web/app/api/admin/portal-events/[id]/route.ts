@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionWithRole } from "@/lib/getRole";
 
 export async function GET(
   req: Request,
@@ -8,7 +9,20 @@ export async function GET(
   const { id } = await params;
   const event = await prisma.portalEvent.findUnique({
     where: { id },
-    include: { _count: { select: { signups: true } } },
+    include: {
+      _count: { select: { signups: true } },
+      slots: {
+        select: {
+          id: true,
+          slotName: true,
+          slotDate: true,
+          startTime: true,
+          endTime: true,
+          capacity: true,
+        },
+        orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
+      },
+    },
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(event);
@@ -36,6 +50,7 @@ export async function PATCH(
       heroImageUrl?: string | null;
       flyerUrl?: string | null;
       signupsEnabled?: boolean;
+      hasSlots?: boolean;
       status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
       organizerEmail?: string | null;
     };
@@ -77,14 +92,47 @@ export async function PATCH(
         data.organizerEmail = body.organizerEmail.trim().toLowerCase();
       }
     }
+    if (typeof body.hasSlots === "boolean") {
+      data.hasSlots = body.hasSlots;
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
+    // Handle slots update if provided
+    if (Array.isArray(body.slots)) {
+      // Delete existing slots first
+      await prisma.eventSlot.deleteMany({ where: { eventId: id } });
+      // Create new slots if any provided
+      if (body.slots.length > 0) {
+        await prisma.eventSlot.createMany({
+          data: body.slots.map((slot: any) => ({
+            eventId: id,
+            slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+            slotDate: slot.slotDate ? new Date(slot.slotDate) : null,
+            startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+            endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+            capacity: typeof slot.capacity === "number" ? slot.capacity : null,
+          })),
+        });
+        // Auto-enable hasSlots if slots were provided
+        data.hasSlots = true;
+      } else if (body.hasSlots === false) {
+        // If slots array is empty and hasSlots is explicitly false, disable slots
+        data.hasSlots = false;
+      }
+    } else if (body.hasSlots === false) {
+      // Delete all slots if hasSlots is explicitly turned off
+      await prisma.eventSlot.deleteMany({ where: { eventId: id } });
+    }
+
     const event = await prisma.portalEvent.update({
       where: { id },
       data,
+      include: {
+        slots: true,
+      },
     });
     return NextResponse.json(event);
   } catch (e: unknown) {
@@ -99,9 +147,38 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
+    // Check authentication and authorization
+    const cookieHeader = req.headers.get("cookie") ?? null;
+    const sessionWithRole = await getSessionWithRole(cookieHeader);
+    
+    if (!sessionWithRole) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Only ADMIN and EVENT_ADMIN roles can delete events
+    const hasPermission = sessionWithRole.roles?.includes("ADMIN") || 
+                          sessionWithRole.roles?.includes("EVENT_ADMIN");
+    
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Forbidden: Only admins can delete events" }, { status: 403 });
+    }
+
+    // Event admins with city restrictions can only delete events in their cities
+    if (sessionWithRole.roles?.includes("EVENT_ADMIN") && 
+        !sessionWithRole.roles?.includes("ADMIN") &&
+        sessionWithRole.coordinatorCities) {
+      const event = await prisma.portalEvent.findUnique({ where: { id } });
+      if (event && !sessionWithRole.coordinatorCities.includes(event.city)) {
+        return NextResponse.json({ 
+          error: "Forbidden: You can only delete events in your assigned cities" 
+        }, { status: 403 });
+      }
+    }
+
     await prisma.portalEvent.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (e: unknown) {
+    console.error("DELETE portal-events/[id]:", e);
     return NextResponse.json({ error: "Not found or could not delete" }, { status: 404 });
   }
 }

@@ -108,6 +108,8 @@ export default function EditEventPage() {
             signupsEnabled: data.signupsEnabled,
             status: data.status,
             organizerEmail: data.organizerEmail ?? null,
+            hasSlots: data.hasSlots ?? false,
+            slots: data.slots ?? [],
           });
         }
       } catch (e: unknown) {

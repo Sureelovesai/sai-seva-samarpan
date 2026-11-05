@@ -426,16 +426,35 @@ model PortalEvent {
   organizerEmail String?
   /// When false, public page hides the RSVP form
   signupsEnabled Boolean           @default(true)
+  /// When true, event has multiple hourly time slots for signup
+  hasSlots       Boolean           @default(false)
   status         PortalEventStatus @default(DRAFT)
   /// Set when the ~24h-before reminder batch was sent (cron); cleared when startsAt changes in admin.
   reminderSentAt DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   signups        EventSignup[]
+  slots          EventSlot[]
 
   @@index([status])
   @@index([startsAt])
   @@index([city])
+}
+
+model EventSlot {
+  id         String     @id @default(cuid())
+  eventId    String
+  event      PortalEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  slotName   String     // e.g. "6:00 PM - 9:00 PM"
+  slotDate   DateTime?  // Date of the slot (for multi-day events)
+  startTime  String     // HH:mm format
+  endTime    String     // HH:mm format
+  capacity   Int?       // Optional max capacity for this slot
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([eventId])
+  @@index([slotDate])
 }
 
 model EventSignup {
@@ -451,6 +470,8 @@ model EventSignup {
   /// Guest kids accompanying (excluding the named participant)
   accompanyingKids   Int               @default(0)
   response           EventSignupResponse
+  /// Per-slot guest counts: { "slotId": { "adults": 2, "kids": 1 } }
+  slotGuestData      Json?
   createdAt          DateTime            @default(now())
 
   @@index([eventId])

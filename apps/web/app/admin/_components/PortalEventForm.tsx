@@ -15,6 +15,8 @@ export type PortalEventFormInitial = {
   heroImageUrl: string | null;
   flyerUrl: string | null;
   signupsEnabled: boolean;
+  hasSlots?: boolean;
+  slots?: EventSlot[];
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   /** RSVP notification email; empty on create uses server default (your login email). */
   organizerEmail?: string | null;
@@ -62,8 +64,8 @@ export function PortalEventForm({
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [hasSlots, setHasSlots] = useState(false);
-  const [slots, setSlots] = useState<EventSlot[]>([]);
+  const [hasSlots, setHasSlots] = useState(initial?.hasSlots ?? false);
+  const [slots, setSlots] = useState<EventSlot[]>(initial?.slots ?? []);
 
   // If allowedCities is provided (for event admins with city restrictions), filter CITIES
   // Otherwise show all CITIES (for full admins)

@@ -7,6 +7,7 @@ import { getPortalEventTimezone } from "@/lib/formatPortalEventStart";
 import { EventsPageShell } from "../../EventsPageShell";
 import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
+import { EventHeader } from "./EventHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,19 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
   try {
     event = await prisma.portalEvent.findFirst({
       where: { id, status: "PUBLISHED", city: formattedCity },
+      include: {
+        slots: {
+          select: {
+            id: true,
+            slotName: true,
+            slotDate: true,
+            startTime: true,
+            endTime: true,
+            capacity: true,
+          },
+          orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
+        },
+      },
     });
   } catch (e: unknown) {
     if (isPortalEventTableMissing(e)) {
@@ -86,9 +100,12 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
   return (
     <EventsPageShell>
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:pt-10">
-        <Link href={`/events/${city}`} className="events-backlink inline-flex items-center gap-1 text-sm">
-          ← {formattedCity} events
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <Link href={`/events/${city}`} className="events-backlink inline-flex items-center gap-1 text-sm">
+            ← {formattedCity} events
+          </Link>
+          <EventHeader eventId={event.id} eventTitle={event.title} city={city} />
+        </div>
 
         <article className="events-article mt-6">
           {event.heroImageUrl ? (
@@ -187,14 +204,14 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-700">
                   Sairam, we look forward to seeing you.
                 </p>
-                <EventRsvpForm eventId={event.id} />
+                <EventRsvpForm eventId={event.id} hasSlots={event.hasSlots || event.slots?.length > 0 || false} slots={event.slots || []} />
               </>
             ) : (
               <p className="mt-2 text-sm text-slate-700">Organizers are not collecting RSVPs for this event online.</p>
             )}
           </div>
 
-          <EventSignupsSummary eventId={event.id} signups={signups} />
+          <EventSignupsSummary eventId={event.id} signups={signups} slots={event.slots || []} />
         </article>
       </div>
     </EventsPageShell>

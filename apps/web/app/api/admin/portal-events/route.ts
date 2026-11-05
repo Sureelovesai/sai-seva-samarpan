@@ -57,6 +57,10 @@ export async function POST(req: Request) {
     const orgRaw = typeof body.organizerEmail === "string" ? body.organizerEmail.trim() : "";
     const organizerEmail = (orgRaw || "").trim().toLowerCase() || null;
 
+    const slotsData = Array.isArray(body.slots) ? body.slots : [];
+    // Auto-enable hasSlots if slots are provided, otherwise use explicit value
+    const hasSlots = slotsData.length > 0 || body.hasSlots === true;
+
     const event = await prisma.portalEvent.create({
       data: {
         title,
@@ -67,14 +71,38 @@ export async function POST(req: Request) {
         heroImageUrl,
         flyerUrl,
         signupsEnabled,
+        hasSlots,
         status,
         organizerEmail,
+        slots: hasSlots && slotsData.length > 0 ? {
+          create: slotsData.map((slot: any) => ({
+            slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+            slotDate: slot.slotDate ? new Date(slot.slotDate) : null,
+            startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+            endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+            capacity: typeof slot.capacity === "number" ? slot.capacity : null,
+          })),
+        } : undefined,
+      },
+      include: {
+        slots: true,
       },
     });
 
     return NextResponse.json(event);
   } catch (e: unknown) {
-    console.error("POST portal-events:", e);
-    return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    console.error("POST portal-events error:", errorMsg);
+    console.error("Full error:", e);
+    
+    // Check for common Prisma errors
+    if (errorMsg.includes("slotDate") || errorMsg.includes("EventSlot")) {
+      return NextResponse.json({ 
+        error: "Event slot database error. Please try again or contact support.",
+        details: errorMsg 
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({ error: "Failed to create event", details: errorMsg }, { status: 500 });
   }
 }

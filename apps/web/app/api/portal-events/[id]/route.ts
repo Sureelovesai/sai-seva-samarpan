@@ -17,6 +17,18 @@ export async function GET(
       startsAt: true,
       venue: true,
       signupsEnabled: true,
+      hasSlots: true,
+      slots: {
+        select: {
+          id: true,
+          slotName: true,
+          slotDate: true,
+          startTime: true,
+          endTime: true,
+          capacity: true,
+        },
+        orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
+      },
     },
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });

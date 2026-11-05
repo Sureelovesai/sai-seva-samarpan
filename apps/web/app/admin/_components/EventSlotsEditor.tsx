@@ -5,6 +5,7 @@ import { useState } from 'react'
 export interface EventSlot {
   id?: string
   slotName: string
+  slotDate?: string // Date in YYYY-MM-DD format
   startTime: string // HH:mm format (e.g., "06:00")
   endTime: string   // HH:mm format (e.g., "09:00")
   capacity?: number
@@ -69,7 +70,7 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
         <div className="space-y-3">
           {slots.map((slot, index) => (
             <div key={index} className="rounded-lg border border-gray-200 bg-white p-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4 mb-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5 mb-3">
                 {/* Slot Name */}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">
@@ -79,7 +80,20 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
                     type="text"
                     value={slot.slotName}
                     onChange={(e) => updateSlot(index, 'slotName', e.target.value)}
-                    placeholder="e.g., Evening"
+                    placeholder="e.g., Morning"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Slot Date */}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={slot.slotDate || ''}
+                    onChange={(e) => updateSlot(index, 'slotDate', e.target.value || undefined)}
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -120,7 +134,7 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
                     min="1"
                     value={slot.capacity || ''}
                     onChange={(e) => updateSlot(index, 'capacity', e.target.value ? parseInt(e.target.value) : undefined)}
-                    placeholder="Leave blank for unlimited"
+                    placeholder="Leave blank"
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -154,7 +168,10 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
             {slots.map((slot, index) => (
               <div key={index} className="flex justify-between py-1">
                 <span className="font-medium text-gray-700">{slot.slotName}</span>
-                <span className="text-gray-500">{slot.startTime} - {slot.endTime}</span>
+                <span className="text-gray-500">
+                  {slot.slotDate && `${new Date(slot.slotDate).toLocaleDateString()} `}
+                  {slot.startTime} - {slot.endTime}
+                </span>
               </div>
             ))}
           </div>

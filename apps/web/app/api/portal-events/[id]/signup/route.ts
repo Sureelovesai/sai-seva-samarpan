@@ -172,6 +172,8 @@ export async function POST(
         venue: true,
         startsAt: true,
         organizerEmail: true,
+        hasSlots: true,
+        slots: { select: { id: true } },
       },
     });
     if (!event) {
@@ -232,11 +234,17 @@ export async function POST(
     if (response !== "YES" && response !== "NO" && response !== "MAYBE") {
       return NextResponse.json({ error: "Response must be YES, NO, or MAYBE." }, { status: 400 });
     }
-    if (isZeroParty(response, accompanyingAdults, accompanyingKids)) {
+    
+    // For non-slot events only: validate zero party
+    // Slot events already validate that each slot has guests (adults >= 1 by default)
+    const eventHasSlots = event.hasSlots || (event.slots && event.slots.length > 0);
+    if (!eventHasSlots && isZeroParty(response, accompanyingAdults, accompanyingKids)) {
       return NextResponse.json({ error: ZERO_PARTY_ERROR }, { status: 400 });
     }
 
     try {
+      const slotGuestData = typeof body.slotGuestData === "object" && body.slotGuestData !== null ? body.slotGuestData : null;
+
       const existing = await prisma.eventSignup.findFirst({
         where: { eventId, email },
         select: { id: true },
@@ -252,6 +260,7 @@ export async function POST(
               accompanyingAdults,
               accompanyingKids,
               response,
+              slotGuestData,
             },
           })
         : await prisma.eventSignup.create({
@@ -263,6 +272,7 @@ export async function POST(
               accompanyingAdults,
               accompanyingKids,
               response,
+              slotGuestData,
             },
           });
 

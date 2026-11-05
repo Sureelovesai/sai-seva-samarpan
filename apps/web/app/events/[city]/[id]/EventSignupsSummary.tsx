@@ -7,6 +7,16 @@ type SignupRow = {
   response: "YES" | "NO" | "MAYBE";
   accompanyingAdults: number;
   accompanyingKids: number;
+  slotGuestData?: Record<string, { adults: number; kids: number }> | null;
+};
+
+type EventSlot = {
+  id: string;
+  slotName: string;
+  slotDate?: Date | string | null;
+  startTime: string;
+  endTime: string;
+  capacity?: number | null;
 };
 
 function responseLabel(r: SignupRow["response"]) {
@@ -20,7 +30,7 @@ function partyTotal(r: SignupRow): number {
   return r.accompanyingAdults + r.accompanyingKids;
 }
 
-export function EventSignupsSummary({ eventId, signups }: { eventId: string; signups: SignupRow[] }) {
+export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId: string; signups: SignupRow[]; slots?: EventSlot[] }) {
   const yes = signups.filter((s) => s.response === "YES").length;
   const no = signups.filter((s) => s.response === "NO").length;
   const maybe = signups.filter((s) => s.response === "MAYBE").length;
@@ -29,6 +39,15 @@ export function EventSignupsSummary({ eventId, signups }: { eventId: string; sig
   const totalAdults = yesMaybe.reduce((a, s) => a + s.accompanyingAdults, 0);
   const totalKids = yesMaybe.reduce((a, s) => a + s.accompanyingKids, 0);
   const totalParty = yesMaybe.reduce((a, s) => a + partyTotal(s), 0);
+  
+  // Check if event has slots
+  const hasSlots = slots.length > 0;
+  
+  // Get all slot IDs from the slots array (show ALL slots, not just ones with registrations)
+  const allSlotIds = slots.map((slot) => slot.id);
+  
+  // Create a map of slot ID to slot details for quick lookup
+  const slotMap = new Map(slots.map((slot) => [slot.id, slot]));
 
   return (
     <div className="events-attendance-summary border-t-2 border-teal-200 bg-gradient-to-b from-teal-50 to-white px-5 py-8 sm:px-8">
@@ -52,9 +71,22 @@ export function EventSignupsSummary({ eventId, signups }: { eventId: string; sig
                 <th className="px-3 py-2.5 font-bold text-teal-950">Name</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Comment</th>
                 <th className="px-3 py-2.5 font-bold text-teal-950">Response</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Adults (incl. you)</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Kids</th>
-                <th className="px-3 py-2.5 font-bold text-teal-950">Total group</th>
+                {!hasSlots && (
+                  <>
+                    <th className="px-3 py-2.5 font-bold text-teal-950">Adults (incl. you)</th>
+                    <th className="px-3 py-2.5 font-bold text-teal-950">Kids</th>
+                    <th className="px-3 py-2.5 font-bold text-teal-950">Total group</th>
+                  </>
+                )}
+                {hasSlots && allSlotIds.map((slotId) => {
+                  const slot = slotMap.get(slotId);
+                  const slotLabel = slot?.slotName || `Slot ${slotId.slice(0, 4)}`;
+                  return (
+                    <th key={slotId} className="px-3 py-2.5 font-bold text-teal-950 whitespace-nowrap">
+                      {slotLabel}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -70,20 +102,51 @@ export function EventSignupsSummary({ eventId, signups }: { eventId: string; sig
                     {s.comment?.trim() ? s.comment : "—"}
                   </td>
                   <td className="px-3 py-2 text-slate-800">{responseLabel(s.response)}</td>
-                  <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingAdults}</td>
-                  <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingKids}</td>
-                  <td className="px-3 py-2 tabular-nums font-semibold text-slate-900">{partyTotal(s)}</td>
+                  {!hasSlots && (
+                    <>
+                      <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingAdults}</td>
+                      <td className="px-3 py-2 tabular-nums text-slate-800">{s.accompanyingKids}</td>
+                      <td className="px-3 py-2 tabular-nums font-semibold text-slate-900">{partyTotal(s)}</td>
+                    </>
+                  )}
+                  {hasSlots && allSlotIds.map((slotId) => {
+                    const slotData = s.slotGuestData?.[slotId];
+                    return (
+                      <td key={slotId} className="px-3 py-2 text-sm text-slate-700 bg-teal-50/50">
+                        {slotData ? `${slotData.adults}A, ${slotData.kids}K` : "—"}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="bg-teal-50 font-semibold text-slate-900">
-                <td className="px-3 py-3" colSpan={3}>
+                <td className="px-3 py-3" colSpan={hasSlots ? 3 : 6}>
                   Totals · Yes {yes} · No {no} · Maybe {maybe}
                 </td>
-                <td className="px-3 py-3 tabular-nums">{totalAdults}</td>
-                <td className="px-3 py-3 tabular-nums">{totalKids}</td>
-                <td className="px-3 py-3 tabular-nums text-teal-900">{totalParty}</td>
+                {!hasSlots && (
+                  <>
+                    <td className="px-3 py-3 tabular-nums">{totalAdults}</td>
+                    <td className="px-3 py-3 tabular-nums">{totalKids}</td>
+                    <td className="px-3 py-3 tabular-nums text-teal-900">{totalParty}</td>
+                  </>
+                )}
+                {hasSlots && allSlotIds.map((slotId) => {
+                  const slotTotalAdults = yesMaybe.reduce(
+                    (sum, s) => sum + (s.slotGuestData?.[slotId]?.adults || 0),
+                    0
+                  );
+                  const slotTotalKids = yesMaybe.reduce(
+                    (sum, s) => sum + (s.slotGuestData?.[slotId]?.kids || 0),
+                    0
+                  );
+                  return (
+                    <td key={slotId} className="px-3 py-3 text-sm text-slate-700 bg-teal-100/50">
+                      {slotTotalAdults}A, {slotTotalKids}K
+                    </td>
+                  );
+                })}
               </tr>
             </tfoot>
           </table>

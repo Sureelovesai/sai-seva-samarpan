@@ -10,6 +10,15 @@ import {
   sanitizeGuestCountDraft,
 } from "./guestCounts";
 
+interface EventSlot {
+  id: string;
+  slotName: string;
+  slotDate?: Date | string | null;
+  startTime: string;
+  endTime: string;
+  capacity?: number | null;
+}
+
 function Req() {
   return (
     <span className="ml-0.5 font-normal text-red-600" aria-hidden>
@@ -18,7 +27,7 @@ function Req() {
   );
 }
 
-export function EventRsvpForm({ eventId }: { eventId: string }) {
+export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { eventId: string; hasSlots?: boolean; slots?: EventSlot[] }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -27,6 +36,8 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
   const [accompanyingAdultsDraft, setAccompanyingAdultsDraft] = useState("0");
   const [accompanyingKidsDraft, setAccompanyingKidsDraft] = useState("0");
   const [response, setResponse] = useState<"YES" | "NO" | "MAYBE">("YES");
+  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
+  const [slotGuestData, setSlotGuestData] = useState<Record<string, { adults: number; kids: number }>>({});
   const [submitting, setSubmitting] = useState(false);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -83,12 +94,26 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
       setError("First name and last name are required.");
       return;
     }
+    
+    // Validate slots selection if slots are enabled
+    if (hasSlots && selectedSlotIds.length === 0) {
+      setError("Please select at least one time slot.");
+      return;
+    }
+    
     const accompanyingAdults = guestDraftToApiCount(accompanyingAdultsDraft);
     const accompanyingKids = guestDraftToApiCount(accompanyingKidsDraft);
-    if (isZeroParty(response, accompanyingAdults, accompanyingKids)) {
+    
+    // For non-slot events only: validate zero party
+    // Slot events already validate that each slot has guests (adults >= 1 by default)
+    // Multi-slot events do NOT need the "enter guest count" dialog since guest counts are per-slot
+    if (!hasSlots && isZeroParty(response, accompanyingAdults, accompanyingKids)) {
       setZeroPartyOpen(true);
       return;
     }
+    
+    // For multi-slot events: validation is already done above (at least one slot selected)
+    // No additional dialog needed
     setSubmitting(true);
     try {
       const res = await fetch(`/api/portal-events/${encodeURIComponent(eventId)}/signup`, {
@@ -102,6 +127,8 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
           accompanyingAdults,
           accompanyingKids,
           response,
+          slotIds: hasSlots ? selectedSlotIds : undefined,
+          slotGuestData: hasSlots ? slotGuestData : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -200,64 +227,237 @@ export function EventRsvpForm({ eventId }: { eventId: string }) {
         </button>
       </div>
 
-      <div>
-        <span className="block text-sm font-semibold text-slate-900">Guests accompanying you</span>
-        <p className="mt-0.5 text-xs text-slate-600">
-          Count adults and kids in your full group (including yourself).
-        </p>
-        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-6">
-          <div className="flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700" htmlFor="evt-adults">
-              Adults
-            </label>
-            <input
-              id="evt-adults"
-              type="number"
-              min={0}
-              max={GUEST_CAP}
-              step={1}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-label="Adults guest count"
-              value={accompanyingAdultsDraft}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "") setAccompanyingAdultsDraft("");
-                else setAccompanyingAdultsDraft(sanitizeGuestCountDraft(v));
-              }}
-              onBlur={() =>
-                setAccompanyingAdultsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
-              }
-              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700" htmlFor="evt-kids">
-              Kids
-            </label>
-            <input
-              id="evt-kids"
-              type="number"
-              min={0}
-              max={GUEST_CAP}
-              step={1}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-label="Kids guest count"
-              value={accompanyingKidsDraft}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "") setAccompanyingKidsDraft("");
-                else setAccompanyingKidsDraft(sanitizeGuestCountDraft(v));
-              }}
-              onBlur={() =>
-                setAccompanyingKidsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
-              }
-              className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
-            />
+      {hasSlots && slots.length > 0 ? (
+        <div>
+          <span className="block text-sm font-semibold text-slate-900">
+            Select time slots you can attend
+            <Req />
+          </span>
+          <p className="mt-0.5 text-xs text-slate-600">
+            Choose one or more time slots and specify guests for each.
+          </p>
+          <div className="mt-3 space-y-4">
+            {slots
+              .slice()
+              .sort((a, b) => {
+                // Sort by slotDate first, then by startTime
+                const dateA = a.slotDate ? new Date(a.slotDate).getTime() : 0;
+                const dateB = b.slotDate ? new Date(b.slotDate).getTime() : 0;
+                if (dateA !== dateB) return dateA - dateB;
+                // If same date, sort by startTime
+                return a.startTime.localeCompare(b.startTime);
+              })
+              .map((slot) => (
+              <div key={slot.id} className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
+                <label className="flex items-center gap-3 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedSlotIds.includes(slot.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedSlotIds([...selectedSlotIds, slot.id]);
+                        // Initialize with at least 1 adult (the person filling the form)
+                        if (!slotGuestData[slot.id]) {
+                          setSlotGuestData({
+                            ...slotGuestData,
+                            [slot.id]: { adults: 1, kids: 0 },
+                          });
+                        }
+                      } else {
+                        setSelectedSlotIds(selectedSlotIds.filter((id) => id !== slot.id));
+                        const newData = { ...slotGuestData };
+                        delete newData[slot.id];
+                        setSlotGuestData(newData);
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900">{slot.slotName}</p>
+                    <p className="text-xs text-slate-600">
+                      {slot.slotDate && (
+                        <>
+                          {new Date(slot.slotDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · 
+                        </>
+                      )}
+                      {slot.startTime} - {slot.endTime}
+                      {slot.capacity ? ` (Capacity: ${slot.capacity})` : ""}
+                    </p>
+                  </div>
+                </label>
+                
+                {selectedSlotIds.includes(slot.id) && (
+                  <div className="ml-7 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700 mb-1">
+                        Adults
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={GUEST_CAP}
+                        inputMode="numeric"
+                        value={slotGuestData[slot.id]?.adults ?? 1}
+                        onChange={(e) => {
+                          const inputValue = e.target.value.trim();
+                          if (inputValue === "" || inputValue === "0") {
+                            // Reset to minimum (1) if empty or zero
+                            setSlotGuestData({
+                              ...slotGuestData,
+                              [slot.id]: {
+                                ...slotGuestData[slot.id],
+                                adults: 1,
+                              },
+                            });
+                          } else {
+                            const parsed = parseInt(inputValue, 10);
+                            if (!isNaN(parsed)) {
+                              const value = Math.max(1, Math.min(GUEST_CAP, parsed));
+                              setSlotGuestData({
+                                ...slotGuestData,
+                                [slot.id]: {
+                                  ...slotGuestData[slot.id],
+                                  adults: value,
+                                },
+                              });
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = parseInt(e.target.value, 10);
+                          if (isNaN(value) || value < 1) {
+                            // Ensure minimum value on blur
+                            setSlotGuestData({
+                              ...slotGuestData,
+                              [slot.id]: {
+                                ...slotGuestData[slot.id],
+                                adults: 1,
+                              },
+                            });
+                          }
+                        }}
+                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700 mb-1">
+                        Kids
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={GUEST_CAP}
+                        inputMode="numeric"
+                        value={slotGuestData[slot.id]?.kids ?? 0}
+                        onChange={(e) => {
+                          const inputValue = e.target.value.trim();
+                          if (inputValue === "") {
+                            // Reset to 0 if empty
+                            setSlotGuestData({
+                              ...slotGuestData,
+                              [slot.id]: {
+                                ...slotGuestData[slot.id],
+                                kids: 0,
+                              },
+                            });
+                          } else {
+                            const parsed = parseInt(inputValue, 10);
+                            if (!isNaN(parsed)) {
+                              const value = Math.max(0, Math.min(GUEST_CAP, parsed));
+                              setSlotGuestData({
+                                ...slotGuestData,
+                                [slot.id]: {
+                                  ...slotGuestData[slot.id],
+                                  kids: value,
+                                },
+                              });
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = parseInt(e.target.value, 10);
+                          if (isNaN(value) || value < 0) {
+                            // Ensure minimum value (0) on blur
+                            setSlotGuestData({
+                              ...slotGuestData,
+                              [slot.id]: {
+                                ...slotGuestData[slot.id],
+                                kids: 0,
+                              },
+                            });
+                          }
+                        }}
+                        className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      ) : null}
+
+      {!hasSlots ? (
+        <div>
+          <span className="block text-sm font-semibold text-slate-900">Guests accompanying you</span>
+          <p className="mt-0.5 text-xs text-slate-600">
+            Count adults and kids in your full group (including yourself).
+          </p>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-6">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700" htmlFor="evt-adults">
+                Adults
+              </label>
+              <input
+                id="evt-adults"
+                type="number"
+                min={0}
+                max={GUEST_CAP}
+                step={1}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label="Adults guest count"
+                value={accompanyingAdultsDraft}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") setAccompanyingAdultsDraft("");
+                  else setAccompanyingAdultsDraft(sanitizeGuestCountDraft(v));
+                }}
+                onBlur={() =>
+                  setAccompanyingAdultsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
+                }
+                className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700" htmlFor="evt-kids">
+                Kids
+              </label>
+              <input
+                id="evt-kids"
+                type="number"
+                min={0}
+                max={GUEST_CAP}
+                step={1}
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label="Kids guest count"
+                value={accompanyingKidsDraft}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") setAccompanyingKidsDraft("");
+                  else setAccompanyingKidsDraft(sanitizeGuestCountDraft(v));
+                }}
+                onBlur={() =>
+                  setAccompanyingKidsDraft((d) => (d.trim() === "" ? "0" : sanitizeGuestCountDraft(d)))
+                }
+                className="mt-1 w-full max-w-[11rem] rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 sm:max-w-none [appearance:auto]"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div>
         <label className="block text-sm font-semibold text-slate-900" htmlFor="evt-comment">
