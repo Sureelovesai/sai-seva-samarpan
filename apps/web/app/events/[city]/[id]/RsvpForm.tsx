@@ -256,11 +256,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedSlotIds([...selectedSlotIds, slot.id]);
-                        // Initialize with at least 1 adult (the person filling the form)
+                        // Initialize with 0 for both (user can enter what they need)
                         if (!slotGuestData[slot.id]) {
                           setSlotGuestData({
                             ...slotGuestData,
-                            [slot.id]: { adults: 1, kids: 0 },
+                            [slot.id]: { adults: 0, kids: 0 },
                           });
                         }
                       } else {
@@ -279,8 +279,15 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         <>
                           {(() => {
                             try {
-                              const dateObj = typeof slot.slotDate === 'string' ? new Date(slot.slotDate) : slot.slotDate;
-                              return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              if (!slot.slotDate) return '';
+                              // Parse UTC datetime and extract date correctly
+                              const dateStr = typeof slot.slotDate === 'string' ? slot.slotDate : slot.slotDate.toISOString();
+                              const d = new Date(dateStr);
+                              // Use UTC getters to avoid timezone shift
+                              const year = d.getUTCFullYear();
+                              const month = d.getUTCMonth();
+                              const day = d.getUTCDate();
+                              return new Date(year, month, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                             } catch {
                               return '';
                             }
@@ -301,25 +308,25 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                       </label>
                       <input
                         type="number"
-                        min="1"
+                        min="0"
                         max={GUEST_CAP}
                         inputMode="numeric"
-                        value={slotGuestData[slot.id]?.adults ?? 1}
+                        value={slotGuestData[slot.id]?.adults ?? 0}
                         onChange={(e) => {
                           const inputValue = e.target.value.trim();
-                          if (inputValue === "" || inputValue === "0") {
-                            // Reset to minimum (1) if empty or zero
+                          if (inputValue === "") {
+                            // Allow empty (user is clearing the field)
                             setSlotGuestData({
                               ...slotGuestData,
                               [slot.id]: {
                                 ...slotGuestData[slot.id],
-                                adults: 1,
+                                adults: 0,
                               },
                             });
                           } else {
                             const parsed = parseInt(inputValue, 10);
                             if (!isNaN(parsed)) {
-                              const value = Math.max(1, Math.min(GUEST_CAP, parsed));
+                              const value = Math.max(0, Math.min(GUEST_CAP, parsed));
                               setSlotGuestData({
                                 ...slotGuestData,
                                 [slot.id]: {
@@ -332,13 +339,13 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         }}
                         onBlur={(e) => {
                           const value = parseInt(e.target.value, 10);
-                          if (isNaN(value) || value < 1) {
-                            // Ensure minimum value on blur
+                          if (isNaN(value)) {
+                            // If still empty after blur, set to 0
                             setSlotGuestData({
                               ...slotGuestData,
                               [slot.id]: {
                                 ...slotGuestData[slot.id],
-                                adults: 1,
+                                adults: 0,
                               },
                             });
                           }
