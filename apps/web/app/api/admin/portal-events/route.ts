@@ -75,13 +75,33 @@ export async function POST(req: Request) {
         status,
         organizerEmail,
         slots: hasSlots && slotsData.length > 0 ? {
-          create: slotsData.map((slot: any) => ({
-            slotName: typeof slot.slotName === "string" ? slot.slotName : "",
-            slotDate: slot.slotDate ? new Date(`${slot.slotDate}T00:00:00`) : null,
-            startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
-            endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
-            capacity: typeof slot.capacity === "number" ? slot.capacity : null,
-          })),
+          create: slotsData.map((slot: any) => {
+          // Parse slotDate safely - only create Date if it's a non-empty string
+          // Use UTC midnight: "2026-11-14T00:00:00Z" to avoid timezone shifts
+          let slotDate = null;
+          if (typeof slot.slotDate === "string" && slot.slotDate.trim()) {
+            const parsedDate = new Date(`${slot.slotDate}T00:00:00Z`);
+            if (!isNaN(parsedDate.getTime())) {
+              slotDate = parsedDate;
+            }
+          }
+            return {
+              slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+              slotDate,
+              startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+              endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+              capacity: typeof slot.capacity === "number" ? slot.capacity : null,
+              // Create items for this slot if provided
+              items: Array.isArray(slot.items) && slot.items.length > 0 ? {
+                create: slot.items.map((item: any) => ({
+                  name: typeof item.name === "string" ? item.name.trim() : "",
+                  category: typeof item.category === "string" ? item.category.trim() : "",
+                  neededLabel: typeof item.neededLabel === "string" ? item.neededLabel.trim() : "",
+                  maxQuantity: typeof item.maxQuantity === "number" ? Math.max(1, item.maxQuantity) : 1,
+                })),
+              } : undefined,
+            };
+          }),
         } : undefined,
       },
       include: {

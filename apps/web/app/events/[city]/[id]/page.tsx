@@ -8,6 +8,7 @@ import { EventsPageShell } from "../../EventsPageShell";
 import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
 import { EventHeader } from "./EventHeader";
+// import { EventItemsSignup } from "./_components/EventItemsSignup"; // TODO: Enable later
 
 export const dynamic = "force-dynamic";
 
@@ -210,6 +211,11 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
               <p className="mt-2 text-sm text-slate-700">Organizers are not collecting RSVPs for this event online.</p>
             )}
           </div>
+
+          {/* <div className="px-5 py-8 sm:px-8">
+            <EventItemsSignup eventId={event.id} />
+          </div> */}
+          {/* TODO: Enable item signup feature later */}
 
           <EventSignupsSummary eventId={event.id} signups={signups} slots={event.slots || []} />
         </article>

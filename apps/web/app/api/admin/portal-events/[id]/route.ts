@@ -19,6 +19,15 @@ export async function GET(
           startTime: true,
           endTime: true,
           capacity: true,
+          items: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              neededLabel: true,
+              maxQuantity: true,
+            },
+          },
         },
         orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
       },
@@ -102,20 +111,44 @@ export async function PATCH(
 
     // Handle slots update if provided
     if (Array.isArray(body.slots)) {
-      // Delete existing slots first
+      // Delete existing slots first (cascade deletes items via FK)
       await prisma.eventSlot.deleteMany({ where: { eventId: id } });
       // Create new slots if any provided
       if (body.slots.length > 0) {
-        await prisma.eventSlot.createMany({
-          data: body.slots.map((slot: any) => ({
-            eventId: id,
-            slotName: typeof slot.slotName === "string" ? slot.slotName : "",
-            slotDate: slot.slotDate ? new Date(`${slot.slotDate}T00:00:00`) : null,
-            startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
-            endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
-            capacity: typeof slot.capacity === "number" ? slot.capacity : null,
-          })),
-        });
+        for (const slot of body.slots) {
+          // Parse slotDate safely - only create Date if it's a non-empty string
+          let slotDate = null;
+          if (typeof slot.slotDate === "string" && slot.slotDate.trim()) {
+            const parsedDate = new Date(`${slot.slotDate}T00:00:00`);
+            if (!isNaN(parsedDate.getTime())) {
+              slotDate = parsedDate;
+            }
+          }
+
+          const createdSlot = await prisma.eventSlot.create({
+            data: {
+              eventId: id,
+              slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+              slotDate,
+              startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+              endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+              capacity: typeof slot.capacity === "number" ? slot.capacity : null,
+            },
+          });
+
+          // Create items for this slot if provided
+          if (Array.isArray(slot.items) && slot.items.length > 0) {
+            await prisma.eventItem.createMany({
+              data: slot.items.map((item: any) => ({
+                slotId: createdSlot.id,
+                name: typeof item.name === "string" ? item.name.trim() : "",
+                category: typeof item.category === "string" ? item.category.trim() : "",
+                neededLabel: typeof item.neededLabel === "string" ? item.neededLabel.trim() : "",
+                maxQuantity: typeof item.maxQuantity === "number" ? Math.max(1, item.maxQuantity) : 1,
+              })),
+            });
+          }
+        }
         // Auto-enable hasSlots if slots were provided
         data.hasSlots = true;
       } else if (body.hasSlots === false) {
@@ -123,7 +156,7 @@ export async function PATCH(
         data.hasSlots = false;
       }
     } else if (body.hasSlots === false) {
-      // Delete all slots if hasSlots is explicitly turned off
+      // Delete all slots if hasSlots is explicitly turned off (cascade deletes items)
       await prisma.eventSlot.deleteMany({ where: { eventId: id } });
     }
 

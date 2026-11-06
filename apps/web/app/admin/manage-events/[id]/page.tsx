@@ -27,6 +27,32 @@ function cloneInitialFromLoaded(data: Record<string, unknown>): PortalEventFormI
         ? startsAtRaw.toISOString()
         : new Date().toISOString();
 
+  // Format slots if they exist
+  const slots = Array.isArray(data.slots)
+    ? data.slots.map((slot: any) => {
+        // Extract the date from UTC datetime string
+        // If slotDate is "2026-11-14T05:00:00.000Z", extract "2026-11-14"
+        let slotDateStr = undefined;
+        if (slot.slotDate) {
+          const d = new Date(slot.slotDate);
+          // Get the date string in UTC (since that's what we stored)
+          const year = d.getUTCFullYear();
+          const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(d.getUTCDate()).padStart(2, "0");
+          slotDateStr = `${year}-${month}-${day}`;
+        }
+        return {
+          id: slot.id,
+          slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+          slotDate: slotDateStr,
+          startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+          endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+          capacity: typeof slot.capacity === "number" ? slot.capacity : undefined,
+          items: Array.isArray(slot.items) ? slot.items : [],
+        };
+      })
+    : [];
+
   return {
     id: String(data.id ?? ""),
     title: /\s*\(copy\)\s*$/i.test(title) ? title : `${title} (copy)`,
@@ -42,6 +68,8 @@ function cloneInitialFromLoaded(data: Record<string, unknown>): PortalEventFormI
         ? data.status
         : "PUBLISHED",
     organizerEmail: typeof data.organizerEmail === "string" ? data.organizerEmail : null,
+    hasSlots: data.hasSlots === true || (Array.isArray(data.slots) && data.slots.length > 0),
+    slots,
   };
 }
 
@@ -93,6 +121,32 @@ export default function EditEventPage() {
         if (!res.ok) throw new Error(data?.error || "Not found");
         if (cancelled) return;
 
+        // Format slots consistently for both edit and clone modes
+        const slots = Array.isArray(data.slots)
+          ? data.slots.map((slot: any) => {
+              // Extract the date from UTC datetime string
+              // If slotDate is "2026-11-14T05:00:00.000Z", extract "2026-11-14"
+              let slotDateStr = undefined;
+              if (slot.slotDate) {
+                const d = new Date(slot.slotDate);
+                // Get the date string in UTC (since that's what we stored)
+                const year = d.getUTCFullYear();
+                const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+                const day = String(d.getUTCDate()).padStart(2, "0");
+                slotDateStr = `${year}-${month}-${day}`;
+              }
+              return {
+                id: slot.id,
+                slotName: typeof slot.slotName === "string" ? slot.slotName : "",
+                slotDate: slotDateStr,
+                startTime: typeof slot.startTime === "string" ? slot.startTime : "00:00",
+                endTime: typeof slot.endTime === "string" ? slot.endTime : "00:00",
+                capacity: typeof slot.capacity === "number" ? slot.capacity : undefined,
+                items: Array.isArray(slot.items) ? slot.items : [],
+              };
+            })
+          : [];
+
         if (isCloneMode) {
           setInitial(cloneInitialFromLoaded(data));
         } else {
@@ -109,7 +163,7 @@ export default function EditEventPage() {
             status: data.status,
             organizerEmail: data.organizerEmail ?? null,
             hasSlots: data.hasSlots ?? false,
-            slots: data.slots ?? [],
+            slots,
           });
         }
       } catch (e: unknown) {

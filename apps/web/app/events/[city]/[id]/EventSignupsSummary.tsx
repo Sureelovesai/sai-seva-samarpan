@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { EditSignupButton } from "./EditSignupButton";
 import { DeleteSignupButton } from "./DeleteSignupButton";
 
@@ -21,6 +24,15 @@ type EventSlot = {
   capacity?: number | null;
 };
 
+type EventItem = {
+  id: string;
+  name: string;
+  category: string;
+  neededLabel: string;
+  maxQuantity: number;
+  slotId: string;
+};
+
 function responseLabel(r: SignupRow["response"]) {
   if (r === "YES") return "Yes";
   if (r === "NO") return "No";
@@ -33,6 +45,61 @@ function partyTotal(r: SignupRow): number {
 }
 
 export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId: string; signups: SignupRow[]; slots?: EventSlot[] }) {
+  const [items, setItems] = useState<EventItem[]>([]);
+  const [itemSignups, setItemSignups] = useState<Record<string, number>>({});
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  // Fetch items on mount
+  useEffect(() => {
+    async function fetchItems() {
+      try {
+        setLoadingItems(true);
+        const res = await fetch(`/api/portal-events/${eventId}/items`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const allItems: EventItem[] = [];
+        for (const slot of data.slots) {
+          for (const item of slot.items) {
+            allItems.push({ ...item, slotId: slot.id });
+          }
+        }
+        setItems(allItems);
+      } catch (e) {
+        console.error("Failed to fetch items:", e);
+      } finally {
+        setLoadingItems(false);
+      }
+    }
+
+    fetchItems();
+  }, [eventId]);
+
+  // Fetch item signups
+  useEffect(() => {
+    async function fetchSignups() {
+      try {
+        const res = await fetch(`/api/portal-events/${eventId}/items/signups`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // Flatten all item signups: itemId -> total quantity
+        const totals: Record<string, number> = {};
+        for (const email in data.signupsByEmail) {
+          for (const itemId in data.signupsByEmail[email]) {
+            totals[itemId] = (totals[itemId] || 0) + data.signupsByEmail[email][itemId];
+          }
+        }
+        setItemSignups(totals);
+      } catch (e) {
+        console.error("Failed to fetch item signups:", e);
+      }
+    }
+
+    if (items.length > 0) {
+      fetchSignups();
+    }
+  }, [eventId, items.length]);
+
   const yes = signups.filter((s) => s.response === "YES").length;
   const no = signups.filter((s) => s.response === "NO").length;
   const maybe = signups.filter((s) => s.response === "MAYBE").length;
@@ -159,6 +226,58 @@ export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId:
           </p>
         </div>
       )}
+
+      {/* TODO: Items summary section - enable later
+      {items.length > 0 && !loadingItems && (
+        <div className="mt-8 rounded-xl border-2 border-amber-300 bg-amber-50 p-5">
+          <h3 className="text-lg font-bold text-amber-950">🎁 Items Volunteers are Bringing</h3>
+          <p className="mt-1 text-sm text-amber-800">Summary of items signed up per slot</p>
+          
+          <div className="mt-4 space-y-4">
+            {slots.map((slot) => {
+              const slotItems = items.filter((item) => item.slotId === slot.id);
+              if (slotItems.length === 0) return null;
+              
+              return (
+                <div key={slot.id} className="rounded-lg border border-amber-200 bg-white p-4">
+                  <h4 className="mb-3 font-semibold text-amber-900">{slot.slotName}</h4>
+                  <div className="grid gap-2 text-sm">
+                    {slotItems.map((item) => {
+                      const totalQty = itemSignups[item.id] || 0;
+                      const progress = `${totalQty}/${item.maxQuantity}`;
+                      const percentFull = Math.round((totalQty / item.maxQuantity) * 100);
+                      
+                      return (
+                        <div key={item.id} className="flex flex-col gap-1">
+                          <div className="flex justify-between">
+                            <span className="font-medium text-slate-900">{item.name}</span>
+                            <span className="text-xs text-slate-600">{progress}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-5 rounded bg-amber-100 overflow-hidden border border-amber-200">
+                              <div
+                                className="h-full bg-amber-500 transition-all"
+                                style={{ width: `${percentFull}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-amber-900 w-12 text-right">
+                              {percentFull}%
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            Needed: {item.neededLabel}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      */}
     </div>
   );
 }

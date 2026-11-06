@@ -450,11 +450,41 @@ model EventSlot {
   startTime  String     // HH:mm format
   endTime    String     // HH:mm format
   capacity   Int?       // Optional max capacity for this slot
+  items      EventItem[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
   @@index([eventId])
   @@index([slotDate])
+}
+
+model EventItem {
+  id           String     @id @default(cuid())
+  slotId       String
+  slot         EventSlot  @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  name         String     // e.g. "Rice"
+  category     String     // e.g. "Grains"
+  neededLabel  String     // e.g. "10 lbs"
+  maxQuantity  Int        // Total slots / units available
+  signups      EventItemSignup[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([slotId])
+}
+
+model EventItemSignup {
+  id        String     @id @default(cuid())
+  itemId    String
+  item      EventItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  email     String     // Email of person signing up
+  quantity  Int        // How many units they're bringing
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([itemId, email])
+  @@index([itemId])
+  @@index([email])
 }
 
 model EventSignup {

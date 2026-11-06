@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { EventItemsEditor, type EventItemRow } from './EventItemsEditor'
 
 export interface EventSlot {
   id?: string
@@ -9,6 +10,7 @@ export interface EventSlot {
   startTime: string // HH:mm format (e.g., "06:00")
   endTime: string   // HH:mm format (e.g., "09:00")
   capacity?: number
+  items?: EventItemRow[] // Items volunteers can bring for this slot
 }
 
 interface EventSlotsEditorProps {
@@ -26,11 +28,12 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
       startTime: '09:00',
       endTime: '12:00',
       capacity: undefined,
+      items: [],
     }
     onSlotsChange([...slots, newSlot])
   }
 
-  const updateSlot = (index: number, field: keyof EventSlot, value: string | number | undefined) => {
+  const updateSlot = (index: number, field: keyof EventSlot, value: string | number | undefined | EventItemRow[]) => {
     const updatedSlots = [...slots]
     updatedSlots[index] = {
       ...updatedSlots[index],
@@ -140,6 +143,15 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
                 </div>
               </div>
 
+              {/* Items for this slot */}
+              <div className="mb-4 border-t border-gray-200 pt-4">
+                <EventItemsEditor
+                  items={slot.items || []}
+                  onChange={(items) => updateSlot(index, 'items', items)}
+                  slotName={slot.slotName}
+                />
+              </div>
+
               {/* Remove button */}
               <button
                 type="button"
@@ -165,15 +177,23 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
       {!isExpanded && slots.length > 0 && (
         <div className="text-sm text-gray-600">
           <div className="space-y-1">
-            {slots.map((slot, index) => (
-              <div key={index} className="flex justify-between py-1">
-                <span className="font-medium text-gray-700">{slot.slotName}</span>
-                <span className="text-gray-500">
-                  {slot.slotDate && `${new Date(slot.slotDate).toLocaleDateString()} `}
-                  {slot.startTime} - {slot.endTime}
-                </span>
-              </div>
-            ))}
+            {slots.map((slot, index) => {
+              // Format date string "2026-11-14" for display without timezone shift
+              let dateStr = "";
+              if (slot.slotDate) {
+                const [year, month, day] = slot.slotDate.split("-");
+                dateStr = new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString();
+              }
+              return (
+                <div key={index} className="flex justify-between py-1">
+                  <span className="font-medium text-gray-700">{slot.slotName}</span>
+                  <span className="text-gray-500">
+                    {dateStr && `${dateStr} `}
+                    {slot.startTime} - {slot.endTime}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
