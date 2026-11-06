@@ -16,6 +16,7 @@ export type PublicEventSignupRow = {
 type RowBase = {
   id: string;
   participantName: string;
+  email: string;
   response: "YES" | "NO" | "MAYBE";
   accompanyingAdults: number;
   accompanyingKids: number;
