@@ -256,11 +256,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedSlotIds([...selectedSlotIds, slot.id]);
-                        // Initialize with 0 for both (user can enter what they need)
+                        // Initialize with undefined for both (allows empty input fields)
                         if (!slotGuestData[slot.id]) {
                           setSlotGuestData({
                             ...slotGuestData,
-                            [slot.id]: { adults: 0, kids: 0 },
+                            [slot.id]: { adults: undefined, kids: undefined },
                           });
                         }
                       } else {
@@ -311,31 +311,18 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         min="0"
                         max={GUEST_CAP}
                         inputMode="numeric"
-                        value={slotGuestData[slot.id]?.adults ?? ""}
+                        value={slotGuestData[slot.id]?.adults === undefined ? "" : (slotGuestData[slot.id]?.adults ?? "")}
                         onChange={(e) => {
                           const inputValue = e.target.value;
-                          if (inputValue === "") {
-                            // Allow empty - user is clearing the field
-                            setSlotGuestData({
-                              ...slotGuestData,
-                              [slot.id]: {
-                                ...slotGuestData[slot.id],
-                                adults: 0,
-                              },
-                            });
-                          } else {
-                            const parsed = parseInt(inputValue, 10);
-                            if (!isNaN(parsed)) {
-                              const value = Math.max(0, Math.min(GUEST_CAP, parsed));
-                              setSlotGuestData({
-                                ...slotGuestData,
-                                [slot.id]: {
-                                  ...slotGuestData[slot.id],
-                                  adults: value,
-                                },
-                              });
-                            }
-                          }
+                          const parsed = inputValue === "" ? undefined : parseInt(inputValue, 10);
+                          
+                          setSlotGuestData({
+                            ...slotGuestData,
+                            [slot.id]: {
+                              ...slotGuestData[slot.id],
+                              adults: isNaN(parsed || NaN) ? undefined : Math.max(0, Math.min(GUEST_CAP, parsed || 0)),
+                            },
+                          });
                         }}
                         onFocus={(e) => {
                           // Select all on focus to allow easy replacement
@@ -354,31 +341,18 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         min="0"
                         max={GUEST_CAP}
                         inputMode="numeric"
-                        value={slotGuestData[slot.id]?.kids ?? ""}
+                        value={slotGuestData[slot.id]?.kids === undefined ? "" : (slotGuestData[slot.id]?.kids ?? "")}
                         onChange={(e) => {
                           const inputValue = e.target.value;
-                          if (inputValue === "") {
-                            // Allow empty - user is clearing the field
-                            setSlotGuestData({
-                              ...slotGuestData,
-                              [slot.id]: {
-                                ...slotGuestData[slot.id],
-                                kids: 0,
-                              },
-                            });
-                          } else {
-                            const parsed = parseInt(inputValue, 10);
-                            if (!isNaN(parsed)) {
-                              const value = Math.max(0, Math.min(GUEST_CAP, parsed));
-                              setSlotGuestData({
-                                ...slotGuestData,
-                                [slot.id]: {
-                                  ...slotGuestData[slot.id],
-                                  kids: value,
-                                },
-                              });
-                            }
-                          }
+                          const parsed = inputValue === "" ? undefined : parseInt(inputValue, 10);
+                          
+                          setSlotGuestData({
+                            ...slotGuestData,
+                            [slot.id]: {
+                              ...slotGuestData[slot.id],
+                              kids: isNaN(parsed || NaN) ? undefined : Math.max(0, Math.min(GUEST_CAP, parsed || 0)),
+                            },
+                          });
                         }}
                         onFocus={(e) => {
                           // Select all on focus to allow easy replacement
