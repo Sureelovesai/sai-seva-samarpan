@@ -17,7 +17,6 @@ export async function GET(req: Request) {
       user: {
         sub: session.sub,
         email: session.email,
-        name: session.name,
         roles: session.roles,
         role: session.role,
       },
