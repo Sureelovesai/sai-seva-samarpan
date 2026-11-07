@@ -1,12 +1,12 @@
-import { Prisma } from "@/generated/prisma";
 import { NextResponse } from "next/server";
-import { validateBlogPostWriteBody } from "@/lib/blogPostWriteValidation";
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRole, hasRole } from "@/lib/getRole";
+import { normalizeStoredDriveMedia } from "@/lib/blogDriveMedia";
+import { normalizeArticleCanvasPresentation } from "@/lib/articleCanvasPresentation";
 
 /**
  * GET /api/admin/blog-posts/[id]
- * Get a single blog post by id (including PENDING_APPROVAL). Admin or Blog Admin.
+ * Fetch a blog post for editing (admin/coordinator only)
  */
 export async function GET(
   req: Request,
@@ -14,30 +14,25 @@ export async function GET(
 ) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || !hasRole(session, "ADMIN", "BLOG_ADMIN")) {
+    if (
+      !session ||
+      !hasRole(
+        session,
+        "ADMIN",
+        "BLOG_ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
     const post = await prisma.blogPost.findUnique({
       where: { id },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        imageUrl: true,
-        section: true,
-        authorName: true,
-        authorId: true,
-        centerCity: true,
-        sevaDate: true,
-        sevaCategory: true,
-        posterEmail: true,
-        posterPhone: true,
-        driveMediaLinks: true,
-        articleCanvas: true,
-        createdAt: true,
-        status: true,
+      include: {
+        author: { select: { name: true, firstName: true, lastName: true, email: true } },
       },
     });
 
@@ -45,9 +40,32 @@ export async function GET(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    return NextResponse.json(post);
+    return NextResponse.json({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      articleCanvas: normalizeArticleCanvasPresentation(post.articleCanvas ?? null),
+      imageUrl: post.imageUrl,
+      driveMediaLinks: normalizeStoredDriveMedia(post.driveMediaLinks),
+      section: post.section,
+      centerCity: post.centerCity,
+      sevaDate: post.sevaDate,
+      sevaCategory: post.sevaCategory,
+      authorId: post.authorId,
+      authorName:
+        post.authorName ||
+        (post.author
+          ? post.author.name ||
+            [post.author.firstName, post.author.lastName].filter(Boolean).join(" ") ||
+            post.author.email
+          : null),
+      posterEmail: post.posterEmail,
+      posterPhone: post.posterPhone,
+      status: post.status,
+      createdAt: post.createdAt,
+    });
   } catch (e: unknown) {
-    console.error("Admin blog post GET error:", e);
+    console.error("Blog post admin GET error:", e);
     return NextResponse.json(
       { error: "Failed to load post", detail: (e as Error)?.message },
       { status: 500 }
@@ -57,13 +75,8 @@ export async function GET(
 
 /**
  * PATCH /api/admin/blog-posts/[id]
- * Admin or Blog Admin.
- *
- * Full update (edit published or pending posts): body must pass the same validation as public POST
- * — title, content, section, centerCity, sevaDate, sevaCategory, authorName, posterEmail;
- * optional posterPhone, imageUrl (null clears image).
- *
- * Image-only update: body `{ imageUrl: string | null }` only (legacy).
+ * Update a blog post (admin/coordinator can edit any post)
+ * - ADMIN, BLOG_ADMIN, and SEVA_COORDINATOR can edit any post
  */
 export async function PATCH(
   req: Request,
@@ -71,66 +84,106 @@ export async function PATCH(
 ) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || !hasRole(session, "ADMIN", "BLOG_ADMIN")) {
+    if (
+      !session ||
+      !hasRole(
+        session,
+        "ADMIN",
+        "BLOG_ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
 
-    const post = await prisma.blogPost.findUnique({ where: { id } });
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      select: { id: true, title: true, status: true, authorId: true },
+    });
+
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    const keys = Object.keys(body as object);
-    const imageOnly =
-      keys.length === 1 &&
-      Object.prototype.hasOwnProperty.call(body, "imageUrl");
-
-    if (imageOnly) {
-      const imageUrl =
-        (body as { imageUrl?: unknown }).imageUrl == null ||
-        (body as { imageUrl?: unknown }).imageUrl === ""
-          ? null
-          : String((body as { imageUrl: unknown }).imageUrl).trim() || null;
-      const updated = await prisma.blogPost.update({
-        where: { id },
-        data: { imageUrl },
-      });
-      return NextResponse.json(updated);
+    // Authorization: Coordinators can only edit their own posts
+    const isAdmin = hasRole(session, "ADMIN", "BLOG_ADMIN");
+    const isCoordinator = hasRole(
+      session,
+      "SEVA_COORDINATOR",
+      "REGIONAL_SEVA_COORDINATOR",
+      "NATIONAL_SEVA_COORDINATOR"
+    );
+    
+    if (isCoordinator && !isAdmin && post.authorId !== session.sub) {
+      return NextResponse.json(
+        { error: "You can only edit your own posts" },
+        { status: 403 }
+      );
     }
 
-    const validated = validateBlogPostWriteBody(body);
-    if (!validated.ok) {
-      return NextResponse.json({ error: validated.error }, { status: 400 });
+    // Update allowed fields
+    const updateData: Record<string, unknown> = {};
+    if (typeof body.title === "string") {
+      updateData.title = body.title.trim();
     }
-    const d = validated.data;
+    if (typeof body.content === "string") {
+      updateData.content = body.content.trim();
+    }
+    if (body.articleCanvas !== undefined) {
+      updateData.articleCanvas = body.articleCanvas;
+    }
+    if (typeof body.imageUrl === "string" || body.imageUrl === null) {
+      updateData.imageUrl = body.imageUrl ? body.imageUrl.trim() : null;
+    }
+    if (Array.isArray(body.driveMediaLinks)) {
+      updateData.driveMediaLinks = body.driveMediaLinks;
+    }
+    if (typeof body.section === "string") {
+      updateData.section = body.section.trim();
+    }
+    if (typeof body.centerCity === "string") {
+      updateData.centerCity = body.centerCity.trim();
+    }
+    if (body.sevaDate !== undefined) {
+      updateData.sevaDate = body.sevaDate;
+    }
+    if (typeof body.sevaCategory === "string") {
+      updateData.sevaCategory = body.sevaCategory.trim();
+    }
+    if (typeof body.authorName === "string") {
+      updateData.authorName = body.authorName.trim();
+    }
+    if (typeof body.posterEmail === "string") {
+      updateData.posterEmail = body.posterEmail.trim();
+    }
+    if (typeof body.posterPhone === "string" || body.posterPhone === null) {
+      updateData.posterPhone = body.posterPhone ? body.posterPhone.trim() : null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.blogPost.update({
       where: { id },
-      data: {
-        title: d.title,
-        content: d.content,
-        imageUrl: d.imageUrl,
-        driveMediaLinks:
-          d.driveMediaLinks.length > 0
-            ? (d.driveMediaLinks as unknown as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        section: d.section,
-        centerCity: d.centerCity,
-        sevaDate: d.sevaDate,
-        sevaCategory: d.sevaCategory,
-        authorName: d.authorName,
-        posterEmail: d.posterEmail,
-        posterPhone: d.posterPhone,
-        articleCanvas: d.articleCanvas as unknown as Prisma.InputJsonValue,
-      },
+      data: updateData,
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      id: updated.id,
+      title: updated.title,
+      message: "Post updated successfully",
+    });
   } catch (e: unknown) {
-    console.error("Admin blog post PATCH error:", e);
+    console.error("Blog post admin PATCH error:", e);
     return NextResponse.json(
       { error: "Failed to update post", detail: (e as Error)?.message },
       { status: 500 }
@@ -140,7 +193,8 @@ export async function PATCH(
 
 /**
  * DELETE /api/admin/blog-posts/[id]
- * Delete a blog post. Only ADMIN role (not BLOG_ADMIN) can delete. Works for published or pending posts.
+ * Delete a blog post (admin/coordinator can delete any post)
+ * - ADMIN, BLOG_ADMIN, and SEVA_COORDINATOR can delete any post
  */
 export async function DELETE(
   req: Request,
@@ -148,20 +202,57 @@ export async function DELETE(
 ) {
   try {
     const session = await getSessionWithRole(req.headers.get("cookie"));
-    if (!session || !hasRole(session, "ADMIN")) {
-      return NextResponse.json({ error: "Forbidden. Only Admin can delete posts." }, { status: 403 });
+    if (
+      !session ||
+      !hasRole(
+        session,
+        "ADMIN",
+        "BLOG_ADMIN",
+        "SEVA_COORDINATOR",
+        "REGIONAL_SEVA_COORDINATOR",
+        "NATIONAL_SEVA_COORDINATOR"
+      )
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
-    const post = await prisma.blogPost.findUnique({ where: { id } });
+
+    const post = await prisma.blogPost.findUnique({
+      where: { id },
+      select: { id: true, title: true, authorId: true },
+    });
+
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    await prisma.blogPost.delete({ where: { id } });
-    return NextResponse.json({ id, message: "Post deleted." });
+    // Authorization: Coordinators can only delete their own posts
+    const isAdmin = hasRole(session, "ADMIN", "BLOG_ADMIN");
+    const isCoordinator = hasRole(
+      session,
+      "SEVA_COORDINATOR",
+      "REGIONAL_SEVA_COORDINATOR",
+      "NATIONAL_SEVA_COORDINATOR"
+    );
+    
+    if (isCoordinator && !isAdmin && post.authorId !== session.sub) {
+      return NextResponse.json(
+        { error: "You can only delete your own posts" },
+        { status: 403 }
+      );
+    }
+
+    await prisma.blogPost.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      id,
+      message: "Post deleted successfully",
+    });
   } catch (e: unknown) {
-    console.error("Admin blog post DELETE error:", e);
+    console.error("Blog post admin DELETE error:", e);
     return NextResponse.json(
       { error: "Failed to delete post", detail: (e as Error)?.message },
       { status: 500 }

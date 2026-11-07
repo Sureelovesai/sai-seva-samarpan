@@ -167,7 +167,7 @@ export default function SevaBlogClient() {
         setUserRoles(roles);
         setIsAdmin(roles.includes("ADMIN"));
         setCanEditBlog(
-          roles.includes("ADMIN") || roles.includes("BLOG_ADMIN")
+          roles.includes("ADMIN") || roles.includes("BLOG_ADMIN") || roles.includes("SEVA_COORDINATOR")
         );
         setCanGenerateBlogReport(
           roles.includes("ADMIN") ||
@@ -812,19 +812,27 @@ function CommunityPostCard({
 
   // Check if current user can edit/delete this post
   function canUserEditPost(): boolean {
-    // Author can edit their own posts
-    if (currentUserId && post.authorId && currentUserId === post.authorId) return true;
-    // Admins and blog admins can edit any post
-    if (isAdmin || userRoles.includes("BLOG_ADMIN")) return true;
+    // Author can edit their own posts (applies to all roles including coordinators)
+    if (currentUserId && post.authorId && currentUserId === post.authorId) {
+      return true;
+    }
+    // Only admins and blog admins can edit other posts
+    if (isAdmin || userRoles.includes("BLOG_ADMIN")) {
+      return true;
+    }
     return false;
   }
 
   // Check if current user can delete this post
   function canUserDeletePost(): boolean {
-    // Authors can delete their own posts
-    if (currentUserId && post.authorId && currentUserId === post.authorId) return true;
-    // Only admins can delete posts
-    if (isAdmin) return true;
+    // Authors can delete their own posts (applies to all roles including coordinators)
+    if (currentUserId && post.authorId && currentUserId === post.authorId) {
+      return true;
+    }
+    // Only admins can delete other posts
+    if (isAdmin) {
+      return true;
+    }
     return false;
   }
 

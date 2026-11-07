@@ -216,7 +216,7 @@ export function Sidebar() {
   // Build navigation
   const getNavItems = (): NavItem[] => {
     let items: NavItem[] = [...PUBLIC_NAV_ITEMS];
-    items.push(COMMUNITY_NAV, ABOUT_NAV, RESOURCES_NAV);
+    items.push(ABOUT_NAV, RESOURCES_NAV);
 
     if (user) {
       console.log("[Sidebar] User authenticated, adding auth items");
