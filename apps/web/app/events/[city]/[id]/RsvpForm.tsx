@@ -287,7 +287,9 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                               const year = d.getUTCFullYear();
                               const month = d.getUTCMonth();
                               const day = d.getUTCDate();
-                              return new Date(year, month, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              // Use deterministic month names instead of toLocaleDateString to avoid hydration mismatch
+                              const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                              return `${monthNames[month]} ${day}`;
                             } catch {
                               return '';
                             }
