@@ -311,11 +311,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         min="0"
                         max={GUEST_CAP}
                         inputMode="numeric"
-                        value={slotGuestData[slot.id]?.adults ?? 0}
+                        value={slotGuestData[slot.id]?.adults ?? ""}
                         onChange={(e) => {
-                          const inputValue = e.target.value.trim();
+                          const inputValue = e.target.value;
                           if (inputValue === "") {
-                            // Allow empty (user is clearing the field)
+                            // Allow empty - user is clearing the field
                             setSlotGuestData({
                               ...slotGuestData,
                               [slot.id]: {
@@ -337,23 +337,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                             }
                           }
                         }}
-                        onBlur={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          if (isNaN(value)) {
-                            // If still empty after blur, set to 0
-                            setSlotGuestData({
-                              ...slotGuestData,
-                              [slot.id]: {
-                                ...slotGuestData[slot.id],
-                                adults: 0,
-                              },
-                            });
-                          }
-                        }}
                         onFocus={(e) => {
                           // Select all on focus to allow easy replacement
                           e.target.select();
                         }}
+                        placeholder="0"
                         className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 [appearance:auto]"
                       />
                     </div>
@@ -366,11 +354,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                         min="0"
                         max={GUEST_CAP}
                         inputMode="numeric"
-                        value={slotGuestData[slot.id]?.kids ?? 0}
+                        value={slotGuestData[slot.id]?.kids ?? ""}
                         onChange={(e) => {
-                          const inputValue = e.target.value.trim();
-                          if (inputValue === "" || inputValue === "0") {
-                            // Allow clearing to 0
+                          const inputValue = e.target.value;
+                          if (inputValue === "") {
+                            // Allow empty - user is clearing the field
                             setSlotGuestData({
                               ...slotGuestData,
                               [slot.id]: {
@@ -392,23 +380,11 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
                             }
                           }
                         }}
-                        onBlur={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          if (isNaN(value) || value < 0) {
-                            // Ensure minimum value (0) on blur
-                            setSlotGuestData({
-                              ...slotGuestData,
-                              [slot.id]: {
-                                ...slotGuestData[slot.id],
-                                kids: 0,
-                              },
-                            });
-                          }
-                        }}
                         onFocus={(e) => {
                           // Select all on focus to allow easy replacement
                           e.target.select();
                         }}
+                        placeholder="0"
                         className="w-full rounded-lg border border-fuchsia-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-fuchsia-500 focus:ring-2 focus:ring-fuchsia-300 [appearance:auto]"
                       />
                     </div>
