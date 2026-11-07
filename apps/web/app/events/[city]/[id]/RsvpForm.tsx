@@ -37,7 +37,7 @@ export function EventRsvpForm({ eventId, hasSlots = false, slots = [] }: { event
   const [accompanyingKidsDraft, setAccompanyingKidsDraft] = useState("0");
   const [response, setResponse] = useState<"YES" | "NO" | "MAYBE">("YES");
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
-  const [slotGuestData, setSlotGuestData] = useState<Record<string, { adults: number; kids: number }>>({});
+  const [slotGuestData, setSlotGuestData] = useState<Record<string, { adults?: number; kids?: number }>>({});
   const [submitting, setSubmitting] = useState(false);
   const [loadingPrevious, setLoadingPrevious] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
