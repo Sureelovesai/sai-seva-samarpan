@@ -61,6 +61,8 @@ export async function POST(req: Request) {
     // Auto-enable hasSlots if slots are provided, otherwise use explicit value
     const hasSlots = slotsData.length > 0 || body.hasSlots === true;
 
+    const foodItemsData = Array.isArray(body.foodItems) ? body.foodItems : [];
+
     const event = await prisma.portalEvent.create({
       data: {
         title,
@@ -103,9 +105,18 @@ export async function POST(req: Request) {
             };
           }),
         } : undefined,
+        foodItems: foodItemsData.length > 0 ? {
+          create: foodItemsData.map((item: any) => ({
+            name: typeof item.name === "string" ? item.name.trim() : "",
+            category: typeof item.category === "string" ? item.category.trim() : "",
+            neededLabel: typeof item.neededLabel === "string" ? item.neededLabel.trim() : "",
+            maxQuantity: typeof item.maxQuantity === "number" ? Math.max(1, item.maxQuantity) : 1,
+          })),
+        } : undefined,
       },
       include: {
         slots: true,
+        foodItems: true,
       },
     });
 

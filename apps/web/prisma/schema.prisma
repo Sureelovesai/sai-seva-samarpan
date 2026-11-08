@@ -435,6 +435,7 @@ model PortalEvent {
   updatedAt      DateTime          @updatedAt
   signups        EventSignup[]
   slots          EventSlot[]
+  foodItems      EventFoodItem[]
 
   @@index([status])
   @@index([startsAt])
@@ -485,6 +486,20 @@ model EventItemSignup {
   @@unique([itemId, email])
   @@index([itemId])
   @@index([email])
+}
+
+model EventFoodItem {
+  id           String     @id @default(cuid())
+  eventId      String
+  event        PortalEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name         String     // e.g. "Idli"
+  category     String     // e.g. "Food"
+  neededLabel  String     // e.g. "50 Idlis"
+  maxQuantity  Int        // Total units available
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([eventId])
 }
 
 model EventSignup {

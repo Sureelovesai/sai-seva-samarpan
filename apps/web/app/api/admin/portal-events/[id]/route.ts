@@ -31,6 +31,16 @@ export async function GET(
         },
         orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
       },
+      foodItems: {
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          neededLabel: true,
+          maxQuantity: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -160,11 +170,30 @@ export async function PATCH(
       await prisma.eventSlot.deleteMany({ where: { eventId: id } });
     }
 
+    // Handle foodItems update if provided
+    if (Array.isArray(body.foodItems)) {
+      // Delete existing food items first
+      await prisma.eventFoodItem.deleteMany({ where: { eventId: id } });
+      // Create new food items if any provided
+      if (body.foodItems.length > 0) {
+        await prisma.eventFoodItem.createMany({
+          data: body.foodItems.map((item: any) => ({
+            eventId: id,
+            name: typeof item.name === "string" ? item.name.trim() : "",
+            category: typeof item.category === "string" ? item.category.trim() : "",
+            neededLabel: typeof item.neededLabel === "string" ? item.neededLabel.trim() : "",
+            maxQuantity: typeof item.maxQuantity === "number" ? Math.max(1, item.maxQuantity) : 1,
+          })),
+        });
+      }
+    }
+
     const event = await prisma.portalEvent.update({
       where: { id },
       data,
       include: {
         slots: true,
+        foodItems: true,
       },
     });
     return NextResponse.json(event);
