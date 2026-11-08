@@ -30,7 +30,7 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
     onSlotsChange([...slots, newSlot])
   }
 
-  const updateSlot = (index: number, field: keyof EventSlot, value: string | number | undefined | EventItemRow[]) => {
+  const updateSlot = (index: number, field: keyof EventSlot, value: string | number | undefined) => {
     const updatedSlots = [...slots]
     updatedSlots[index] = {
       ...updatedSlots[index],
