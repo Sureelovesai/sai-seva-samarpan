@@ -223,11 +223,11 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
           </div>
 
           {/* Food Items Signup */}
-          {event.foodItems && event.foodItems.length > 0 && (
+          {event.foodItems && Array.isArray(event.foodItems) && event.foodItems.length > 0 ? (
             <div className="px-5 py-8 sm:px-8">
               <EventFoodSignup eventId={event.id} foodItems={event.foodItems} />
             </div>
-          )}
+          ) : null}
 
           <EventSignupsSummary eventId={event.id} signups={signups} slots={event.slots || []} />
         </article>

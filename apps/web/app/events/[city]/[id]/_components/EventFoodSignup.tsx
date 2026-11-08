@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface FoodItem {
   id: string;
@@ -21,7 +21,7 @@ export function EventFoodSignup({ eventId, foodItems }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  if (!foodItems || foodItems.length === 0) {
+  if (!eventId || !foodItems || !Array.isArray(foodItems) || foodItems.length === 0) {
     return null;
   }
 
@@ -60,7 +60,7 @@ export function EventFoodSignup({ eventId, foodItems }: Props) {
       });
 
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({}));
         throw new Error(error.error || "Failed to save signups");
       }
 
@@ -101,43 +101,48 @@ export function EventFoodSignup({ eventId, foodItems }: Props) {
 
         {/* Items grid */}
         <div className="space-y-3">
-          {foodItems.map((item) => (
-            <div key={item.id} className="rounded-lg border border-orange-200 bg-white p-4">
-              <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
-                {/* Item info */}
-                <div className="sm:col-span-4">
-                  <p className="font-semibold text-orange-900">{item.name}</p>
-                  <p className="text-xs text-orange-700">{item.category}</p>
-                </div>
+          {foodItems.map((item) => {
+            const maxQty = Math.max(1, Math.min(999, Math.floor(Number(item.maxQuantity) || 1)));
+            return (
+              <div key={item.id} className="rounded-lg border border-orange-200 bg-white p-4">
+                <div className="grid gap-3 sm:grid-cols-12 sm:items-end">
+                  {/* Item info */}
+                  <div className="sm:col-span-4">
+                    <p className="font-semibold text-orange-900">{String(item.name || "")}</p>
+                    <p className="text-xs text-orange-700">{String(item.category || "")}</p>
+                  </div>
 
-                {/* Needed label */}
-                <div className="sm:col-span-4">
-                  <p className="text-xs font-semibold text-orange-700">Needed:</p>
-                  <p className="text-sm text-orange-900">{item.neededLabel}</p>
-                </div>
+                  {/* Needed label */}
+                  <div className="sm:col-span-4">
+                    <p className="text-xs font-semibold text-orange-700">Needed:</p>
+                    <p className="text-sm text-orange-900">{String(item.neededLabel || "")}</p>
+                  </div>
 
-                {/* Quantity input */}
-                <div className="sm:col-span-4">
-                  <label className="block text-xs font-semibold text-orange-700 mb-1">
-                    You can bring (max {item.maxQuantity}):
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.maxQuantity}
-                    step="1"
-                    value={quantities[item.id] || 0}
-                    onChange={(e) =>
-                      handleQuantityChange(item.id, Math.max(0, Math.min(item.maxQuantity, parseInt(e.target.value) || 0)))
-                    }
-                    disabled={submitting}
-                    className="w-full rounded border border-orange-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-1 focus:ring-orange-500 disabled:opacity-50"
-                    placeholder="0"
-                  />
+                  {/* Quantity input */}
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-semibold text-orange-700 mb-1">
+                      You can bring (max {maxQty}):
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="0"
+                      max={maxQty}
+                      step="1"
+                      value={quantities[item.id] || 0}
+                      onChange={(e) => {
+                        const val = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                        handleQuantityChange(item.id, val);
+                      }}
+                      disabled={submitting}
+                      className="w-full rounded border border-orange-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-1 focus:ring-orange-500 disabled:opacity-50"
+                      placeholder="0"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Message */}
