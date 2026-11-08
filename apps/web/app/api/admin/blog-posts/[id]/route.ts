@@ -149,8 +149,12 @@ export async function PATCH(
     if (typeof body.centerCity === "string") {
       updateData.centerCity = body.centerCity.trim();
     }
-    if (body.sevaDate !== undefined) {
-      updateData.sevaDate = body.sevaDate;
+    if (body.sevaDate !== undefined && body.sevaDate !== null) {
+      // Convert date string (YYYY-MM-DD) to ISO-8601 DateTime
+      const dateStr = typeof body.sevaDate === 'string' ? body.sevaDate : body.sevaDate?.toString();
+      if (dateStr) {
+        updateData.sevaDate = new Date(`${dateStr}T00:00:00Z`).toISOString();
+      }
     }
     if (typeof body.sevaCategory === "string") {
       updateData.sevaCategory = body.sevaCategory.trim();
