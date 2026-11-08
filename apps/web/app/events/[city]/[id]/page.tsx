@@ -8,7 +8,7 @@ import { EventsPageShell } from "../../EventsPageShell";
 import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
 import { EventHeader } from "./EventHeader";
-// import { EventItemsSignup } from "./_components/EventItemsSignup"; // TODO: Enable later
+import { EventFoodSignup } from "./_components/EventFoodSignup";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,16 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
             capacity: true,
           },
           orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
+        },
+        foodItems: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            neededLabel: true,
+            maxQuantity: true,
+          },
+          orderBy: { createdAt: "asc" },
         },
       },
     });
@@ -212,10 +222,12 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
             )}
           </div>
 
-          {/* <div className="px-5 py-8 sm:px-8">
-            <EventItemsSignup eventId={event.id} />
-          </div> */}
-          {/* TODO: Enable item signup feature later */}
+          {/* Food Items Signup */}
+          {event.foodItems && event.foodItems.length > 0 && (
+            <div className="px-5 py-8 sm:px-8">
+              <EventFoodSignup eventId={event.id} foodItems={event.foodItems} />
+            </div>
+          )}
 
           <EventSignupsSummary eventId={event.id} signups={signups} slots={event.slots || []} />
         </article>
