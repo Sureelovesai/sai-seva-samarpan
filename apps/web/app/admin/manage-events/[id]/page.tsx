@@ -53,6 +53,16 @@ function cloneInitialFromLoaded(data: Record<string, unknown>): PortalEventFormI
       })
     : [];
 
+  const foodItems = Array.isArray(data.foodItems)
+    ? data.foodItems.map((item: any) => ({
+        id: item.id,
+        name: typeof item.name === "string" ? item.name : "",
+        category: typeof item.category === "string" ? item.category : "",
+        neededLabel: typeof item.neededLabel === "string" ? item.neededLabel : "",
+        maxQuantity: typeof item.maxQuantity === "number" ? item.maxQuantity : 1,
+      }))
+    : [];
+
   return {
     id: String(data.id ?? ""),
     title: /\s*\(copy\)\s*$/i.test(title) ? title : `${title} (copy)`,
@@ -70,6 +80,7 @@ function cloneInitialFromLoaded(data: Record<string, unknown>): PortalEventFormI
     organizerEmail: typeof data.organizerEmail === "string" ? data.organizerEmail : null,
     hasSlots: data.hasSlots === true || (Array.isArray(data.slots) && data.slots.length > 0),
     slots,
+    foodItems,
   };
 }
 
@@ -147,6 +158,16 @@ export default function EditEventPage() {
             })
           : [];
 
+        const foodItems = Array.isArray(data.foodItems)
+          ? data.foodItems.map((item: any) => ({
+              id: item.id,
+              name: typeof item.name === "string" ? item.name : "",
+              category: typeof item.category === "string" ? item.category : "",
+              neededLabel: typeof item.neededLabel === "string" ? item.neededLabel : "",
+              maxQuantity: typeof item.maxQuantity === "number" ? item.maxQuantity : 1,
+            }))
+          : [];
+
         if (isCloneMode) {
           setInitial(cloneInitialFromLoaded(data));
         } else {
@@ -164,6 +185,7 @@ export default function EditEventPage() {
             organizerEmail: data.organizerEmail ?? null,
             hasSlots: data.hasSlots ?? false,
             slots,
+            foodItems,
           });
         }
       } catch (e: unknown) {
