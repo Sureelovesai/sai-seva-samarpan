@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { EventItemsEditor, type EventItemRow } from './EventItemsEditor'
 
 export interface EventSlot {
   id?: string
@@ -10,7 +9,6 @@ export interface EventSlot {
   startTime: string // HH:mm format (e.g., "06:00")
   endTime: string   // HH:mm format (e.g., "09:00")
   capacity?: number
-  items?: EventItemRow[] // Items volunteers can bring for this slot
 }
 
 interface EventSlotsEditorProps {
@@ -28,7 +26,6 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
       startTime: '09:00',
       endTime: '12:00',
       capacity: undefined,
-      items: [],
     }
     onSlotsChange([...slots, newSlot])
   }
@@ -141,15 +138,6 @@ export function EventSlotsEditor({ slots, onSlotsChange, enabled }: EventSlotsEd
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </div>
-
-              {/* Items for this slot */}
-              <div className="mb-4 border-t border-gray-200 pt-4">
-                <EventItemsEditor
-                  items={slot.items || []}
-                  onChange={(items) => updateSlot(index, 'items', items)}
-                  slotName={slot.slotName}
-                />
               </div>
 
               {/* Remove button */}

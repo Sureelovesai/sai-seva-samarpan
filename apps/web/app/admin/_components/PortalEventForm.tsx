@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { CITIES } from "@/lib/cities";
 import { EventSlotsEditor, type EventSlot } from "./EventSlotsEditor";
+import { EventFoodSignupComponent, type FoodItemRow } from "./EventFoodSignupComponent";
 
 export type PortalEventFormInitial = {
   id: string;
@@ -17,6 +18,7 @@ export type PortalEventFormInitial = {
   signupsEnabled: boolean;
   hasSlots?: boolean;
   slots?: EventSlot[];
+  foodItems?: FoodItemRow[];
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   /** RSVP notification email; empty on create uses server default (your login email). */
   organizerEmail?: string | null;
@@ -66,6 +68,7 @@ export function PortalEventForm({
   const [saving, setSaving] = useState(false);
   const [hasSlots, setHasSlots] = useState(initial?.hasSlots ?? false);
   const [slots, setSlots] = useState<EventSlot[]>(initial?.slots ?? []);
+  const [foodItems, setFoodItems] = useState<FoodItemRow[]>(initial?.foodItems ?? []);
 
   // If allowedCities is provided (for event admins with city restrictions), filter CITIES
   // Otherwise show all CITIES (for full admins)
@@ -139,6 +142,7 @@ export function PortalEventForm({
         organizerEmail: organizerEmail.trim() ? organizerEmail.trim().toLowerCase() : null,
         hasSlots,
         slots: hasSlots ? slots : undefined,
+        foodItems: foodItems.length > 0 ? foodItems : undefined,
       };
 
       if (mode === "create" || mode === "clone") {
@@ -320,6 +324,13 @@ export function PortalEventForm({
           enabled={true}
         />
       )}
+
+      {/* Food Sign Up Component */}
+      <EventFoodSignupComponent
+        items={foodItems}
+        onChange={setFoodItems}
+        disabled={false}
+      />
 
       <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
         <p className="text-sm font-semibold text-indigo-950">Swami or Event Photo</p>
