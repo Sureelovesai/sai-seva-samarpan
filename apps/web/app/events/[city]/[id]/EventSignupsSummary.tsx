@@ -55,23 +55,37 @@ export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId:
       try {
         setLoadingItems(true);
         const res = await fetch(`/api/portal-events/${eventId}/items`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`Failed to fetch items: ${res.status}`);
+          return;
+        }
         const data = await res.json();
+        
+        // Validate data structure
+        if (!data || !Array.isArray(data.slots)) {
+          console.error("Invalid response structure from items API");
+          return;
+        }
+        
         const allItems: EventItem[] = [];
         for (const slot of data.slots) {
+          if (!slot || !Array.isArray(slot.items)) continue;
           for (const item of slot.items) {
+            if (!item || !item.id) continue;
             allItems.push({ ...item, slotId: slot.id });
           }
         }
         setItems(allItems);
       } catch (e) {
-        console.error("Failed to fetch items:", e);
+        console.error("Failed to fetch items:", e instanceof Error ? e.message : String(e));
       } finally {
         setLoadingItems(false);
       }
     }
 
-    fetchItems();
+    if (eventId) {
+      fetchItems();
+    }
   }, [eventId]);
 
   // Fetch item signups
@@ -79,23 +93,36 @@ export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId:
     async function fetchSignups() {
       try {
         const res = await fetch(`/api/portal-events/${eventId}/items/signups`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`Failed to fetch item signups: ${res.status}`);
+          return;
+        }
         const data = await res.json();
+        
+        // Validate data structure
+        if (!data || typeof data.signupsByEmail !== 'object') {
+          console.error("Invalid response structure from item signups API");
+          return;
+        }
         
         // Flatten all item signups: itemId -> total quantity
         const totals: Record<string, number> = {};
         for (const email in data.signupsByEmail) {
-          for (const itemId in data.signupsByEmail[email]) {
-            totals[itemId] = (totals[itemId] || 0) + data.signupsByEmail[email][itemId];
+          const emailData = data.signupsByEmail[email];
+          if (typeof emailData === 'object') {
+            for (const itemId in emailData) {
+              const qty = Number(emailData[itemId]) || 0;
+              totals[itemId] = (totals[itemId] || 0) + qty;
+            }
           }
         }
         setItemSignups(totals);
       } catch (e) {
-        console.error("Failed to fetch item signups:", e);
+        console.error("Failed to fetch item signups:", e instanceof Error ? e.message : String(e));
       }
     }
 
-    if (items.length > 0) {
+    if (eventId && items.length > 0) {
       fetchSignups();
     }
   }, [eventId, items.length]);

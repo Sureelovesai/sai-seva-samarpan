@@ -5,8 +5,13 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
+    const { id } = await params;
+    
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
+    }
+    
     // Get all items for all slots of this event
     const slots = await prisma.eventSlot.findMany({
       where: { eventId: id },
@@ -36,9 +41,10 @@ export async function GET(
       orderBy: [{ slotDate: "asc" }, { startTime: "asc" }],
     });
 
-    return NextResponse.json({ slots });
+    return NextResponse.json({ slots, success: true });
   } catch (e: unknown) {
-    console.error("GET portal-events/[id]/items:", e);
-    return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
+    const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+    console.error("GET portal-events/[id]/items:", errorMsg);
+    return NextResponse.json({ error: "Failed to fetch items", details: errorMsg }, { status: 500 });
   }
 }
