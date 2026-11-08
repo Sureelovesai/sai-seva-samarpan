@@ -208,9 +208,11 @@ export function EventSignupsSummary({ eventId, signups, slots = [] }: { eventId:
                   )}
                   {hasSlots && allSlotIds.map((slotId) => {
                     const slotData = s.slotGuestData?.[slotId];
+                    const adults = slotData?.adults ?? 0;
+                    const kids = slotData?.kids ?? 0;
                     return (
                       <td key={slotId} className="px-3 py-2 text-sm text-slate-700 bg-teal-50/50">
-                        {slotData ? `${slotData.adults}A, ${slotData.kids}K` : "—"}
+                        {slotData ? `${adults}A, ${kids}K` : "—"}
                       </td>
                     );
                   })}
