@@ -20,7 +20,6 @@ async function getEvent(eventId: string, city: string) {
         title: true,
         description: true,
         venue: true,
-        startsAt: true,
         heroImageUrl: true,
         flyerUrl: true,
       },
@@ -42,29 +41,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  // Prefer HERO IMAGE for thumbnail, fallback to flyer
-  const imageUrl = event.heroImageUrl || event.flyerUrl;
+  // WhatsApp ignores preview images larger than about 300KB. The stored photo is
+  // often several MB, so the share card points at a small JPEG we generate.
+  const hasShareImage = [event.heroImageUrl, event.flyerUrl].some(
+    (url) => Boolean(url) && !url!.toLowerCase().includes(".pdf")
+  );
+  const shareImageUrl = hasShareImage
+    ? `https://srisathyasaisevagcf.org/api/portal-events/${id}/share-image`
+    : undefined;
 
-  const eventDate = new Date(event.startsAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const preview = `${event.description} Venue: ${event.venue}`.replace(/\s+/g, " ").trim();
+  const shortPreview = preview.length > 220 ? `${preview.slice(0, 219).trimEnd()}…` : preview;
 
   return {
     title: event.title,
-    description: `${event.description}\n\nVenue: ${event.venue}\nDate: ${eventDate}`,
+    description: shortPreview,
     openGraph: {
       type: "website",
       title: event.title,
-      description: `${event.description}\n\nVenue: ${event.venue}`,
+      description: shortPreview,
       url: `https://srisathyasaisevagcf.org/events/${city}/${id}`,
-      images: imageUrl
+      images: shareImageUrl
         ? [
             {
-              url: imageUrl,
-              width: 1200,
-              height: 630,
+              url: shareImageUrl,
+              type: "image/jpeg",
               alt: event.title,
             },
           ]
@@ -73,8 +74,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       title: event.title,
-      description: `${event.description}\n\nVenue: ${event.venue}`,
-      images: imageUrl ? [imageUrl] : [],
+      description: shortPreview,
+      images: shareImageUrl ? [shareImageUrl] : [],
     },
   };
 }
