@@ -3,9 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Ensure Prisma client is loaded from node_modules at runtime (not bundled)
   serverExternalPackages: ["@prisma/client", "googleapis"],
-  api: {
-    bodyLimit: "12mb",
-  },
+  // Note: File upload size limit is controlled by MAX_SIZE in app/api/admin/upload-event-asset/route.ts
   images: {
     remotePatterns: [
       {
