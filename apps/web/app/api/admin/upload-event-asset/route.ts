@@ -4,7 +4,7 @@ import path from "path";
 import { put as putBlob } from "@vercel/blob";
 
 const UPLOAD_DIR = "public/uploads/portal-events";
-const MAX_SIZE = 12 * 1024 * 1024; // 12MB
+const MAX_SIZE = 13 * 1024 * 1024; // 13MB
 
 const HERO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const FLYER_TYPES = [...HERO_TYPES, "application/pdf"];
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "File too large. Maximum size is 12MB." }, { status: 400 });
+      return NextResponse.json({ error: "File too large. Maximum size is 13MB." }, { status: 400 });
     }
 
     const ext =
