@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
     ],
   },
   turbopack: {},
+  async rewrites() {
+    return [
+      {
+        source: "/api/portal-events/:id/share-image.jpg",
+        destination: "/api/portal-events/:id/share-image",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

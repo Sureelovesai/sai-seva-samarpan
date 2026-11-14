@@ -26,21 +26,23 @@ function isRasterImageUrl(url: string | null | undefined): url is string {
 
 async function toWhatsAppJpeg(input: Uint8Array) {
   const source = copyBytes(input);
-  const widths = [800, 640, 480];
+  let quality = 72;
   let output = new Uint8Array();
 
-  for (const width of widths) {
-    let quality = 62;
-    while (quality >= 40) {
-      const encoded = await sharp(source)
-        .rotate()
-        .resize({ width, withoutEnlargement: true })
-        .jpeg({ quality, mozjpeg: true })
-        .toBuffer();
-      output = copyBytes(encoded);
-      if (output.byteLength <= MAX_BYTES) return output;
-      quality -= 8;
-    }
+  while (quality >= 40) {
+    const encoded = await sharp(source)
+      .rotate()
+      .resize({
+        width: 1200,
+        height: 630,
+        fit: "contain",
+        background: { r: 255, g: 247, b: 237 },
+      })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+    output = copyBytes(encoded);
+    if (output.byteLength <= MAX_BYTES) return output;
+    quality -= 8;
   }
 
   return output;
@@ -68,6 +70,7 @@ export async function GET(
   return new NextResponse(jpeg, {
     headers: {
       "Content-Type": "image/jpeg",
+      "Content-Disposition": 'inline; filename="share-image.jpg"',
       "Content-Length": String(jpeg.length),
       "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
     },

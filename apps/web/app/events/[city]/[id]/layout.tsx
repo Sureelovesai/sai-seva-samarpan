@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     (url) => Boolean(url) && !url!.toLowerCase().includes(".pdf")
   );
   const shareImageUrl = hasShareImage
-    ? `https://srisathyasaisevagcf.org/api/portal-events/${id}/share-image`
+    ? `https://srisathyasaisevagcf.org/api/portal-events/${id}/share-image.jpg`
     : undefined;
 
   const preview = `${event.description} Venue: ${event.venue}`.replace(/\s+/g, " ").trim();
@@ -60,12 +60,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       title: event.title,
       description: shortPreview,
-      url: `https://srisathyasaisevagcf.org/events/${city}/${id}`,
       images: shareImageUrl
         ? [
             {
               url: shareImageUrl,
+              secureUrl: shareImageUrl,
               type: "image/jpeg",
+              width: 1200,
+              height: 630,
               alt: event.title,
             },
           ]
