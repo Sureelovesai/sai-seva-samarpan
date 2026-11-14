@@ -185,6 +185,8 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
               <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-sky-900">Flyer</h2>
               {flyerIsPdf ? (
                 <div className="mt-3 space-y-3">
+                  {/* On mobile (portrait), hide PDF iframe and show download link only */}
+                  {/* On desktop, show both link and iframe for preview */}
                   <a
                     href={event.flyerUrl}
                     target="_blank"
@@ -193,10 +195,11 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
                   >
                     Download / open PDF →
                   </a>
+                  {/* Hide iframe on mobile (max-width: 640px), show on larger screens */}
                   <iframe
                     title="Event flyer"
                     src={event.flyerUrl}
-                    className="h-[480px] w-full rounded-xl border-2 border-sky-300 bg-white shadow-sm"
+                    className="hidden sm:block h-[480px] w-full rounded-xl border-2 border-sky-300 bg-white shadow-sm"
                   />
                 </div>
               ) : (
