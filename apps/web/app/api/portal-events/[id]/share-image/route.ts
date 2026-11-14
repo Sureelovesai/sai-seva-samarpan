@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 
 const MAX_BYTES = 300 * 1024;
 
+function copyBytes(input: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(input.byteLength);
+  copy.set(input as Uint8Array<ArrayBuffer>);
+  return copy;
+}
+
 function isRasterImageUrl(url: string | null | undefined): url is string {
   if (!url) return false;
   let parsed: URL;
@@ -18,20 +24,21 @@ function isRasterImageUrl(url: string | null | undefined): url is string {
   return !path.endsWith(".pdf");
 }
 
-async function toWhatsAppJpeg(input: Buffer) {
+async function toWhatsAppJpeg(input: Uint8Array) {
+  const source = copyBytes(input);
   const widths = [800, 640, 480];
-  let quality = 62;
-  let output = Buffer.alloc(0);
+  let output = new Uint8Array();
 
   for (const width of widths) {
-    quality = 62;
+    let quality = 62;
     while (quality >= 40) {
-      output = await sharp(input)
+      const encoded = await sharp(source)
         .rotate()
         .resize({ width, withoutEnlargement: true })
         .jpeg({ quality, mozjpeg: true })
         .toBuffer();
-      if (output.length <= MAX_BYTES) return output;
+      output = copyBytes(encoded);
+      if (output.byteLength <= MAX_BYTES) return output;
       quality -= 8;
     }
   }
@@ -56,9 +63,9 @@ export async function GET(
   const imageResponse = await fetch(sourceUrl);
   if (!imageResponse.ok) return new NextResponse("Image unavailable", { status: 502 });
 
-  const jpeg = await toWhatsAppJpeg(Buffer.from(await imageResponse.arrayBuffer()));
+  const jpeg = await toWhatsAppJpeg(new Uint8Array(await imageResponse.arrayBuffer()));
 
-  return new NextResponse(new Uint8Array(jpeg), {
+  return new NextResponse(jpeg, {
     headers: {
       "Content-Type": "image/jpeg",
       "Content-Length": String(jpeg.length),
