@@ -9,6 +9,7 @@ import { EventSignupsSummary } from "./EventSignupsSummary";
 import { EventRsvpForm } from "./RsvpForm";
 import { EventHeader } from "./EventHeader";
 import { EventFoodSignup } from "./_components/EventFoodSignup";
+import { EventFlyerPdf } from "./EventFlyerPdf";
 
 export const dynamic = "force-dynamic";
 
@@ -193,13 +194,7 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
                   >
                     Download / open PDF →
                   </a>
-                  {/* Use embed tag instead of iframe for better mobile PDF support */}
-                  <embed
-                    title="Event flyer"
-                    src={`${event.flyerUrl}#toolbar=0&navpanes=0`}
-                    type="application/pdf"
-                    className="h-[600px] sm:h-[480px] w-full rounded-xl border-2 border-sky-300 bg-white shadow-sm"
-                  />
+                  <EventFlyerPdf fileUrl={event.flyerUrl} />
                 </div>
               ) : (
                 <div className="relative mt-3 max-h-[560px] overflow-auto rounded-xl border-2 border-sky-300 bg-white p-3 shadow-inner">
