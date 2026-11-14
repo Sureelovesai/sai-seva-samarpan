@@ -193,10 +193,11 @@ export default async function EventDetailPage({ params }: { params: Promise<Para
                   >
                     Download / open PDF →
                   </a>
-                  {/* Show PDF iframe on all screen sizes - responsive heights */}
-                  <iframe
+                  {/* Use embed tag instead of iframe for better mobile PDF support */}
+                  <embed
                     title="Event flyer"
-                    src={event.flyerUrl}
+                    src={`${event.flyerUrl}#toolbar=0&navpanes=0`}
+                    type="application/pdf"
                     className="h-[600px] sm:h-[480px] w-full rounded-xl border-2 border-sky-300 bg-white shadow-sm"
                   />
                 </div>
